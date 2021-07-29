@@ -26,7 +26,7 @@ type Config struct {
 	JWTSecret  string
 	JWTExpTime int
 	Logger     LoggerConfig
-	ORM        DBConfig
+	DB         DBConfig
 	Redis      RedisConfig
 	Github     GithubConfig
 	AWS        AWSConfig
@@ -79,7 +79,7 @@ func getConfig() *Config {
 		JWTSecret:  c.GetString("jwt.secret"),
 		JWTExpTime: c.GetInt("jwt.exp_time"),
 		Logger:     *getLogConfig(),
-		ORM:        *getDBConfig(),
+		DB:         *getDBConfig(),
 		Redis:      *getRedisConfig(),
 		AWS:        *getAWSConfig(),
 		Github:     *getGithubConfig(),

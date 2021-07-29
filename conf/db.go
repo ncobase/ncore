@@ -6,7 +6,6 @@ import (
 
 // DBConfig data configs object
 type DBConfig struct {
-	Debug           bool
 	Dialect         string
 	DSN             string
 	AutoMigrate     bool
@@ -18,7 +17,6 @@ type DBConfig struct {
 
 func getDBConfig() *DBConfig {
 	return &DBConfig{
-		Debug:           c.GetBool("db.debug"),
 		Dialect:         c.GetString("db.dialect"),
 		DSN:             c.GetString("db.dsn"),
 		AutoMigrate:     c.GetBool("db.auto_migrate"),
