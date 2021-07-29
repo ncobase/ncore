@@ -3,7 +3,9 @@ package utils
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"os"
+	"stone/common/conf"
 )
 
 // CreateHash 해시를 생성하는 함수
@@ -50,4 +52,12 @@ func Contains(a []string, x string) bool {
 		}
 	}
 	return false
+}
+
+// HandleDomain .
+func HandleDomain(domain string) string {
+	if domain == "localhost" {
+		return fmt.Sprintf("http://%v:%d", conf.G.Domain, conf.G.Port)
+	}
+	return fmt.Sprintf("https://%v", conf.G.Domain)
 }
