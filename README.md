@@ -8,7 +8,7 @@
 | ecode     | 统一业务、Response 编码 |
 | log       | 日志支持                |
 | types     | 自定义类型              |
-| constant  | 常量                    |
+| constants | 常量                    |
 | utils     | 工具包                  |
 | xhttp     | 自定义 Response         |
 |           |                         |
