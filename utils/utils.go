@@ -54,10 +54,10 @@ func Contains(a []string, x string) bool {
 	return false
 }
 
-// HandleDomain .
-func HandleDomain(domain string) string {
+// GetDomain Get the run domain
+func GetDomain(domain string) string {
 	if domain == "localhost" {
-		return fmt.Sprintf("http://%v:%d", conf.G.Domain, conf.G.Port)
+		return fmt.Sprintf("%v://%v:%d", conf.G.Protocol, conf.G.Domain, conf.G.Port)
 	}
-	return fmt.Sprintf("https://%v", conf.G.Domain)
+	return fmt.Sprintf("%v://%v", conf.G.Protocol, conf.G.Domain)
 }

@@ -20,6 +20,7 @@ var (
 type Config struct {
 	AppName    string
 	RunMode    string
+	Protocol   string
 	Domain     string
 	Host       string
 	Port       int
@@ -73,7 +74,8 @@ func getConfig() *Config {
 	return &Config{
 		AppName:    c.GetString("app_name"),
 		RunMode:    c.GetString("run_mode"),
-		Domain:     c.GetString("domain"),
+		Protocol:   c.GetString("server.protocol"),
+		Domain:     c.GetString("server.domain"),
 		Host:       c.GetString("server.host"),
 		Port:       c.GetInt("server.port"),
 		JWTSecret:  c.GetString("jwt.secret"),
