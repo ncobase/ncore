@@ -30,6 +30,7 @@ type Config struct {
 	DB         DBConfig
 	Redis      RedisConfig
 	Github     GithubConfig
+	Facebook   FacebookConfig
 	AWS        AWSConfig
 	Mailgun    MailgunConfig
 }
@@ -83,8 +84,9 @@ func getConfig() *Config {
 		Logger:     *getLogConfig(),
 		DB:         *getDBConfig(),
 		Redis:      *getRedisConfig(),
-		AWS:        *getAWSConfig(),
 		Github:     *getGithubConfig(),
+		Facebook:   *getFacebookConfig(),
+		AWS:        *getAWSConfig(),
 		Mailgun:    *getMailgunConfig(),
 	}
 }

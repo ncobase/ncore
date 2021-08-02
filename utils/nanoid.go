@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"github.com/matoous/go-nanoid/v2"
+	gonanoid "github.com/matoous/go-nanoid/v2"
 )
 
 const (
@@ -22,4 +22,13 @@ func NanoString(len int) string {
 // NanoID Nano ID
 func NanoID() string {
 	return gonanoid.MustGenerate(alphabet, length)
+}
+
+// GenerateSlug default length 11
+func GenerateSlug(l ...int) string {
+	dl := 11
+	if l != nil {
+		dl = l[0]
+	}
+	return DefaultNanoID(dl)
 }
