@@ -5,30 +5,18 @@ import (
 )
 
 const (
-	alphabet string = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	length   int    = 22
+	defaultAlphabet = "23456789ABCDEFGHJKLMNPQRSTWXYZabcdefghijkmnopqrstuvwxyz"
+	defaultSize     = 16
 )
 
-// DefaultNanoID Generate default NanoID
-func DefaultNanoID(l ...int) string {
-	return gonanoid.Must(l...)
-}
-
-// NanoString Nano String
-func NanoString(len int) string {
-	return gonanoid.MustGenerate(alphabet, len)
-}
-
-// NanoID Nano ID
-func NanoID() string {
-	return gonanoid.MustGenerate(alphabet, length)
-}
-
-// GenerateSlug default length 11
-func GenerateSlug(l ...int) string {
-	dl := 11
-	if l != nil {
-		dl = l[0]
+// NanoID Generate optional length nanoid, use const by default
+func NanoID(l ...int) string {
+	var size int
+	switch {
+	case len(l) == 0:
+		size = defaultSize
+	case len(l) == 1:
+		size = l[0]
 	}
-	return DefaultNanoID(dl)
+	return gonanoid.MustGenerate(defaultAlphabet, size)
 }
