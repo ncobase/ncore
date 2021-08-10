@@ -1,4 +1,4 @@
-package utils
+package util
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 func EncryptPassword(password string) string {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		log.Errorf(context.Background(), "utils.EncryptPassword error: %v", err.Error())
+		log.Errorf(context.Background(), "util.EncryptPassword error: %v", err.Error())
 		return err.Error()
 	}
 	return string(hash)

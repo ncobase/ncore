@@ -1,4 +1,4 @@
-package constants
+package constant
 
 const (
 	// MessageStatus 状态

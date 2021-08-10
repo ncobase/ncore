@@ -1,4 +1,4 @@
-package utils
+package util
 
 import (
 	gonanoid "github.com/matoous/go-nanoid/v2"
