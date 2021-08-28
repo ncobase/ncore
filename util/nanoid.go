@@ -6,7 +6,7 @@ import (
 
 const (
 	defaultAlphabet = "23456789ABCDEFGHJKLMNPQRSTWXYZabcdefghijkmnopqrstuvwxyz"
-	defaultSize     = 16
+	defaultSize     = 22
 )
 
 // NanoID Generate optional length nanoid, use const by default
