@@ -1,8 +1,6 @@
 package util
 
-import (
-	gonanoid "github.com/matoous/go-nanoid/v2"
-)
+import "github.com/matoous/go-nanoid/v2"
 
 const (
 	defaultAlphabet = "23456789ABCDEFGHJKLMNPQRSTWXYZabcdefghijkmnopqrstuvwxyz"
@@ -19,4 +17,5 @@ func NanoID(l ...int) string {
 		size = l[0]
 	}
 	return gonanoid.MustGenerate(defaultAlphabet, size)
+
 }

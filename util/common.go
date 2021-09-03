@@ -2,6 +2,7 @@ package util
 
 import (
 	"fmt"
+	"reflect"
 	"stone/common/conf"
 )
 
@@ -41,4 +42,13 @@ func GetDomain(domain string) string {
 		return fmt.Sprintf("%v://%v:%d", conf.G.Protocol, conf.G.Domain, conf.G.Port)
 	}
 	return fmt.Sprintf("%v://%v", conf.G.Protocol, conf.G.Domain)
+}
+
+// IsNil verify is nil
+func IsNil(i interface{}) bool {
+	vi := reflect.ValueOf(i)
+	if vi.Kind() == reflect.Ptr {
+		return vi.IsNil()
+	}
+	return false
 }
