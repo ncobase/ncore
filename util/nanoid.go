@@ -7,7 +7,7 @@ const (
 	defaultSize     = 22
 )
 
-// NanoID Generate optional length nanoid, use const by default
+// NanoID - Generate optional length nanoid, use const by default
 func NanoID(l ...int) string {
 	var size int
 	switch {

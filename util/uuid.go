@@ -11,7 +11,7 @@ var base64Table = [64]byte{
 	'+', '-',
 }
 
-// ShortUUID short uuid
+// ShortUUID - Short UUID
 func ShortUUID(u uuid.UUID) string {
 	var dst = make([]byte, 16)
 	for i, v := range u {
