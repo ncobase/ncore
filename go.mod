@@ -3,7 +3,7 @@ module stone/common
 go 1.16
 
 require (
-	github.com/gin-gonic/gin v1.7.3
+	github.com/gin-gonic/gin v1.7.7
 	github.com/go-playground/validator/v10 v10.9.0 // indirect
 	github.com/google/uuid v1.3.0
 	github.com/gosimple/slug v1.10.0
