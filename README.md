@@ -1,14 +1,29 @@
-# stone/common
+# ncobase/common
 
 > Common Library
 
-| directory | description             |
-| --------- | ----------------------- |
-| conf      | 全局配置                |
-| ecode     | 统一业务、Response 编码 |
-| log       | 日志支持                |
-| types     | 自定义类型              |
-| constant | 常量                    |
-| util     | 工具包                  |
-| xhttp     | 自定义 Response         |
-|           |                         |
+## Project structure
+
+```plaintext
+├── cache               # Cache 
+├── config              # Application configurations
+├── consts              # Constants
+├── cookie              # Cookie handling
+├── crypto              # Encryption utilities
+├── ecode               # Error codes
+├── elastic             # Elasticsearch support
+├── email               # Email related logic
+├── jwt                 # JWT handling
+├── log                 # Logging
+├── meili               # Meilisearch support
+├── nanoid              # NanoID generation
+├── oauth               # OAuth related logic
+├── resp                # Response handling
+├── slug                # Slug generation
+├── storage             # Storage management
+├── time                # Time utilities
+├── types               # Type definitions
+├── util                # Utility functions
+├── uuid                # UUID generation
+└── validator           # Validators
+```
