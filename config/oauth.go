@@ -1,5 +1,7 @@
 package config
 
+import "github.com/spf13/viper"
+
 // OAuth oauth config struct
 type OAuth struct {
 	Github   Github
@@ -7,11 +9,11 @@ type OAuth struct {
 	Google   Google
 }
 
-func getOAuthConfig() OAuth {
+func getOAuthConfig(v *viper.Viper) OAuth {
 	return OAuth{
-		Github:   getGithubConfig(),
-		Facebook: getFacebookConfig(),
-		Google:   getGoogleConfig(),
+		Github:   getGithubConfig(v),
+		Facebook: getFacebookConfig(v),
+		Google:   getGoogleConfig(v),
 	}
 }
 
@@ -21,10 +23,10 @@ type Github struct {
 	Secret string
 }
 
-func getGithubConfig() Github {
+func getGithubConfig(v *viper.Viper) Github {
 	return Github{
-		ID:     c.GetString("oauth.github.id"),
-		Secret: c.GetString("oauth.github.secret"),
+		ID:     v.GetString("oauth.github.id"),
+		Secret: v.GetString("oauth.github.secret"),
 	}
 }
 
@@ -34,10 +36,10 @@ type Facebook struct {
 	Secret string
 }
 
-func getFacebookConfig() Facebook {
+func getFacebookConfig(v *viper.Viper) Facebook {
 	return Facebook{
-		ID:     c.GetString("oauth.facebook.id"),
-		Secret: c.GetString("oauth.facebook.secret"),
+		ID:     v.GetString("oauth.facebook.id"),
+		Secret: v.GetString("oauth.facebook.secret"),
 	}
 }
 
@@ -47,9 +49,9 @@ type Google struct {
 	Secret string
 }
 
-func getGoogleConfig() Google {
+func getGoogleConfig(v *viper.Viper) Google {
 	return Google{
-		ID:     c.GetString("oauth.google.id"),
-		Secret: c.GetString("oauth.google.secret"),
+		ID:     v.GetString("oauth.google.id"),
+		Secret: v.GetString("oauth.google.secret"),
 	}
 }

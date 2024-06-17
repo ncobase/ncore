@@ -1,6 +1,10 @@
 package config
 
-import "time"
+import (
+	"time"
+
+	"github.com/spf13/viper"
+)
 
 // Data data config struct
 type Data struct {
@@ -45,34 +49,34 @@ type Elasticsearch struct {
 	Password  string   `json:"password"`
 }
 
-func getDataConfig() Data {
+func getDataConfig(v *viper.Viper) Data {
 	return Data{
 		Database: Database{
-			Driver:          c.GetString("data.database.driver"),
-			Source:          c.GetString("data.database.source"),
-			Migrate:         c.GetBool("data.database.migrate"),
-			Logging:         c.GetBool("data.database.logging"),
-			MaxIdleConn:     c.GetInt("data.database.max_idle_conn"),
-			MaxOpenConn:     c.GetInt("data.database.max_open_conn"),
-			ConnMaxLifeTime: c.GetDuration("data.database.max_life_time"),
+			Driver:          v.GetString("data.database.driver"),
+			Source:          v.GetString("data.database.source"),
+			Migrate:         v.GetBool("data.database.migrate"),
+			Logging:         v.GetBool("data.database.logging"),
+			MaxIdleConn:     v.GetInt("data.database.max_idle_conn"),
+			MaxOpenConn:     v.GetInt("data.database.max_open_conn"),
+			ConnMaxLifeTime: v.GetDuration("data.database.max_life_time"),
 		},
 		Redis: Redis{
-			Addr:         c.GetString("data.redis.addr"),
-			Username:     c.GetString("data.redis.username"),
-			Password:     c.GetString("data.redis.password"),
-			Db:           c.GetInt("data.redis.db"),
-			ReadTimeout:  c.GetDuration("data.redis.read_timeout"),
-			WriteTimeout: c.GetDuration("data.redis.write_timeout"),
-			DialTimeout:  c.GetDuration("data.redis.dial_timeout"),
+			Addr:         v.GetString("data.redis.addr"),
+			Username:     v.GetString("data.redis.username"),
+			Password:     v.GetString("data.redis.password"),
+			Db:           v.GetInt("data.redis.db"),
+			ReadTimeout:  v.GetDuration("data.redis.read_timeout"),
+			WriteTimeout: v.GetDuration("data.redis.write_timeout"),
+			DialTimeout:  v.GetDuration("data.redis.dial_timeout"),
 		},
 		Meilisearch: Meilisearch{
-			Host:   c.GetString("data.meilisearch.host"),
-			APIKey: c.GetString("data.meilisearch.api_key"),
+			Host:   v.GetString("data.meilisearch.host"),
+			APIKey: v.GetString("data.meilisearch.api_key"),
 		},
 		Elasticsearch: Elasticsearch{
-			Addresses: c.GetStringSlice("data.elasticsearch.addresses"),
-			Username:  c.GetString("data.elasticsearch.username"),
-			Password:  c.GetString("data.elasticsearch.password"),
+			Addresses: v.GetStringSlice("data.elasticsearch.addresses"),
+			Username:  v.GetString("data.elasticsearch.username"),
+			Password:  v.GetString("data.elasticsearch.password"),
 		},
 	}
 }

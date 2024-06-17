@@ -12,7 +12,6 @@ import (
 )
 
 var (
-	c            *viper.Viper
 	globalConfig *Config
 	confPath     string
 )
@@ -42,12 +41,11 @@ func init() {
 // Init initializes and loads the application configuration.
 func Init() (*Config, error) {
 	flag.Parse()
-	conf, err := load(confPath)
+	conf, err := loadConfig(confPath)
 	if err == nil {
 		globalConfig = conf
 	}
 	return conf, err
-
 }
 
 // GetConfig returns the application configuration.
@@ -60,39 +58,48 @@ func BindConfigToContext(ctx context.Context) context.Context {
 	return context.WithValue(ctx, "config", globalConfig)
 }
 
-func load(in string) (*Config, error) {
-	c = viper.New()
+func loadConfig(configPath string) (*Config, error) {
+	v := viper.New()
 
-	// Add the directory of the executable
-	ex, err := os.Executable()
-	if err != nil {
-		panic(err)
+	if configPath != "" {
+		v.SetConfigFile(configPath)
+	} else {
+		// Add the directory of the executable
+		ex, err := os.Executable()
+		if err != nil {
+			return nil, err
+		}
+
+		// Set default config file name
+		v.SetConfigName("config")
+		// Add default config paths
+		v.AddConfigPath("/etc/ncobase")
+		v.AddConfigPath("$HOME/.ncobase")
+		v.AddConfigPath(".")
+		v.AddConfigPath(filepath.Dir(ex))
 	}
 
-	c.SetConfigFile(in)
-	// By default, read from config.{yaml,toml, yml,json}, etc. files
-	c.AddConfigPath(in)
-	c.AddConfigPath("/etc/ncobase")
-	c.AddConfigPath("$HOME/.ncobase")
-	c.AddConfigPath(".")
-	c.AddConfigPath(filepath.Dir(ex))
+	// Attempt to read the config file
+	if err := v.ReadInConfig(); err != nil {
+		return nil, err
+	}
 
-	err = c.ReadInConfig()
+	config := &Config{
+		AppName:    v.GetString("app_name"),
+		RunMode:    v.GetString("run_mode"),
+		Protocol:   v.GetString("server.protocol"),
+		Domain:     v.GetString("server.domain"),
+		Host:       v.GetString("server.host"),
+		Port:       v.GetInt("server.port"),
+		JWTSecret:  v.GetString("jwt.secret"),
+		JWTExpTime: v.GetInt("jwt.exp_time"),
+		Frontend:   getFrontendConfig(v),
+		Logger:     getLoggerConfig(v),
+		Data:       getDataConfig(v),
+		OAuth:      getOAuthConfig(v),
+		Storage:    getStorageConfig(v),
+		Email:      getEmailConfig(v),
+	}
 
-	return &Config{
-		AppName:    c.GetString("app_name"),
-		RunMode:    c.GetString("run_mode"),
-		Protocol:   c.GetString("server.protocol"),
-		Domain:     c.GetString("server.domain"),
-		Host:       c.GetString("server.host"),
-		Port:       c.GetInt("server.port"),
-		JWTSecret:  c.GetString("jwt.secret"),
-		JWTExpTime: c.GetInt("jwt.exp_time"),
-		Frontend:   getFrontendConfig(),
-		Logger:     getLoggerConfig(),
-		Data:       getDataConfig(),
-		OAuth:      getOAuthConfig(),
-		Storage:    getStorageConfig(),
-		Email:      getEmailConfig(),
-	}, err
+	return config, nil
 }

@@ -1,5 +1,7 @@
 package config
 
+import "github.com/spf13/viper"
+
 // Logger logger config struct
 type Logger struct {
 	Level      int
@@ -12,22 +14,22 @@ type Logger struct {
 	Elasticsearch
 }
 
-func getLoggerConfig() Logger {
+func getLoggerConfig(v *viper.Viper) Logger {
 	return Logger{
-		Level:      c.GetInt("logger.level"),
-		Format:     c.GetString("logger.format"),
-		Path:       c.GetString("logger.path"),
-		Output:     c.GetString("logger.output"),
-		OutputFile: c.GetString("logger.output_file"),
+		Level:      v.GetInt("logger.level"),
+		Format:     v.GetString("logger.format"),
+		Path:       v.GetString("logger.path"),
+		Output:     v.GetString("logger.output"),
+		OutputFile: v.GetString("logger.output_file"),
 		Meilisearch: Meilisearch{
-			Host:   c.GetString("data.meilisearch.host"),
-			APIKey: c.GetString("data.meilisearch.api_key"),
+			Host:   v.GetString("data.meilisearch.host"),
+			APIKey: v.GetString("data.meilisearch.api_key"),
 		},
 		Elasticsearch: Elasticsearch{
-			Addresses: c.GetStringSlice("data.elasticsearch.addresses"),
-			Username:  c.GetString("data.elasticsearch.username"),
-			Password:  c.GetString("data.elasticsearch.password"),
+			Addresses: v.GetStringSlice("data.elasticsearch.addresses"),
+			Username:  v.GetString("data.elasticsearch.username"),
+			Password:  v.GetString("data.elasticsearch.password"),
 		},
-		IndexName: c.GetString("app_name") + "_log",
+		IndexName: v.GetString("app_name") + "_log",
 	}
 }

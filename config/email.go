@@ -1,66 +1,70 @@
 package config
 
-import "ncobase/common/email"
+import (
+	"ncobase/common/email"
+
+	"github.com/spf13/viper"
+)
 
 // getEmailConfig returns the email configuration
-func getEmailConfig() email.Email {
+func getEmailConfig(v *viper.Viper) email.Email {
 	return email.Email{
-		Provider:     c.GetString("email.provider"),
-		Mailgun:      getMailgunConfig(),
-		Aliyun:       getAliyunConfig(),
-		NetEase:      getNetEaseConfig(),
-		SendGrid:     getSendGridConfig(),
-		SMTP:         getSMTPConfig(),
-		TencentCloud: getTencentCloudConfig(),
+		Provider:     v.GetString("email.provider"),
+		Mailgun:      getMailgunConfig(v),
+		Aliyun:       getAliyunConfig(v),
+		NetEase:      getNetEaseConfig(v),
+		SendGrid:     getSendGridConfig(v),
+		SMTP:         getSMTPConfig(v),
+		TencentCloud: getTencentCloudConfig(v),
 	}
 }
-func getMailgunConfig() email.MailgunConfig {
+func getMailgunConfig(v *viper.Viper) email.MailgunConfig {
 	return email.MailgunConfig{
-		Key:    c.GetString("email.mailgun.key"),
-		Domain: c.GetString("email.mailgun.domain"),
-		From:   c.GetString("email.mailgun.from"),
+		Key:    v.GetString("email.mailgun.key"),
+		Domain: v.GetString("email.mailgun.domain"),
+		From:   v.GetString("email.mailgun.from"),
 	}
 }
 
-func getAliyunConfig() email.AliyunConfig {
+func getAliyunConfig(v *viper.Viper) email.AliyunConfig {
 	return email.AliyunConfig{
-		ID:      c.GetString("email.aliyun.id"),
-		Secret:  c.GetString("email.aliyun.secret"),
-		Account: c.GetString("email.aliyun.account"),
+		ID:      v.GetString("email.aliyun.id"),
+		Secret:  v.GetString("email.aliyun.secret"),
+		Account: v.GetString("email.aliyun.account"),
 	}
 }
 
-func getNetEaseConfig() email.NetEaseConfig {
+func getNetEaseConfig(v *viper.Viper) email.NetEaseConfig {
 	return email.NetEaseConfig{
-		Username: c.GetString("email.netease.username"),
-		Password: c.GetString("email.netease.password"),
-		From:     c.GetString("email.netease.from"),
-		SMTPHost: c.GetString("email.netease.smtp_host"),
-		SMTPPort: c.GetString("email.netease.smtp_port"),
+		Username: v.GetString("email.netease.username"),
+		Password: v.GetString("email.netease.password"),
+		From:     v.GetString("email.netease.from"),
+		SMTPHost: v.GetString("email.netease.smtp_host"),
+		SMTPPort: v.GetString("email.netease.smtp_port"),
 	}
 }
 
-func getSendGridConfig() email.SendGridConfig {
+func getSendGridConfig(v *viper.Viper) email.SendGridConfig {
 	return email.SendGridConfig{
-		Key:  c.GetString("email.sendgrid.key"),
-		From: c.GetString("email.sendgrid.from"),
+		Key:  v.GetString("email.sendgrid.key"),
+		From: v.GetString("email.sendgrid.from"),
 	}
 }
 
-func getSMTPConfig() email.SMTPConfig {
+func getSMTPConfig(v *viper.Viper) email.SMTPConfig {
 	return email.SMTPConfig{
-		SMTPHost: c.GetString("email.smtp.host"),
-		SMTPPort: c.GetString("email.smtp.port"),
-		Username: c.GetString("email.smtp.username"),
-		Password: c.GetString("email.smtp.password"),
-		From:     c.GetString("email.smtp.from"),
+		SMTPHost: v.GetString("email.smtp.host"),
+		SMTPPort: v.GetString("email.smtp.port"),
+		Username: v.GetString("email.smtp.username"),
+		Password: v.GetString("email.smtp.password"),
+		From:     v.GetString("email.smtp.from"),
 	}
 }
 
-func getTencentCloudConfig() email.TencentCloudConfig {
+func getTencentCloudConfig(v *viper.Viper) email.TencentCloudConfig {
 	return email.TencentCloudConfig{
-		ID:     c.GetString("email.tencent_cloud.id"),
-		Secret: c.GetString("email.tencent_cloud.secret"),
-		From:   c.GetString("email.tencent_cloud.from"),
+		ID:     v.GetString("email.tencent_cloud.id"),
+		Secret: v.GetString("email.tencent_cloud.secret"),
+		From:   v.GetString("email.tencent_cloud.from"),
 	}
 }

@@ -1,5 +1,7 @@
 package config
 
+import "github.com/spf13/viper"
+
 // Frontend frontend config struct
 type Frontend struct {
 	SignInURL string
@@ -7,9 +9,9 @@ type Frontend struct {
 }
 
 // FrontendConfig returns frontend config
-func getFrontendConfig() Frontend {
+func getFrontendConfig(v *viper.Viper) Frontend {
 	return Frontend{
-		SignInURL: c.GetString("frontend.sign_in_url"),
-		SignUpURL: c.GetString("frontend.sign_up_url"),
+		SignInURL: v.GetString("frontend.sign_in_url"),
+		SignUpURL: v.GetString("frontend.sign_up_url"),
 	}
 }
