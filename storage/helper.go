@@ -66,6 +66,9 @@ func GetFileHeader(f *multipart.FileHeader, prefix ...string) *FileHeader {
 // RestoreOriginalFileName restores the original file name by removing the unique suffix.
 // If withExt is true, it preserves the file extension.
 func RestoreOriginalFileName(uniqueName string, withExt ...bool) string {
+	if strings.Contains(uniqueName, "/") {
+		_, uniqueName = path.Split(uniqueName)
+	}
 	ext := path.Ext(uniqueName)
 	nameWithoutExt := strings.TrimSuffix(uniqueName, ext)
 
