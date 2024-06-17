@@ -1,7 +1,6 @@
 package jwt
 
 import (
-	"ncobase/common/validator"
 	"time"
 
 	jwtstd "github.com/golang-jwt/jwt/v5"
@@ -18,12 +17,12 @@ const (
 	DefaultRegisterTokenExpire = time.Minute * 60
 	DefaultRefreshTokenExpire  = time.Hour * 24 * 7
 
-	ErrNeedTokenProvider = TokenError("can not sign token without token provider")
+	ErrNeedTokenProvider = TokenError("cannot sign token without token provider")
 	ErrInvalidToken      = TokenError("invalid token")
 	ErrTokenParsing      = TokenError("token parsing error")
 )
 
-// Token token body
+// Token represents the token body.
 type Token struct {
 	JTI     string         `json:"jti"`
 	Payload map[string]any `json:"payload"`
@@ -31,89 +30,81 @@ type Token struct {
 	Expire  int64          `json:"exp"`
 }
 
-// generateToken Generate token
+// generateToken generates a JWT token.
 func generateToken(key string, token *Token) (string, error) {
-	if validator.IsEmpty(key) {
+	if key == "" {
 		return "", ErrNeedTokenProvider
 	}
-	claims := &jwtstd.MapClaims{
+	claims := jwtstd.MapClaims{
 		"jti":     token.JTI,
 		"sub":     token.Subject,
 		"payload": token.Payload,
-		"exp":     time.Now().UnixMilli() + token.Expire,
+		"exp":     time.Now().Add(time.Millisecond * time.Duration(token.Expire)).Unix(),
 	}
 	t := jwtstd.NewWithClaims(jwtstd.SigningMethodHS256, claims)
 	tokenString, err := t.SignedString([]byte(key))
-	if validator.IsNotNil(err) {
-		return "", ErrNeedTokenProvider
+	if err != nil {
+		return "", err
 	}
 	return tokenString, nil
 }
 
-// ValidateToken Validate Token
-func ValidateToken(key, token string) (*jwtstd.Token, error) {
-	if validator.IsEmpty(key) {
+// ValidateToken validates a JWT token.
+func ValidateToken(key, tokenString string) (*jwtstd.Token, error) {
+	if key == "" {
 		return nil, ErrNeedTokenProvider
 	}
-	t, err := jwtstd.Parse(token, func(t *jwtstd.Token) (any, error) {
+	token, err := jwtstd.Parse(tokenString, func(token *jwtstd.Token) (any, error) {
 		return []byte(key), nil
 	})
-	if validator.IsNotNil(err) {
-		return nil, ErrTokenParsing
-	}
-	return t, nil
-}
-
-// DecodeToken Decode token
-func DecodeToken(key, token string) (map[string]any, error) {
-	t, err := ValidateToken(key, token)
-	if validator.IsNotNil(err) {
+	if err != nil {
 		return nil, err
 	}
-	if !t.Valid {
+	return token, nil
+}
+
+// DecodeToken decodes a JWT token into its claims.
+func DecodeToken(key, tokenString string) (map[string]any, error) {
+	token, err := ValidateToken(key, tokenString)
+	if err != nil {
+		return nil, err
+	}
+	if !token.Valid {
 		return nil, ErrInvalidToken
 	}
-	return t.Claims.(jwtstd.MapClaims), nil
+	return token.Claims.(jwtstd.MapClaims), nil
 }
 
-// GenerateAccessToken Generate access token, default expire time is 24 hours
+// generateCustomToken generates a custom token with the provided subject and expiration.
+func generateCustomToken(key, jti string, payload map[string]any, defaultSubject string, expireDuration time.Duration) (string, error) {
+	subject := defaultSubject
+	return generateToken(key, &Token{
+		JTI:     jti,
+		Payload: payload,
+		Subject: subject,
+		Expire:  expireDuration.Milliseconds(),
+	})
+}
+
+// GenerateAccessToken generates an access token with a default expiration of 24 hours.
 func GenerateAccessToken(key, jti string, payload map[string]any, subject ...string) (string, error) {
-	defaultSubject := "access"
-	if len(subject) > 0 {
-		defaultSubject = subject[0]
-	}
-	return generateToken(key, &Token{
-		JTI:     jti,
-		Payload: payload,
-		Subject: defaultSubject,
-		Expire:  DefaultAccessTokenExpire.Milliseconds(),
-	})
+	return generateCustomToken(key, jti, payload, getSubject(subject, "access"), DefaultAccessTokenExpire)
 }
 
-// GenerateRegisterToken Generate register token, default expire time is 60 minutes
+// GenerateRegisterToken generates a register token with a default expiration of 60 minutes.
 func GenerateRegisterToken(key, jti string, payload map[string]any, subject ...string) (string, error) {
-	defaultSubject := "register"
-	if len(subject) > 0 {
-		defaultSubject = subject[0]
-	}
-	return generateToken(key, &Token{
-		JTI:     jti,
-		Payload: payload,
-		Subject: defaultSubject,
-		Expire:  DefaultRegisterTokenExpire.Milliseconds(),
-	})
+	return generateCustomToken(key, jti, payload, getSubject(subject, "register"), DefaultRegisterTokenExpire)
 }
 
-// GenerateRefreshToken Generate refresh token, default expire time is 7 days
+// GenerateRefreshToken generates a refresh token with a default expiration of 7 days.
 func GenerateRefreshToken(key, jti string, payload map[string]any, subject ...string) (string, error) {
-	defaultSubject := "refresh"
+	return generateCustomToken(key, jti, payload, getSubject(subject, "refresh"), DefaultRefreshTokenExpire)
+}
+
+// getSubject returns the subject if provided, otherwise returns the default subject.
+func getSubject(subject []string, defaultSubject string) string {
 	if len(subject) > 0 {
-		defaultSubject = subject[0]
+		return subject[0]
 	}
-	return generateToken(key, &Token{
-		JTI:     jti,
-		Payload: payload,
-		Subject: defaultSubject,
-		Expire:  DefaultRefreshTokenExpire.Milliseconds(),
-	})
+	return defaultSubject
 }
