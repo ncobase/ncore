@@ -1,8 +1,9 @@
 package resp
 
 import (
-	"ncobase/common/ecode"
 	"net/http"
+
+	"github.com/ncobase/common/ecode"
 )
 
 // AlreadyExists indicates that the resource already exists.

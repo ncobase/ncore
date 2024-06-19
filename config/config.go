@@ -3,10 +3,11 @@ package config
 import (
 	"context"
 	"flag"
-	"ncobase/common/email"
-	"ncobase/common/storage"
 	"os"
 	"path/filepath"
+
+	"github.com/ncobase/common/email"
+	"github.com/ncobase/common/storage"
 
 	"github.com/spf13/viper"
 )

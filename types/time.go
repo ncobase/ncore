@@ -2,9 +2,10 @@ package types
 
 import (
 	"errors"
-	"ncobase/common/validator"
 	"strings"
 	"time"
+
+	"github.com/ncobase/common/validator"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )

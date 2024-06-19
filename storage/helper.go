@@ -3,10 +3,11 @@ package storage
 import (
 	"fmt"
 	"mime/multipart"
-	"ncobase/common/nanoid"
 	"path"
 	"strings"
 	"time"
+
+	"github.com/ncobase/common/nanoid"
 )
 
 // FileType file type

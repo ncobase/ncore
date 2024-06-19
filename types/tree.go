@@ -1,6 +1,6 @@
 package types
 
-import "ncobase/common/validator"
+import "github.com/ncobase/common/validator"
 
 // TreeNode represents a tree node.
 type TreeNode interface {
