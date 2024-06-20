@@ -17,7 +17,6 @@ require (
 	github.com/mailgun/mailgun-go/v4 v4.12.0
 	github.com/matoous/go-nanoid/v2 v2.1.0
 	github.com/meilisearch/meilisearch-go v0.26.3
-	github.com/pkg/errors v0.9.1
 	github.com/redis/go-redis/v9 v9.5.3
 	github.com/sendgrid/sendgrid-go v3.14.0+incompatible
 	github.com/sirupsen/logrus v1.9.3
@@ -57,6 +56,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.2 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/sagikazarmark/locafero v0.6.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect

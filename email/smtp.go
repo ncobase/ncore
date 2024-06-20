@@ -1,11 +1,10 @@
 package email
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net/smtp"
-
-	"github.com/pkg/errors"
 )
 
 // SMTPConfig holds the configuration for local email sending
@@ -30,7 +29,7 @@ func (s *LocalSMTPSender) SendTemplateEmail(recipientEmail string, template Auth
 	err := smtp.SendMail(fmt.Sprintf("%s:%s", s.Config.SMTPHost, s.Config.SMTPPort), auth, s.Config.From, to, msg)
 	if err != nil {
 		log.Printf("Error sending email: %v", err)
-		return "", errors.Wrap(err, "failed to send email")
+		return "", errors.New("failed to send email")
 	}
 	log.Printf("Email sent successfully to: %s", recipientEmail)
 	return "", nil

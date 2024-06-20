@@ -2,11 +2,11 @@ package email
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/sendgrid/sendgrid-go"
 	"github.com/sendgrid/sendgrid-go/helpers/mail"
 )

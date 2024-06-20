@@ -1,11 +1,10 @@
 package email
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net/smtp"
-
-	"github.com/pkg/errors"
 )
 
 // NetEaseConfig holds the configuration for NetEase Enterprise Email
@@ -30,7 +29,7 @@ func (s *NetEaseSender) SendTemplateEmail(recipientEmail string, template AuthEm
 	err := smtp.SendMail(fmt.Sprintf("%s:%s", s.Config.SMTPHost, s.Config.SMTPPort), auth, s.Config.From, to, msg)
 	if err != nil {
 		log.Printf("Error sending email to %s: %v", recipientEmail, err)
-		return "", errors.Wrap(err, "failed to send email")
+		return "", errors.New("failed to send email")
 	}
 	log.Printf("Email sent successfully to %s", recipientEmail)
 	return "", nil

@@ -1,13 +1,13 @@
 package storage
 
 import (
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/casdoor/oss"
-	"github.com/pkg/errors"
 )
 
 // FileSystem represents the interface for file system storage.
@@ -63,18 +63,18 @@ func (fs *LocalFileSystem) GetStream(p string) (io.ReadCloser, error) {
 func (fs *LocalFileSystem) Put(p string, r io.Reader) (*oss.Object, error) {
 	fp := fs.GetFullPath(p)
 	if err := os.MkdirAll(filepath.Dir(fp), os.ModePerm); err != nil {
-		return nil, errors.Wrap(err, "failed to create directories for file path")
+		return nil, errors.New("failed to create directories for file path")
 	}
 
 	dst, err := os.Create(fp)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create file")
+		return nil, errors.New("failed to create file")
 	}
 	defer dst.Close()
 
 	_, err = io.Copy(dst, r)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to copy data to file")
+		return nil, errors.New("failed to copy data to file")
 	}
 
 	return &oss.Object{Path: p, Name: filepath.Base(p), StorageInterface: fs}, nil
@@ -113,7 +113,7 @@ func (fs *LocalFileSystem) List(p string) ([]*oss.Object, error) {
 	})
 
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to list files")
+		return nil, errors.New("failed to list files")
 	}
 
 	return objects, nil

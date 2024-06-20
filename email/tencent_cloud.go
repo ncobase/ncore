@@ -1,11 +1,10 @@
 package email
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net/smtp"
-
-	"github.com/pkg/errors"
 )
 
 // TencentCloudConfig holds the configuration for Tencent Cloud Simple Email Service
@@ -28,7 +27,7 @@ func (s *TencentCloudSender) SendTemplateEmail(recipientEmail string, template A
 	err := smtp.SendMail("smtp.exmail.qq.com:25", auth, s.Config.From, to, msg)
 	if err != nil {
 		log.Printf("Error sending email to %s: %v", recipientEmail, err)
-		return "", errors.Wrap(err, "failed to send email")
+		return "", errors.New("failed to send email")
 	}
 	log.Printf("Email sent successfully to %s", recipientEmail)
 	return "", nil

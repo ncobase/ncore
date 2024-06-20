@@ -2,11 +2,11 @@ package email
 
 import (
 	"context"
+	"errors"
 	"log"
 	"time"
 
 	"github.com/mailgun/mailgun-go/v4"
-	"github.com/pkg/errors"
 )
 
 // MailgunConfig holds the configuration for Mailgun

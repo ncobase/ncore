@@ -1,11 +1,10 @@
 package email
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net/smtp"
-
-	"github.com/pkg/errors"
 )
 
 // AliyunConfig holds the configuration for Aliyun DirectMail
@@ -28,7 +27,7 @@ func (s *AliyunSender) SendTemplateEmail(recipientEmail string, template AuthEma
 	err := smtp.SendMail("smtpdm.aliyun.com:25", auth, s.Config.Account, to, msg)
 	if err != nil {
 		log.Printf("Error sending email to %s: %v", recipientEmail, err)
-		return "", errors.Wrap(err, "failed to send email")
+		return "", errors.New("failed to send email")
 	}
 	log.Printf("Email sent successfully to %s", recipientEmail)
 	return "", nil
