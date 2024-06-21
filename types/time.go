@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ncobase/common/validator"
+	"ncobase/common/validator"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )

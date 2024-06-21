@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ncobase/common/config"
-	"github.com/ncobase/common/elastic"
-	"github.com/ncobase/common/meili"
+	"ncobase/common/config"
+	"ncobase/common/elastic"
+	"ncobase/common/meili"
 
 	"github.com/sirupsen/logrus"
 )

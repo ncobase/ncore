@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ncobase/common/email"
-	"github.com/ncobase/common/storage"
+	"ncobase/common/email"
+	"ncobase/common/storage"
 
 	"github.com/spf13/viper"
 )

@@ -3,7 +3,7 @@ package crypto
 import (
 	"context"
 
-	"github.com/ncobase/common/log"
+	"ncobase/common/log"
 
 	"golang.org/x/crypto/bcrypt"
 )

@@ -1,4 +1,4 @@
-module github.com/ncobase/common
+module ncobase/common
 
 go 1.21
 

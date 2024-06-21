@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/ncobase/common/email"
+	"ncobase/common/email"
 
 	"github.com/spf13/viper"
 )
