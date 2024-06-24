@@ -2,6 +2,7 @@ package types
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -103,4 +104,28 @@ func PtrToPBTimestamp(t *time.Time) *timestamppb.Timestamp {
 		return nil
 	}
 	return timestamppb.New(*t)
+}
+
+// AdjustToEndOfDay adjusts the given time to the end of the day (23:59:59).
+func AdjustToEndOfDay(value any) (*time.Time, error) {
+	var adjustedTime time.Time
+
+	switch v := value.(type) {
+	case string:
+		parsedTime, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			return nil, err
+		}
+		localTime := parsedTime.Local()
+		adjustedTime = time.Date(localTime.Year(), localTime.Month(), localTime.Day(), 23, 59, 59, 0, localTime.Location())
+	case *time.Time:
+		if v != nil {
+			localTime := v.Local()
+			adjustedTime = time.Date(localTime.Year(), localTime.Month(), localTime.Day(), 23, 59, 59, 0, localTime.Location())
+		}
+	default:
+		return nil, fmt.Errorf("invalid type for time adjustment")
+	}
+
+	return &adjustedTime, nil
 }
