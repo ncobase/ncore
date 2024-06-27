@@ -29,3 +29,21 @@ func Contains(a []string, x string) bool {
 	}
 	return false
 }
+
+// RemoveDuplicates removes duplicate elements from a.
+func RemoveDuplicates(a []string) []string {
+	seen := make(map[string]struct{}, len(a))
+	j := 0
+	for _, v := range a {
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		seen[v] = struct{}{}
+		a[j] = v
+		j++
+	}
+	// Create a new slice with the exact length
+	result := make([]string, j)
+	copy(result, a[:j])
+	return result
+}
