@@ -19,20 +19,19 @@ var (
 
 // Config is a struct representing the application's configuration.
 type Config struct {
-	AppName    string
-	RunMode    string
-	Protocol   string
-	Domain     string
-	Host       string
-	Port       int
-	JWTSecret  string
-	JWTExpTime int
-	Frontend   Frontend
-	Logger     Logger
-	Data       Data
-	OAuth      OAuth
-	Storage    storage.Config
-	Email      email.Email
+	AppName  string
+	RunMode  string
+	Protocol string
+	Domain   string
+	Host     string
+	Port     int
+	Frontend Frontend
+	Logger   Logger
+	Data     Data
+	Auth     Auth
+	Storage  storage.Config
+	OAuth    OAuth
+	Email    email.Email
 }
 
 func init() {
@@ -86,20 +85,19 @@ func loadConfig(configPath string) (*Config, error) {
 	}
 
 	config := &Config{
-		AppName:    v.GetString("app_name"),
-		RunMode:    v.GetString("run_mode"),
-		Protocol:   v.GetString("server.protocol"),
-		Domain:     v.GetString("server.domain"),
-		Host:       v.GetString("server.host"),
-		Port:       v.GetInt("server.port"),
-		JWTSecret:  v.GetString("jwt.secret"),
-		JWTExpTime: v.GetInt("jwt.exp_time"),
-		Frontend:   getFrontendConfig(v),
-		Logger:     getLoggerConfig(v),
-		Data:       getDataConfig(v),
-		OAuth:      getOAuthConfig(v),
-		Storage:    getStorageConfig(v),
-		Email:      getEmailConfig(v),
+		AppName:  v.GetString("app_name"),
+		RunMode:  v.GetString("run_mode"),
+		Protocol: v.GetString("server.protocol"),
+		Domain:   v.GetString("server.domain"),
+		Host:     v.GetString("server.host"),
+		Port:     v.GetInt("server.port"),
+		Auth:     getAuth(v),
+		Frontend: getFrontendConfig(v),
+		Logger:   getLoggerConfig(v),
+		Data:     getDataConfig(v),
+		Storage:  getStorageConfig(v),
+		OAuth:    getOAuthConfig(v),
+		Email:    getEmailConfig(v),
 	}
 
 	return config, nil

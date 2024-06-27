@@ -10,13 +10,11 @@ import (
 )
 
 const (
-	// alphabet = "23456789ABCDEFGHJKLMNPQRSTWXYZabcdefghijkmnopqrstuvwxyz" // remove resemble letters
-	alphabet       = consts.Number + consts.Lowercase + consts.Uppercase
-	defaultSize    = 11
+	defaultSize    = 16
 	PrimaryKeySize = defaultSize
 )
 
-var DefaultAlphabetLen = len(alphabet)
+var DefaultAlphabetLen = len(consts.NumLowerUpper)
 
 func getSize(l ...int) int {
 	size := defaultSize
@@ -35,7 +33,7 @@ func Must(l ...int) string {
 // String generate optional length nanoid, use const by default
 func String(l ...int) string {
 	size := getSize(l...)
-	return gonanoid.MustGenerate(alphabet, size)
+	return gonanoid.MustGenerate(consts.LowerUpper, size)
 }
 
 // Lower generate optional length nanoid, use const by default
@@ -63,7 +61,7 @@ func PrimaryKey(l ...int) func() string {
 		size = l[0]
 	}
 	return func() string {
-		return gonanoid.MustGenerate(alphabet, size)
+		return gonanoid.MustGenerate(consts.PrimaryKey, size)
 	}
 }
 
@@ -74,6 +72,6 @@ func IsPrimaryKey(id string) bool {
 	}
 	size := PrimaryKeySize
 	strLen := len(id)
-	inAlphabet := strings.ContainsAny(alphabet, id) && (DefaultAlphabetLen*size >= strLen*4)
+	inAlphabet := strings.ContainsAny(consts.PrimaryKey, id) && (DefaultAlphabetLen*size >= strLen*4)
 	return strLen == size && inAlphabet
 }

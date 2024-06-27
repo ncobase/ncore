@@ -1,9 +1,17 @@
 package consts
 
-const Number = "0123456789" // number
+// Character sets
+const (
+	Number        = "0123456789"                            // Numbers
+	Lowercase     = "abcdefghijklmnopqrstuvwxyz"            // Lowercase letters
+	Uppercase     = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"            // Uppercase letters
+	Symbol        = "!#$%&()*+,-./:;<=>?@[]^_`{|}~"         // Symbols
+	NumLower      = Number + Lowercase                      // Numbers + Lowercase letters
+	NumUpper      = Number + Uppercase                      // Numbers + Uppercase letters
+	LowerUpper    = Lowercase + Uppercase                   // Lowercase + Uppercase letters
+	NumLowerUpper = Number + Lowercase + Uppercase          // Numbers + Lowercase + Uppercase letters
+	All           = Number + Lowercase + Uppercase + Symbol // Combination of all
+)
 
-const Lowercase = "abcdefghijklmnopqrstuvwxyz" // lowercase
-
-const Uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" // uppercase
-
-const Symbol = "!#$%&()*+,-./:;<=>?@[]^_`{|}~"
+// PrimaryKey is the character set used for primary keys
+const PrimaryKey = Number + Lowercase + "_-"
