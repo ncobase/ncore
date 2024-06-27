@@ -28,8 +28,14 @@ type Cache[T any] struct {
 }
 
 // Key defines the cache key
-func Key(key string) string {
-	return fmt.Sprintf("%s", key)
+func (c *Cache[T]) Key(field string) string {
+	if c.useHash {
+		return field
+	}
+	if c.key != "" {
+		return fmt.Sprintf("%s:%s", c.key, field)
+	}
+	return field
 }
 
 // NewCache creates a new Cache instance
@@ -52,15 +58,15 @@ func (c *Cache[T]) Get(ctx context.Context, field string) (*T, error) {
 	var err error
 
 	if c.useHash {
-		result, err = c.rc.HGet(ctx, c.key, field).Result()
+		result, err = c.rc.HGet(ctx, c.Key(field), field).Result()
 	} else {
-		result, err = c.rc.Get(ctx, field).Result()
+		result, err = c.rc.Get(ctx, c.Key(field)).Result()
 	}
 
 	if err != nil {
-		// if errors.Is(err, redis.Nil) {
-		// 	return nil, nil // Cache miss
-		// }
+		if errors.Is(err, redis.Nil) {
+			return nil, nil // Cache miss
+		}
 		return nil, fmt.Errorf("failed to get cache: %w", err)
 	}
 
@@ -85,13 +91,13 @@ func (c *Cache[T]) Set(ctx context.Context, field string, data *T, expire ...tim
 	}
 
 	if c.useHash {
-		err = c.rc.HSet(ctx, c.key, field, bytes).Err()
+		err = c.rc.HSet(ctx, c.Key(field), field, bytes).Err()
 	} else {
 		exp := time.Duration(0)
 		if len(expire) > 0 {
 			exp = expire[0]
 		}
-		err = c.rc.Set(ctx, field, bytes, exp).Err()
+		err = c.rc.Set(ctx, c.Key(field), bytes, exp).Err()
 	}
 
 	if err != nil {
@@ -111,9 +117,9 @@ func (c *Cache[T]) GetArray(ctx context.Context, field string, dest any) error {
 	var err error
 
 	if c.useHash {
-		result, err = c.rc.HGet(ctx, c.key, field).Result()
+		result, err = c.rc.HGet(ctx, c.Key(field), field).Result()
 	} else {
-		result, err = c.rc.Get(ctx, field).Result()
+		result, err = c.rc.Get(ctx, c.Key(field)).Result()
 	}
 
 	if err != nil {
@@ -144,13 +150,13 @@ func (c *Cache[T]) SetArray(ctx context.Context, field string, data any, expire 
 	}
 
 	if c.useHash {
-		err = c.rc.HSet(ctx, c.key, field, bytes).Err()
+		err = c.rc.HSet(ctx, c.Key(field), field, bytes).Err()
 	} else {
 		exp := time.Duration(0)
 		if len(expire) > 0 {
 			exp = expire[0]
 		}
-		err = c.rc.Set(ctx, field, bytes, exp).Err()
+		err = c.rc.Set(ctx, c.Key(field), bytes, exp).Err()
 	}
 
 	if err != nil {
@@ -170,9 +176,9 @@ func (c *Cache[T]) Delete(ctx context.Context, field string) error {
 	var err error
 
 	if c.useHash {
-		err = c.rc.HDel(ctx, c.key, field).Err()
+		err = c.rc.HDel(ctx, c.Key(field), field).Err()
 	} else {
-		err = c.rc.Del(ctx, field).Err()
+		err = c.rc.Del(ctx, c.Key(field)).Err()
 	}
 
 	if err != nil {
