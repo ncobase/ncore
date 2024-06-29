@@ -25,6 +25,7 @@ type Config struct {
 	Domain   string
 	Host     string
 	Port     int
+	Plugin   Plugin
 	Frontend Frontend
 	Logger   Logger
 	Data     Data
@@ -91,6 +92,7 @@ func loadConfig(configPath string) (*Config, error) {
 		Domain:   v.GetString("server.domain"),
 		Host:     v.GetString("server.host"),
 		Port:     v.GetInt("server.port"),
+		Plugin:   getPluginConfig(v),
 		Auth:     getAuth(v),
 		Frontend: getFrontendConfig(v),
 		Logger:   getLoggerConfig(v),
