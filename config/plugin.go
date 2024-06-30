@@ -4,6 +4,7 @@ import "github.com/spf13/viper"
 
 // Plugin plugin config struct
 type Plugin struct {
+	Mode      string
 	Path      string
 	Includes  []string
 	Excludes  []string
@@ -11,8 +12,9 @@ type Plugin struct {
 }
 
 // getPluginConfig returns the plugin config
-func getPluginConfig(v *viper.Viper) Plugin {
-	return Plugin{
+func getPluginConfig(v *viper.Viper) *Plugin {
+	return &Plugin{
+		Mode:      v.GetString("plugin.mode"),
 		Path:      v.GetString("plugin.path"),
 		Includes:  v.GetStringSlice("plugin.includes"),
 		Excludes:  v.GetStringSlice("plugin.excludes"),

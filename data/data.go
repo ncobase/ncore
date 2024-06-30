@@ -33,15 +33,15 @@ type Data struct {
 
 // New creates a new Data instance with all necessary clients
 func New(conf *config.Data) (*Data, func(), error) {
-	db, err := newDBClient(&conf.Database)
+	db, err := newDBClient(conf.Database)
 	if err != nil {
 		return nil, nil, err
 	}
-	es := newElasticsearch(&conf.Elasticsearch)
+	es := newElasticsearch(conf.Elasticsearch)
 	d := &Data{
 		DB: db,
-		RC: newRedis(&conf.Redis),
-		MS: newMeilisearch(&conf.Meilisearch),
+		RC: newRedis(conf.Redis),
+		MS: newMeilisearch(conf.Meilisearch),
 		ES: es,
 	}
 

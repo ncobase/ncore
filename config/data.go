@@ -8,10 +8,10 @@ import (
 
 // Data data config struct
 type Data struct {
-	Database
-	Redis
-	Meilisearch
-	Elasticsearch
+	*Database
+	*Redis
+	*Meilisearch
+	*Elasticsearch
 }
 
 // Database database config struct
@@ -49,9 +49,9 @@ type Elasticsearch struct {
 	Password  string   `json:"password"`
 }
 
-func getDataConfig(v *viper.Viper) Data {
-	return Data{
-		Database: Database{
+func getDataConfig(v *viper.Viper) *Data {
+	return &Data{
+		Database: &Database{
 			Driver:          v.GetString("data.database.driver"),
 			Source:          v.GetString("data.database.source"),
 			Migrate:         v.GetBool("data.database.migrate"),
@@ -60,7 +60,7 @@ func getDataConfig(v *viper.Viper) Data {
 			MaxOpenConn:     v.GetInt("data.database.max_open_conn"),
 			ConnMaxLifeTime: v.GetDuration("data.database.max_life_time"),
 		},
-		Redis: Redis{
+		Redis: &Redis{
 			Addr:         v.GetString("data.redis.addr"),
 			Username:     v.GetString("data.redis.username"),
 			Password:     v.GetString("data.redis.password"),
@@ -69,11 +69,11 @@ func getDataConfig(v *viper.Viper) Data {
 			WriteTimeout: v.GetDuration("data.redis.write_timeout"),
 			DialTimeout:  v.GetDuration("data.redis.dial_timeout"),
 		},
-		Meilisearch: Meilisearch{
+		Meilisearch: &Meilisearch{
 			Host:   v.GetString("data.meilisearch.host"),
 			APIKey: v.GetString("data.meilisearch.api_key"),
 		},
-		Elasticsearch: Elasticsearch{
+		Elasticsearch: &Elasticsearch{
 			Addresses: v.GetStringSlice("data.elasticsearch.addresses"),
 			Username:  v.GetString("data.elasticsearch.username"),
 			Password:  v.GetString("data.elasticsearch.password"),

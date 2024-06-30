@@ -7,12 +7,12 @@ import (
 // Email holds the configuration for all email providers
 type Email struct {
 	Provider     string
-	Mailgun      MailgunConfig
-	Aliyun       AliyunConfig
-	NetEase      NetEaseConfig
-	SendGrid     SendGridConfig
-	SMTP         SMTPConfig
-	TencentCloud TencentCloudConfig
+	Mailgun      *MailgunConfig
+	Aliyun       *AliyunConfig
+	NetEase      *NetEaseConfig
+	SendGrid     *SendGridConfig
+	SMTP         *SMTPConfig
+	TencentCloud *TencentCloudConfig
 }
 
 // AuthEmailTemplate represents the email template for authentication

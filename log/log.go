@@ -272,7 +272,7 @@ func (e *Entry) Debugf(format string, args ...any) {
 }
 
 // Init initializes the log configuration.
-func Init(c config.Logger) (clean func(), err error) {
+func Init(c *config.Logger) (clean func(), err error) {
 	setLevel(c.Level)
 	setFormatter(c.Format)
 

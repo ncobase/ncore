@@ -9,8 +9,8 @@ type Frontend struct {
 }
 
 // FrontendConfig returns frontend config
-func getFrontendConfig(v *viper.Viper) Frontend {
-	return Frontend{
+func getFrontendConfig(v *viper.Viper) *Frontend {
+	return &Frontend{
 		SignInURL: v.GetString("frontend.sign_in_url"),
 		SignUpURL: v.GetString("frontend.sign_up_url"),
 	}

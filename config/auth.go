@@ -4,14 +4,14 @@ import "github.com/spf13/viper"
 
 // Auth auth config struct
 type Auth struct {
-	JWT       JWT
-	Casbin    Casbin
+	JWT       *JWT
+	Casbin    *Casbin
 	Whitelist []string
 }
 
 // getAuth returns the auth config.
-func getAuth(v *viper.Viper) Auth {
-	return Auth{
+func getAuth(v *viper.Viper) *Auth {
+	return &Auth{
 		JWT:       getJWT(v),
 		Casbin:    getCasbin(v),
 		Whitelist: getWhitelist(v),
@@ -25,8 +25,8 @@ type JWT struct {
 }
 
 // getJWT returns the jwt config.
-func getJWT(v *viper.Viper) JWT {
-	return JWT{
+func getJWT(v *viper.Viper) *JWT {
+	return &JWT{
 		Secret: v.GetString("auth.jwt.secret"),
 		Expire: v.GetInt("auth.jwt.expire"),
 	}
@@ -39,8 +39,8 @@ type Casbin struct {
 }
 
 // getCasbin returns the casbin config.
-func getCasbin(v *viper.Viper) Casbin {
-	return Casbin{
+func getCasbin(v *viper.Viper) *Casbin {
+	return &Casbin{
 		Path:  v.GetString("auth.casbin.path"),
 		Model: v.GetString("auth.casbin.model"),
 	}

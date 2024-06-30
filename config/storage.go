@@ -7,8 +7,8 @@ import (
 )
 
 // getStorageConfig get storage config
-func getStorageConfig(v *viper.Viper) storage.Config {
-	return storage.Config{
+func getStorageConfig(v *viper.Viper) *storage.Config {
+	return &storage.Config{
 		Provider: v.GetString("storage.provider"),
 		ID:       v.GetString("storage.id"),
 		Secret:   v.GetString("storage.secret"),

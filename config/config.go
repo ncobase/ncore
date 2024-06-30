@@ -25,14 +25,14 @@ type Config struct {
 	Domain   string
 	Host     string
 	Port     int
-	Plugin   Plugin
-	Frontend Frontend
-	Logger   Logger
-	Data     Data
-	Auth     Auth
-	Storage  storage.Config
-	OAuth    OAuth
-	Email    email.Email
+	Plugin   *Plugin
+	Frontend *Frontend
+	Logger   *Logger
+	Data     *Data
+	Auth     *Auth
+	Storage  *storage.Config
+	OAuth    *OAuth
+	Email    *email.Email
 }
 
 func init() {

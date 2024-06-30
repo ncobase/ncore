@@ -14,8 +14,8 @@ type Logger struct {
 	Elasticsearch
 }
 
-func getLoggerConfig(v *viper.Viper) Logger {
-	return Logger{
+func getLoggerConfig(v *viper.Viper) *Logger {
+	return &Logger{
 		Level:      v.GetInt("logger.level"),
 		Format:     v.GetString("logger.format"),
 		Path:       v.GetString("logger.path"),
