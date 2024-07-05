@@ -3,18 +3,24 @@ package config
 import (
 	"context"
 	"flag"
+	"log"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"ncobase/common/email"
 	"ncobase/common/storage"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
 )
 
 var (
 	globalConfig *Config
 	confPath     string
+	once         sync.Once
+	mu           sync.Mutex
+	v            *viper.Viper
 )
 
 // Config is a struct representing the application's configuration.
@@ -37,20 +43,29 @@ type Config struct {
 
 func init() {
 	flag.StringVar(&confPath, "conf", "", "e.g: bin ./config.yaml")
+	v = viper.New()
 }
 
 // Init initializes and loads the application configuration.
 func Init() (*Config, error) {
-	flag.Parse()
-	conf, err := loadConfig(confPath)
-	if err == nil {
-		globalConfig = conf
-	}
-	return conf, err
+	var err error
+	once.Do(func() {
+		flag.Parse()
+		globalConfig, err = loadConfig(confPath)
+		if err != nil {
+			log.Fatalf("Error loading config: %v", err)
+		}
+	})
+	return globalConfig, err
 }
 
 // GetConfig returns the application configuration.
 func GetConfig() *Config {
+	if globalConfig == nil {
+		if _, err := Init(); err != nil {
+			log.Fatalf("Error initializing config: %v", err)
+		}
+	}
 	return globalConfig
 }
 
@@ -60,8 +75,6 @@ func BindConfigToContext(ctx context.Context) context.Context {
 }
 
 func loadConfig(configPath string) (*Config, error) {
-	v := viper.New()
-
 	if configPath != "" {
 		v.SetConfigFile(configPath)
 	} else {
@@ -103,4 +116,31 @@ func loadConfig(configPath string) (*Config, error) {
 	}
 
 	return config, nil
+}
+
+// Reload reloads the configuration from the file
+func Reload() error {
+	mu.Lock()
+	defer mu.Unlock()
+
+	newConfig, err := loadConfig(confPath)
+	if err != nil {
+		log.Printf("Error reloading config: %v", err)
+		return err
+	}
+
+	globalConfig = newConfig
+	return nil
+}
+
+// Watch watches the configuration file and reloads it when it changes
+func Watch(callback func(*Config)) {
+	v.WatchConfig()
+	v.OnConfigChange(func(e fsnotify.Event) {
+		if err := Reload(); err != nil {
+			log.Printf("Error reloading config: %v", err)
+			return
+		}
+		callback(globalConfig)
+	})
 }
