@@ -32,7 +32,7 @@ type Data struct {
 }
 
 // New creates a new Data instance with all necessary clients
-func New(conf *config.Data) (*Data, func(), error) {
+func New(conf *config.Data) (*Data, func(name ...string), error) {
 	db, err := newDBClient(conf.Database)
 	if err != nil {
 		return nil, nil, err
@@ -45,8 +45,8 @@ func New(conf *config.Data) (*Data, func(), error) {
 		ES: es,
 	}
 
-	cleanup := func() {
-		log.Printf(context.Background(), "execute data cleanup.")
+	cleanup := func(name ...string) {
+		log.Printf(context.Background(), "execute %s data cleanup.", name[0])
 		if errs := d.Close(); len(errs) > 0 {
 			log.Fatalf(context.Background(), "cleanup errors: %v", errs)
 		}
