@@ -16,15 +16,39 @@ type Exception struct {
 	Data    any    `json:"data,omitempty"`    // Response data
 }
 
-// Success handles success responses.
-func Success(w http.ResponseWriter, r *Exception) {
-	contextType := "JSON"
-	statusCode, result := success(r)
-	write(w, contextType, statusCode, result)
+// newResponse creates a new response.
+func newResponse(status, code int, message string, data ...any) *Exception {
+	var responseData any
+	if len(data) > 0 {
+		responseData = data[0]
+	}
+
+	if status < 200 || status >= 400 || code != 0 {
+		return &Exception{
+			Status:  status,
+			Code:    code,
+			Message: message,
+			Errors:  responseData,
+		}
+	}
+
+	return &Exception{
+		Status:  status,
+		Code:    code,
+		Message: message,
+		Data:    responseData,
+	}
 }
 
-// success builds the success response.
-func success(r *Exception) (int, any) {
+// Success handles success responses.
+func Success(w http.ResponseWriter, data ...any) {
+	r := newResponse(http.StatusOK, 0, "", data...)
+	statusCode, result := buildSuccessResponse(r)
+	writeResponse(w, "JSON", statusCode, result)
+}
+
+// buildSuccessResponse builds the success response.
+func buildSuccessResponse(r *Exception) (int, any) {
 	status := http.StatusOK
 
 	if r != nil && r.Status != 0 {
@@ -32,7 +56,7 @@ func success(r *Exception) (int, any) {
 	}
 
 	if status < 200 || status >= 400 {
-		return fail(r)
+		return buildFailureResponse(r)
 	}
 
 	if r != nil && r.Data != nil {
@@ -44,23 +68,23 @@ func success(r *Exception) (int, any) {
 
 // Fail handles failure responses.
 func Fail(w http.ResponseWriter, r *Exception, abort ...bool) {
-	contextType := "JSON"
-	statusCode, result := fail(r)
-	write(w, contextType, statusCode, result)
-
-	shouldAbort := true
-	if len(abort) > 0 {
-		shouldAbort = abort[0]
+	if r == nil {
+		r = &Exception{
+			Status:  http.StatusInternalServerError,
+			Code:    ecode.ServerErr,
+			Message: ecode.Text(ecode.ServerErr),
+		}
 	}
+	statusCode, result := buildFailureResponse(r)
+	writeResponse(w, "JSON", statusCode, result)
 
-	if shouldAbort {
+	if len(abort) > 0 && abort[0] {
 		http.Error(w, "", statusCode)
-		return
 	}
 }
 
-// fail builds the failure response.
-func fail(r *Exception) (int, any) {
+// buildFailureResponse builds the failure response.
+func buildFailureResponse(r *Exception) (int, any) {
 	status := http.StatusBadRequest
 	code := ecode.RequestErr
 	message := ecode.Text(code)
@@ -82,8 +106,8 @@ func fail(r *Exception) (int, any) {
 	}
 }
 
-// write writes the response based on the specified type and status code.
-func write(w http.ResponseWriter, contextType string, code int, res any) {
+// writeResponse writes the response based on the specified status code.
+func writeResponse(w http.ResponseWriter, contextType string, code int, res any) {
 	w.WriteHeader(code)
 	switch contextType {
 	case "JSON":

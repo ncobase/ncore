@@ -1,9 +1,8 @@
 package resp
 
 import (
-	"net/http"
-
 	"ncobase/common/ecode"
+	"net/http"
 )
 
 // AlreadyExists indicates that the resource already exists.
@@ -59,28 +58,4 @@ func Conflict(message string, data ...any) *Exception {
 // NotAllowed indicates a not allowed error.
 func NotAllowed(message string, data ...any) *Exception {
 	return newResponse(http.StatusMethodNotAllowed, ecode.MethodNotAllowed, message, data...)
-}
-
-// newResponse creates a new response.
-func newResponse(status, code int, message string, data ...any) *Exception {
-	var responseData any
-	if len(data) > 0 {
-		responseData = data[0]
-	}
-
-	if status < 200 || status >= 400 || code != 0 {
-		return &Exception{
-			Status:  status,
-			Code:    code,
-			Message: message,
-			Errors:  responseData,
-		}
-	}
-
-	return &Exception{
-		Status:  status,
-		Code:    code,
-		Message: message,
-		Data:    responseData,
-	}
 }
