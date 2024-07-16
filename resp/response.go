@@ -42,7 +42,18 @@ func newResponse(status, code int, message string, data ...any) *Exception {
 
 // Success handles success responses.
 func Success(w http.ResponseWriter, data ...any) {
-	r := newResponse(http.StatusOK, 0, "", data...)
+	var message string
+	var responseData any
+
+	if len(data) > 0 {
+		responseData = data[0]
+		if strData, ok := responseData.(string); ok {
+			message = strData
+			responseData = nil
+		}
+	}
+
+	r := newResponse(http.StatusOK, 0, message, responseData)
 	statusCode, result := buildSuccessResponse(r)
 	writeResponse(w, "JSON", statusCode, result)
 }
@@ -63,7 +74,12 @@ func buildSuccessResponse(r *Exception) (int, any) {
 		return status, r.Data
 	}
 
-	return status, map[string]any{"message": "ok"}
+	message := "ok"
+	if r != nil && r.Message != "" {
+		message = r.Message
+	}
+
+	return status, map[string]any{"message": message}
 }
 
 // Fail handles failure responses.
