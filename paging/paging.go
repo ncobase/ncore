@@ -37,22 +37,22 @@ func NormalizeParams(params Params) Params {
 }
 
 func EncodeCursor(value string) string {
-	return base64.StdEncoding.EncodeToString([]byte(value))
+	return base64.URLEncoding.EncodeToString([]byte(value))
 }
 
 func DecodeCursor(cursor string) (string, int64, error) {
-	decoded, err := base64.StdEncoding.DecodeString(cursor)
+	decoded, err := base64.URLEncoding.DecodeString(cursor)
 	if err != nil {
-		return "", 0, err
+		return "", 0, fmt.Errorf("failed to decode cursor: %v", err)
 	}
-	parts := strings.Split(string(decoded), ":")
+	parts := strings.SplitN(string(decoded), ":", 2)
 	if len(parts) != 2 {
 		return "", 0, fmt.Errorf("invalid cursor format")
 	}
 	id := parts[0]
 	timestamp, err := strconv.ParseInt(parts[1], 10, 64)
 	if err != nil {
-		return "", 0, err
+		return "", 0, fmt.Errorf("invalid timestamp in cursor: %v", err)
 	}
 	return id, timestamp, nil
 }
