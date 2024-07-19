@@ -3,24 +3,32 @@ package paging
 import (
 	"encoding/base64"
 	"fmt"
-	"time"
+	"strconv"
+	"strings"
 )
 
-// Params holds the unified pagination parameters
+type CursorProvider interface {
+	GetCursorValue() string
+}
+
 type Params struct {
-	Cursor string `json:"cursor"`
-	Limit  int    `json:"limit"`
+	Cursor    string `json:"cursor"`
+	Offset    int    `json:"offset"`
+	Limit     int    `json:"limit"`
+	Direction string `json:"direction"` // "forward" or "backward"
 }
 
-// Result holds the pagination result
-type Result[T any] struct {
+type Result[T CursorProvider] struct {
 	Items       []T    `json:"items"`
-	Total       int    `json:"total,omitempty"`
-	NextCursor  string `json:"next,omitempty"`
-	HasNextPage bool   `json:"has_next"`
+	Total       int    `json:"total"`
+	Offset      int    `json:"offset"`
+	Cursor      string `json:"cursor,omitempty"`
+	NextCursor  string `json:"next_cursor,omitempty"`
+	PrevCursor  string `json:"prev_cursor,omitempty"`
+	HasNextPage bool   `json:"has_next_page"`
+	HasPrevPage bool   `json:"has_prev_page"`
 }
 
-// NormalizeParams ensures that Limit is within an acceptable range
 func NormalizeParams(params Params) Params {
 	if params.Limit <= 0 || params.Limit > 1024 {
 		params.Limit = 256
@@ -28,50 +36,74 @@ func NormalizeParams(params Params) Params {
 	return params
 }
 
-// EncodeCursor encodes a timestamp to a cursor string
-func EncodeCursor(t time.Time) string {
-	return base64.StdEncoding.EncodeToString([]byte(t.Format(time.RFC3339Nano)))
+func EncodeCursor(value string) string {
+	return base64.StdEncoding.EncodeToString([]byte(value))
 }
 
-// DecodeCursor decodes a cursor string to a timestamp
-func DecodeCursor(cursor string) (time.Time, error) {
-	b, err := base64.StdEncoding.DecodeString(cursor)
+func DecodeCursor(cursor string) (string, int64, error) {
+	decoded, err := base64.StdEncoding.DecodeString(cursor)
 	if err != nil {
-		return time.Time{}, err
+		return "", 0, err
 	}
-	return time.Parse(time.RFC3339Nano, string(b))
+	parts := strings.Split(string(decoded), ":")
+	if len(parts) != 2 {
+		return "", 0, fmt.Errorf("invalid cursor format")
+	}
+	id := parts[0]
+	timestamp, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		return "", 0, err
+	}
+	return id, timestamp, nil
 }
 
-// PagingFunc is a function type that implements pagination logic
-type PagingFunc[T any] func(cursor string, limit int) (items []T, total int, nextCursor string, err error)
+type PagingFunc[T CursorProvider] func(cursor string, offset int, limit int, direction string) (items []T, total int, err error)
 
-// Paginate applies pagination using the provided PagingFunc
-func Paginate[T any](params Params, paginateFunc PagingFunc[T]) (*Result[T], error) {
+func Paginate[T CursorProvider](params Params, paginateFunc PagingFunc[T]) (Result[T], error) {
 	params = NormalizeParams(params)
-	items, total, nextCursor, err := paginateFunc(params.Cursor, params.Limit+1)
+
+	items, total, err := paginateFunc(params.Cursor, params.Offset, params.Limit+1, params.Direction)
 	if err != nil {
-		return nil, fmt.Errorf("pagination error: %v", err)
+		return Result[T]{}, fmt.Errorf("pagination error: %v", err)
 	}
 
-	hasNextPage := false
-	if len(items) > params.Limit {
-		hasNextPage = true
+	hasNextPage := len(items) > params.Limit
+	hasPrevPage := params.Offset > 0 || params.Cursor != ""
+
+	if hasNextPage {
 		items = items[:params.Limit]
 	}
 
-	if items == nil {
-		items = make([]T, 0)
+	var nextCursor, prevCursor string
+	if len(items) > 0 {
+		if params.Direction == "forward" || params.Direction == "" {
+			if hasNextPage {
+				nextCursor = EncodeCursor(items[len(items)-1].GetCursorValue())
+			}
+			if hasPrevPage {
+				prevCursor = EncodeCursor(items[0].GetCursorValue())
+			}
+		} else {
+			if hasNextPage {
+				prevCursor = EncodeCursor(items[0].GetCursorValue())
+			}
+			if hasPrevPage {
+				nextCursor = EncodeCursor(items[len(items)-1].GetCursorValue())
+			}
+			// Reverse the items for backward pagination
+			for i, j := 0, len(items)-1; i < j; i, j = i+1, j-1 {
+				items[i], items[j] = items[j], items[i]
+			}
+		}
 	}
 
-	return &Result[T]{
+	return Result[T]{
 		Items:       items,
 		Total:       total,
 		NextCursor:  nextCursor,
+		PrevCursor:  prevCursor,
 		HasNextPage: hasNextPage,
+		HasPrevPage: hasPrevPage,
+		Offset:      params.Offset,
 	}, nil
-}
-
-// NoopPagingFunc is a noop paging function
-func NoopPagingFunc[T any](cursor string, limit int) ([]T, int, string, error) {
-	return nil, 0, "", nil
 }
