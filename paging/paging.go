@@ -13,7 +13,6 @@ type CursorProvider interface {
 
 type Params struct {
 	Cursor    string `json:"cursor"`
-	Offset    int    `json:"offset"`
 	Limit     int    `json:"limit"`
 	Direction string `json:"direction"` // "forward" or "backward"
 }
@@ -21,7 +20,6 @@ type Params struct {
 type Result[T CursorProvider] struct {
 	Items       []T    `json:"items"`
 	Total       int    `json:"total"`
-	Offset      int    `json:"offset"`
 	Cursor      string `json:"cursor,omitempty"`
 	NextCursor  string `json:"next_cursor,omitempty"`
 	PrevCursor  string `json:"prev_cursor,omitempty"`
@@ -57,18 +55,18 @@ func DecodeCursor(cursor string) (string, int64, error) {
 	return id, timestamp, nil
 }
 
-type PagingFunc[T CursorProvider] func(cursor string, offset int, limit int, direction string) (items []T, total int, err error)
+type PagingFunc[T CursorProvider] func(cursor string, limit int, direction string) (items []T, total int, err error)
 
 func Paginate[T CursorProvider](params Params, paginateFunc PagingFunc[T]) (Result[T], error) {
 	params = NormalizeParams(params)
 
-	items, total, err := paginateFunc(params.Cursor, params.Offset, params.Limit+1, params.Direction)
+	items, total, err := paginateFunc(params.Cursor, params.Limit+1, params.Direction)
 	if err != nil {
 		return Result[T]{}, fmt.Errorf("pagination error: %v", err)
 	}
 
 	hasNextPage := len(items) > params.Limit
-	hasPrevPage := params.Offset > 0 || params.Cursor != ""
+	hasPrevPage := params.Cursor != ""
 
 	if hasNextPage {
 		items = items[:params.Limit]
@@ -104,6 +102,5 @@ func Paginate[T CursorProvider](params Params, paginateFunc PagingFunc[T]) (Resu
 		PrevCursor:  prevCursor,
 		HasNextPage: hasNextPage,
 		HasPrevPage: hasPrevPage,
-		Offset:      params.Offset,
 	}, nil
 }
