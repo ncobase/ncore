@@ -13,6 +13,7 @@ type Data struct {
 	*Meilisearch
 	*Elasticsearch
 	*MongoDB
+	*Neo4j
 }
 
 // Database database config struct
@@ -57,6 +58,13 @@ type MongoDB struct {
 	Password string
 }
 
+// Neo4j neo4j config struct
+type Neo4j struct {
+	URI      string
+	Username string
+	Password string
+}
+
 func getDataConfig(v *viper.Viper) *Data {
 	return &Data{
 		Database: &Database{
@@ -90,6 +98,11 @@ func getDataConfig(v *viper.Viper) *Data {
 			URI:      v.GetString("data.mongodb.uri"),
 			Username: v.GetString("data.mongodb.username"),
 			Password: v.GetString("data.mongodb.password"),
+		},
+		Neo4j: &Neo4j{
+			URI:      v.GetString("data.neo4j.uri"),
+			Username: v.GetString("data.neo4j.username"),
+			Password: v.GetString("data.neo4j.password"),
 		},
 	}
 }

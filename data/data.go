@@ -9,6 +9,7 @@ import (
 	"ncobase/common/log"
 	"ncobase/common/meili"
 
+	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	"github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -28,11 +29,12 @@ var (
 
 // Data struct to hold all database connections and clients
 type Data struct {
-	DB *sql.DB
-	RC *redis.Client
-	MS *meili.Client
-	ES *elastic.Client
-	MG *mongo.Client
+	DB  *sql.DB
+	RC  *redis.Client
+	MS  *meili.Client
+	ES  *elastic.Client
+	MG  *mongo.Client
+	Neo neo4j.DriverWithContext
 }
 
 // Option function type for configuring Data
@@ -89,6 +91,14 @@ func New(conf *config.Data, createNewInstance ...bool) (*Data, func(name ...stri
 		opts = append(opts, WithMongo(mg))
 	}
 
+	if conf.Neo4j != nil && conf.Neo4j.URI != "" {
+		neo, err := newNeo4jClient(conf.Neo4j)
+		if err != nil {
+			return nil, nil, err
+		}
+		opts = append(opts, WithNeo4j(neo))
+	}
+
 	for _, option := range opts {
 		option(d)
 	}
@@ -139,6 +149,13 @@ func WithElasticsearch(es *elastic.Client) Option {
 func WithMongo(mg *mongo.Client) Option {
 	return func(d *Data) {
 		d.MG = mg
+	}
+}
+
+// WithNeo4j sets the Neo4j client in Data
+func WithNeo4j(neo neo4j.DriverWithContext) Option {
+	return func(d *Data) {
+		d.Neo = neo
 	}
 }
 
@@ -288,23 +305,67 @@ func newMongoClient(conf *config.MongoDB) (*mongo.Client, error) {
 	return client, nil
 }
 
+// newNeo4jClient creates a new Neo4j client
+func newNeo4jClient(conf *config.Neo4j) (neo4j.DriverWithContext, error) {
+	if conf == nil || conf.URI == "" {
+		log.Printf(context.Background(), "Neo4j configuration is nil or empty")
+		return nil, nil
+	}
+
+	driver, err := neo4j.NewDriverWithContext(conf.URI, neo4j.BasicAuth(conf.Username, conf.Password, ""))
+	if err != nil {
+		log.Errorf(context.Background(), "Neo4j connect error: %v", err)
+		return nil, err
+	}
+
+	if err := driver.VerifyConnectivity(context.Background()); err != nil {
+		log.Errorf(context.Background(), "Neo4j verify connectivity error: %v", err)
+		return nil, err
+	}
+
+	log.Infof(context.Background(), "Neo4j connected")
+
+	return driver, nil
+}
+
 // Close closes all resources in Data and returns any errors encountered
 func (d *Data) Close() (errs []error) {
+	// Close Redis client if not already closed
 	if d.RC != nil {
 		if err := d.RC.Close(); err != nil {
 			errs = append(errs, err)
+		} else {
+			d.RC = nil
 		}
 	}
+
+	// Close SQL database client if not already closed
 	if d.DB != nil {
 		if err := d.DB.Close(); err != nil {
 			errs = append(errs, err)
+		} else {
+			d.DB = nil
 		}
 	}
+
+	// Disconnect MongoDB client if not already disconnected
 	if d.MG != nil {
 		if err := d.MG.Disconnect(context.Background()); err != nil {
 			errs = append(errs, err)
+		} else {
+			d.MG = nil
 		}
 	}
+
+	// Close Neo4j client if not already closed
+	if d.Neo != nil {
+		if err := d.Neo.Close(context.Background()); err != nil {
+			errs = append(errs, err)
+		} else {
+			d.Neo = nil
+		}
+	}
+
 	if len(errs) > 0 {
 		return errs
 	}
