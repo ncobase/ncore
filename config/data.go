@@ -12,6 +12,7 @@ type Data struct {
 	*Redis
 	*Meilisearch
 	*Elasticsearch
+	*MongoDB
 }
 
 // Database database config struct
@@ -49,6 +50,13 @@ type Elasticsearch struct {
 	Password  string   `json:"password"`
 }
 
+// MongoDB mongodb config struct
+type MongoDB struct {
+	URI      string
+	Username string
+	Password string
+}
+
 func getDataConfig(v *viper.Viper) *Data {
 	return &Data{
 		Database: &Database{
@@ -77,6 +85,11 @@ func getDataConfig(v *viper.Viper) *Data {
 			Addresses: v.GetStringSlice("data.elasticsearch.addresses"),
 			Username:  v.GetString("data.elasticsearch.username"),
 			Password:  v.GetString("data.elasticsearch.password"),
+		},
+		MongoDB: &MongoDB{
+			URI:      v.GetString("data.mongodb.uri"),
+			Username: v.GetString("data.mongodb.username"),
+			Password: v.GetString("data.mongodb.password"),
 		},
 	}
 }

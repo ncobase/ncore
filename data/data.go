@@ -10,6 +10,8 @@ import (
 	"ncobase/common/meili"
 
 	"github.com/redis/go-redis/v9"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	// sqlite3
 	_ "github.com/mattn/go-sqlite3"
@@ -20,7 +22,8 @@ import (
 )
 
 var (
-	err error
+	sharedInstance *Data
+	err            error
 )
 
 // Data struct to hold all database connections and clients
@@ -29,20 +32,69 @@ type Data struct {
 	RC *redis.Client
 	MS *meili.Client
 	ES *elastic.Client
+	MG *mongo.Client
 }
 
-// New creates a new Data instance with all necessary clients
-func New(conf *config.Data) (*Data, func(name ...string), error) {
-	db, err := newDBClient(conf.Database)
-	if err != nil {
-		return nil, nil, err
+// Option function type for configuring Data
+type Option func(*Data)
+
+// New creates a new Data instance with the provided options
+func New(conf *config.Data, createNewInstance ...bool) (*Data, func(name ...string), error) {
+	var createNew bool
+	if len(createNewInstance) > 0 {
+		createNew = createNewInstance[0]
 	}
-	es := newElasticsearch(conf.Elasticsearch)
-	d := &Data{
-		DB: db,
-		RC: newRedis(conf.Redis),
-		MS: newMeilisearch(conf.Meilisearch),
-		ES: es,
+
+	if !createNew && sharedInstance != nil {
+		cleanup := func(name ...string) {
+			log.Printf(context.Background(), "execute %s data cleanup.", name[0])
+			if errs := sharedInstance.Close(); len(errs) > 0 {
+				log.Fatalf(context.Background(), "cleanup errors: %v", errs)
+			}
+		}
+		return sharedInstance, cleanup, nil
+	}
+
+	d := &Data{}
+
+	var opts []Option
+	if conf.Database != nil && conf.Database.Source != "" {
+		db, err := newDBClient(conf.Database)
+		if err != nil {
+			return nil, nil, err
+		}
+		opts = append(opts, WithDB(db))
+	}
+
+	if conf.Redis != nil && conf.Redis.Addr != "" {
+		rc := newRedis(conf.Redis)
+		opts = append(opts, WithRedis(rc))
+	}
+
+	if conf.Meilisearch != nil && conf.Meilisearch.Host != "" {
+		ms := newMeilisearch(conf.Meilisearch)
+		opts = append(opts, WithMeilisearch(ms))
+	}
+
+	if conf.Elasticsearch != nil && len(conf.Elasticsearch.Addresses) > 0 {
+		es := newElasticsearch(conf.Elasticsearch)
+		opts = append(opts, WithElasticsearch(es))
+	}
+
+	if conf.MongoDB != nil && conf.MongoDB.URI != "" {
+		mg, err := newMongoClient(conf.MongoDB)
+		if err != nil {
+			return nil, nil, err
+		}
+		opts = append(opts, WithMongo(mg))
+	}
+
+	for _, option := range opts {
+		option(d)
+	}
+
+	if !createNew {
+		sharedInstance = d
 	}
 
 	cleanup := func(name ...string) {
@@ -55,10 +107,49 @@ func New(conf *config.Data) (*Data, func(name ...string), error) {
 	return d, cleanup, nil
 }
 
+// WithDB sets the database client in Data
+func WithDB(db *sql.DB) Option {
+	return func(d *Data) {
+		d.DB = db
+	}
+}
+
+// WithRedis sets the Redis client in Data
+func WithRedis(rc *redis.Client) Option {
+	return func(d *Data) {
+		d.RC = rc
+	}
+}
+
+// WithMeilisearch sets the Meilisearch client in Data
+func WithMeilisearch(ms *meili.Client) Option {
+	return func(d *Data) {
+		d.MS = ms
+	}
+}
+
+// WithElasticsearch sets the Elasticsearch client in Data
+func WithElasticsearch(es *elastic.Client) Option {
+	return func(d *Data) {
+		d.ES = es
+	}
+}
+
+// WithMongo sets the MongoDB client in Data
+func WithMongo(mg *mongo.Client) Option {
+	return func(d *Data) {
+		d.MG = mg
+	}
+}
+
 // newDBClient creates a new database client
 func newDBClient(conf *config.Database) (*sql.DB, error) {
-	var db *sql.DB
+	if conf == nil {
+		log.Fatalf(context.Background(), "database configuration is nil")
+		return nil, err
+	}
 
+	var db *sql.DB
 	switch conf.Driver {
 	case "postgres":
 		db, err = sql.Open("pgx", conf.Source)
@@ -79,6 +170,8 @@ func newDBClient(conf *config.Database) (*sql.DB, error) {
 	db.SetMaxIdleConns(conf.MaxIdleConn)
 	db.SetMaxOpenConns(conf.MaxOpenConn)
 	db.SetConnMaxLifetime(conf.ConnMaxLifeTime)
+
+	log.Infof(context.Background(), "database %v connected", conf.Driver)
 
 	return db, nil
 }
@@ -107,6 +200,8 @@ func newRedis(conf *config.Redis) *redis.Client {
 		log.Errorf(context.Background(), "redis connect error: %v", err)
 	}
 
+	log.Infof(context.Background(), "redis connected")
+
 	return rc
 }
 
@@ -123,6 +218,8 @@ func newMeilisearch(conf *config.Meilisearch) *meili.Client {
 		log.Errorf(context.Background(), "Meilisearch connect error: %v", err)
 		return nil
 	}
+
+	log.Infof(context.Background(), "Meilisearch connected")
 
 	return ms
 }
@@ -156,7 +253,39 @@ func newElasticsearch(conf *config.Elasticsearch) *elastic.Client {
 		return nil
 	}
 
+	log.Infof(context.Background(), "Elasticsearch connected")
+
 	return es
+}
+
+// newMongoClient creates a new MongoDB client
+func newMongoClient(conf *config.MongoDB) (*mongo.Client, error) {
+	if conf == nil || conf.URI == "" {
+		log.Printf(context.Background(), "MongoDB configuration is nil or empty")
+		return nil, nil
+	}
+
+	clientOptions := options.Client().ApplyURI(conf.URI)
+	if conf.Username != "" && conf.Password != "" {
+		clientOptions.SetAuth(options.Credential{
+			Username: conf.Username,
+			Password: conf.Password,
+		})
+	}
+
+	client, err := mongo.Connect(context.Background(), clientOptions)
+	if err != nil {
+		log.Errorf(context.Background(), "MongoDB connect error: %v", err)
+		return nil, err
+	}
+	if err := client.Ping(context.Background(), nil); err != nil {
+		log.Errorf(context.Background(), "MongoDB ping error: %v", err)
+		return nil, err
+	}
+
+	log.Infof(context.Background(), "MongoDB connected")
+
+	return client, nil
 }
 
 // Close closes all resources in Data and returns any errors encountered
@@ -171,6 +300,11 @@ func (d *Data) Close() (errs []error) {
 			errs = append(errs, err)
 		}
 	}
+	if d.MG != nil {
+		if err := d.MG.Disconnect(context.Background()); err != nil {
+			errs = append(errs, err)
+		}
+	}
 	if len(errs) > 0 {
 		return errs
 	}
@@ -179,5 +313,17 @@ func (d *Data) Close() (errs []error) {
 
 // Ping checks the database connection
 func (d *Data) Ping(ctx context.Context) error {
-	return d.DB.PingContext(ctx)
+	if d.DB != nil {
+		return d.DB.PingContext(ctx)
+	}
+	return nil
+}
+
+// GetMongoDatabase retrieves a specific MongoDB database
+func (d *Data) GetMongoDatabase(databaseName string) *mongo.Database {
+	if d.MG == nil {
+		log.Errorf(context.Background(), "MongoDB client is nil")
+		return nil
+	}
+	return d.MG.Database(databaseName)
 }
