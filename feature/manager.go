@@ -43,7 +43,7 @@ func (m *Manager) Register(f Interface) error {
 
 	name := f.Name()
 	if _, exists := m.features[name]; exists {
-		return fmt.Errorf("⚠️ feature %s already registered", name)
+		return fmt.Errorf("feature %s already registered", name)
 	}
 
 	m.features[name] = &Wrapper{
@@ -51,7 +51,7 @@ func (m *Manager) Register(f Interface) error {
 		Instance: f,
 	}
 
-	log.Infof(context.Background(), "🧩 feature %s registered successfully", name)
+	log.Infof(context.Background(), "feature %s registered successfully", name)
 	return nil
 }
 
@@ -81,7 +81,7 @@ func (m *Manager) loadPluginsInFile() error {
 			continue
 		}
 		if err := m.loadPlugin(pp); err != nil {
-			log.Errorf(context.Background(), "❌ Failed to load plugin %s: %v", pluginName, err)
+			log.Errorf(context.Background(), "Failed to load plugin %s: %v", pluginName, err)
 			return err
 		}
 	}
@@ -241,7 +241,7 @@ func (m *Manager) InitFeatures() error {
 	m.initialized = true
 	m.mu.Unlock()
 
-	// log.Infof(context.Background(), "✅ All features initialized successfully")
+	// log.Infof(context.Background(), " All features initialized successfully")
 	return nil
 }
 
