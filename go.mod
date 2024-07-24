@@ -4,7 +4,7 @@ go 1.22.5
 
 require (
 	entgo.io/ent v0.13.1
-	github.com/aws/aws-sdk-go v1.55.0
+	github.com/aws/aws-sdk-go v1.55.1
 	github.com/casdoor/oss v1.6.1
 	github.com/elastic/go-elasticsearch/v8 v8.14.0
 	github.com/fsnotify/fsnotify v1.7.0
