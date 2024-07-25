@@ -114,7 +114,6 @@ var (
 	Color          = StringMixin{Field: "color", Comment: "color", Optional: true}
 	Content        = StringMixin{Field: "content", Comment: "content, big text", Optional: true}
 	Keywords       = StringMixin{Field: "keywords", Comment: "keywords", Optional: true}
-	Description    = StringMixin{Field: "description", Comment: "description", Optional: true}
 	Copyright      = StringMixin{Field: "copyright", Comment: "copyright", Optional: true}
 	Logo           = StringMixin{Field: "logo", Comment: "logo", Optional: true}
 	LogoAlt        = StringMixin{Field: "logo_alt", Comment: "logo alt", Optional: true}
@@ -122,7 +121,6 @@ var (
 	Storage        = StringMixin{Field: "storage", Comment: "storage type", Optional: true}
 	Bucket         = StringMixin{Field: "bucket", Comment: "bucket", Optional: true}
 	Endpoint       = StringMixin{Field: "endpoint", Comment: "endpoint", Optional: true}
-	Value          = StringMixin{Field: "value", Comment: "value", Optional: true}
 	Action         = StringMixin{Field: "action", Comment: "action", Optional: true}
 	Subject        = StringMixin{Field: "subject", Comment: "subject", Optional: true}
 	Provider       = StringMixin{Field: "provider", Comment: "provider", Optional: true}
@@ -166,7 +164,79 @@ func (OperatorBy) Fields() []ent.Field {
 // Ensure OperatorBy implements the Mixin interface.
 var _ ent.Mixin = (*OperatorBy)(nil)
 
-// Specific mixins can be created using the generic OperatorBy.
+// Operator Specific mixins can be created using the generic OperatorBy.
 var (
 	Operator = OperatorBy{}
+)
+
+// TextMixin is a generic mixin for adding various fields.
+type TextMixin struct {
+	mixin.Schema
+	Field       string
+	Comment     string
+	StorageKey  string
+	Nillable    bool
+	Optional    bool
+	Unique      bool
+	NotEmpty    bool
+	Immutable   bool
+	MaxLen      int
+	MatchRegex  *regexp.Regexp
+	Sensitive   bool
+	DefaultFunc any
+}
+
+// Fields of the TextMixin.
+func (m TextMixin) Fields() []ent.Field {
+	f := field.Text(m.Field).Comment(m.Comment)
+	if m.StorageKey != "" {
+		f = f.StorageKey(m.StorageKey)
+	}
+	if m.Nillable {
+		f = f.Nillable()
+	}
+	if m.Optional {
+		f = f.Optional()
+	}
+	if m.Unique {
+		f = f.Unique()
+	}
+	if m.NotEmpty {
+		f = f.NotEmpty()
+	}
+	if m.Immutable {
+		f = f.Immutable()
+	}
+	if m.MaxLen > 0 {
+		f = f.MaxLen(m.MaxLen)
+	}
+	if m.MatchRegex != nil {
+		f = f.Match(m.MatchRegex)
+	}
+	if m.Sensitive {
+		f = f.Sensitive()
+	}
+	if m.DefaultFunc != nil {
+		f = f.DefaultFunc(m.DefaultFunc)
+	}
+	return []ent.Field{f}
+}
+
+// Indexes of the TextMixin.
+func (m TextMixin) Indexes() []ent.Index {
+	if m.Unique {
+		return []ent.Index{
+			index.Fields(m.Field).Unique(),
+		}
+	}
+	return nil
+}
+
+// Implement the Mixin interface.
+var _ ent.Mixin = (*TextMixin)(nil)
+
+// Specific mixins can be created using the generic TextMixin.
+var (
+	Value       = TextMixin{Field: "value", Comment: "value", Optional: true}
+	Description = TextMixin{Field: "description", Comment: "description", Optional: true}
 )
