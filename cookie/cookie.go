@@ -1,6 +1,8 @@
 package cookie
 
 import (
+	"fmt"
+	"ncobase/common/types"
 	"net/http"
 	"strings"
 )
@@ -110,4 +112,52 @@ func GetRegister(r *http.Request, key string) (string, error) {
 		return "", err
 	}
 	return cookie.Value, nil
+}
+
+// GetTokenFromResult retrieves a token from the result map.
+func GetTokenFromResult(result *types.JSON, key string) (string, error) {
+	value, ok := types.ToValue(result)[key]
+	if !ok {
+		return "", fmt.Errorf("key %s not found in result", key)
+	}
+	token, ok := value.(string)
+	if !ok {
+		return "", fmt.Errorf("key %s is not a string", key)
+	}
+	return token, nil
+}
+
+// SetTokensFromResult sets access and refresh tokens from the result map.
+func SetTokensFromResult(w http.ResponseWriter, r *http.Request, result *types.JSON, domain ...string) error {
+	var dm string
+	if len(domain) > 0 {
+		dm = domain[0]
+	} else {
+		dm = r.Host
+	}
+	formattedDomain := formatDomain(dm)
+
+	accessToken, _ := GetTokenFromResult(result, "access_token")
+	refreshToken, _ := GetTokenFromResult(result, "refresh_token")
+
+	if accessToken == "" && refreshToken == "" {
+		return fmt.Errorf("both access_token and refresh_token are missing")
+	}
+
+	Set(w, accessToken, refreshToken, formattedDomain)
+	return nil
+}
+
+// SetRegisterTokenFromResult sets registration token from the result map.
+func SetRegisterTokenFromResult(w http.ResponseWriter, r *http.Request, result *types.JSON, domain ...string) error {
+	var dm string
+	if len(domain) > 0 {
+		dm = domain[0]
+	} else {
+		dm = r.Host
+	}
+	formattedDomain := formatDomain(dm)
+	token, _ := GetTokenFromResult(result, "register_token")
+	SetRegister(w, token, formattedDomain)
+	return nil
 }
