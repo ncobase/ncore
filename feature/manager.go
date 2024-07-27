@@ -51,7 +51,6 @@ func (m *Manager) Register(f Interface) error {
 		Instance: f,
 	}
 
-	log.Infof(context.Background(), "feature %s registered successfully", name)
 	return nil
 }
 

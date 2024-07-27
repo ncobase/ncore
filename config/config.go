@@ -31,6 +31,7 @@ type Config struct {
 	Domain   string
 	Host     string
 	Port     int
+	Observes *Observes
 	Feature  *Feature
 	Frontend *Frontend
 	Logger   *Logger
@@ -105,6 +106,7 @@ func loadConfig(configPath string) (*Config, error) {
 		Domain:   v.GetString("server.domain"),
 		Host:     v.GetString("server.host"),
 		Port:     v.GetInt("server.port"),
+		Observes: getObservesConfig(v),
 		Feature:  getFeatureConfig(v),
 		Auth:     getAuth(v),
 		Frontend: getFrontendConfig(v),

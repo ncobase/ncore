@@ -162,7 +162,7 @@ func WithNeo4j(neo neo4j.DriverWithContext) Option {
 // newDBClient creates a new database client
 func newDBClient(conf *config.Database) (*sql.DB, error) {
 	if conf == nil {
-		log.Fatalf(context.Background(), "database configuration is nil")
+		log.Fatalf(context.Background(), "Database configuration is nil")
 		return nil, err
 	}
 
@@ -175,12 +175,12 @@ func newDBClient(conf *config.Database) (*sql.DB, error) {
 	case "sqlite3":
 		db, err = sql.Open("sqlite3", conf.Source)
 	default:
-		log.Fatalf(context.Background(), "dialect %v not supported", conf.Driver)
+		log.Fatalf(context.Background(), "Dialect %v not supported", conf.Driver)
 		return nil, err
 	}
 
 	if err != nil {
-		log.Fatalf(context.Background(), "failed to open database: %v", err)
+		log.Fatalf(context.Background(), "Failed to open database: %v", err)
 		return nil, err
 	}
 
@@ -188,7 +188,7 @@ func newDBClient(conf *config.Database) (*sql.DB, error) {
 	db.SetMaxOpenConns(conf.MaxOpenConn)
 	db.SetConnMaxLifetime(conf.ConnMaxLifeTime)
 
-	log.Infof(context.Background(), "database %v connected", conf.Driver)
+	log.Infof(context.Background(), "Database %v connected", conf.Driver)
 
 	return db, nil
 }
@@ -196,7 +196,7 @@ func newDBClient(conf *config.Database) (*sql.DB, error) {
 // newRedis creates a new Redis client
 func newRedis(conf *config.Redis) *redis.Client {
 	if conf == nil || conf.Addr == "" {
-		log.Printf(context.Background(), "redis configuration is nil or empty")
+		log.Printf(context.Background(), "Redis configuration is nil or empty")
 		return nil
 	}
 
@@ -214,10 +214,10 @@ func newRedis(conf *config.Redis) *redis.Client {
 	timeout, cancelFunc := context.WithTimeout(context.Background(), conf.DialTimeout)
 	defer cancelFunc()
 	if err := rc.Ping(timeout).Err(); err != nil {
-		log.Errorf(context.Background(), "redis connect error: %v", err)
+		log.Errorf(context.Background(), "Redis connect error: %v", err)
 	}
 
-	log.Infof(context.Background(), "redis connected")
+	log.Infof(context.Background(), "Redis connected")
 
 	return rc
 }
