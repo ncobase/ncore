@@ -49,7 +49,7 @@ func New(conf *config.Data, createNewInstance ...bool) (*Data, func(name ...stri
 
 	if !createNew && sharedInstance != nil {
 		cleanup := func(name ...string) {
-			log.Printf(context.Background(), "execute %s data cleanup.", name[0])
+			log.Infof(context.Background(), "execute %s data cleanup.", name[0])
 			if errs := sharedInstance.Close(); len(errs) > 0 {
 				log.Fatalf(context.Background(), "cleanup errors: %v", errs)
 			}
@@ -108,7 +108,7 @@ func New(conf *config.Data, createNewInstance ...bool) (*Data, func(name ...stri
 	}
 
 	cleanup := func(name ...string) {
-		log.Printf(context.Background(), "execute %s data cleanup.", name[0])
+		log.Infof(context.Background(), "execute %s data cleanup.", name[0])
 		if errs := d.Close(); len(errs) > 0 {
 			log.Fatalf(context.Background(), "cleanup errors: %v", errs)
 		}
@@ -196,7 +196,7 @@ func newDBClient(conf *config.Database) (*sql.DB, error) {
 // newRedis creates a new Redis client
 func newRedis(conf *config.Redis) *redis.Client {
 	if conf == nil || conf.Addr == "" {
-		log.Printf(context.Background(), "Redis configuration is nil or empty")
+		log.Infof(context.Background(), "Redis configuration is nil or empty")
 		return nil
 	}
 
@@ -225,7 +225,7 @@ func newRedis(conf *config.Redis) *redis.Client {
 // newMeilisearch creates a new Meilisearch client
 func newMeilisearch(conf *config.Meilisearch) *meili.Client {
 	if conf == nil || conf.Host == "" {
-		log.Printf(context.Background(), "Meilisearch configuration is nil or empty")
+		log.Infof(context.Background(), "Meilisearch configuration is nil or empty")
 		return nil
 	}
 
@@ -244,7 +244,7 @@ func newMeilisearch(conf *config.Meilisearch) *meili.Client {
 // newElasticsearch creates a new Elasticsearch client
 func newElasticsearch(conf *config.Elasticsearch) *elastic.Client {
 	if conf == nil || len(conf.Addresses) == 0 {
-		log.Printf(context.Background(), "Elasticsearch configuration is nil or empty")
+		log.Infof(context.Background(), "Elasticsearch configuration is nil or empty")
 		return nil
 	}
 
@@ -278,7 +278,7 @@ func newElasticsearch(conf *config.Elasticsearch) *elastic.Client {
 // newMongoClient creates a new MongoDB client
 func newMongoClient(conf *config.MongoDB) (*mongo.Client, error) {
 	if conf == nil || conf.URI == "" {
-		log.Printf(context.Background(), "MongoDB configuration is nil or empty")
+		log.Infof(context.Background(), "MongoDB configuration is nil or empty")
 		return nil, nil
 	}
 
@@ -308,7 +308,7 @@ func newMongoClient(conf *config.MongoDB) (*mongo.Client, error) {
 // newNeo4jClient creates a new Neo4j client
 func newNeo4jClient(conf *config.Neo4j) (neo4j.DriverWithContext, error) {
 	if conf == nil || conf.URI == "" {
-		log.Printf(context.Background(), "Neo4j configuration is nil or empty")
+		log.Infof(context.Background(), "Neo4j configuration is nil or empty")
 		return nil, nil
 	}
 

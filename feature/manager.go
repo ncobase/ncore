@@ -294,7 +294,7 @@ func (m *Manager) RegisterRoutes(router *gin.Engine) {
 
 	for _, f := range m.features {
 		f.Instance.RegisterRoutes(router)
-		log.Infof(context.Background(), "Registered routes for %s", f.Metadata.Name)
+		// log.Infof(context.Background(), "Registered routes for %s", f.Metadata.Name)
 	}
 }
 
