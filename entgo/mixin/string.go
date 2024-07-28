@@ -26,6 +26,7 @@ type StringMixin struct {
 	MatchRegex  *regexp.Regexp
 	Sensitive   bool
 	DefaultFunc any
+	Default     string
 }
 
 // Fields of the StringMixin.
@@ -60,6 +61,9 @@ func (m StringMixin) Fields() []ent.Field {
 	}
 	if m.DefaultFunc != nil {
 		f = f.DefaultFunc(m.DefaultFunc)
+	}
+	if m.Default != "" {
+		f = f.Default(m.Default)
 	}
 	return []ent.Field{f}
 }
@@ -98,8 +102,11 @@ var (
 	DisplayName    = StringMixin{Field: "display_name", Comment: "display name", Optional: true}
 	Language       = StringMixin{Field: "language", Comment: "language", Optional: true}
 	About          = StringMixin{Field: "about", Comment: "about", Optional: true}
+	Identifier     = StringMixin{Field: "identifier", Comment: "Identifier", Optional: true, NotEmpty: true}
 	Name           = StringMixin{Field: "name", Comment: "name", Optional: true}
 	NameUnique     = StringMixin{Field: "name", Comment: "name", Unique: true, NotEmpty: true, Optional: true}
+	Prefix         = StringMixin{Field: "prefix", Comment: "prefix", Optional: true}
+	Suffix         = StringMixin{Field: "suffix", Comment: "suffix", Optional: true}
 	Label          = StringMixin{Field: "label", Comment: "label", Optional: true}
 	Code           = StringMixin{Field: "code", Comment: "code", Optional: true}
 	Slug           = StringMixin{Field: "slug", Comment: "slug / alias", Optional: true}
@@ -149,6 +156,15 @@ var (
 	UpdatedBy      = StringMixin{Field: "updated_by", Comment: "id of the last updater", Optional: true, MaxLen: nanoid.PrimaryKeySize}
 	DeletedBy      = StringMixin{Field: "deleted_by", Comment: "id of the deleter", Optional: true, MaxLen: nanoid.PrimaryKeySize}
 )
+
+// DateFormat default date format
+func DateFormat(f ...string) StringMixin {
+	format := "20060102"
+	if len(f) > 0 {
+		format = f[0]
+	}
+	return StringMixin{Field: "date_format", Comment: "Date format, default YYYYMMDD", Optional: true, Default: format}
+}
 
 // OperatorBy combines CreatedBy, UpdatedBy, and DeletedBy fields into a single mixin.
 type OperatorBy struct{ mixin.Schema }

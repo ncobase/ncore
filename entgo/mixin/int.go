@@ -32,7 +32,10 @@ var _ ent.Mixin = (*IntField)(nil)
 
 // Specific mixins can be created using the generic BoolMixin.
 var (
-	Status = IntField{Field: "status", Comment: "status: 0 activated, 1 unactivated, 2 disabled", Default: 0}
-	Order  = IntField{Field: "order", Comment: "display order", Default: 0}
-	Size   = IntField{Field: "size", Comment: "size in bytes", Default: 0}
+	Status        = IntField{Field: "status", Comment: "status: 0 activated, 1 unactivated, 2 disabled", Default: 0}
+	Order         = IntField{Field: "order", Comment: "display order", Default: 0}
+	Size          = IntField{Field: "size", Comment: "size in bytes", Default: 0}
+	IncrementStep = IntField{Field: "increment_step", Comment: "Increment step", Default: 1}
+	StartValue    = IntField{Field: "start_value", Comment: "Start value", Default: 1}
+	CurrentValue  = IntField{Field: "current_value", Comment: "Current value", Default: 0}
 )
