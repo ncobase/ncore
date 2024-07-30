@@ -93,6 +93,8 @@ func Paginate[T CursorProvider](params Params, paginateFunc PagingFunc[T]) (Resu
 				items[i], items[j] = items[j], items[i]
 			}
 		}
+	} else if len(items) == 0 {
+		items = []T{}
 	}
 
 	return Result[T]{
