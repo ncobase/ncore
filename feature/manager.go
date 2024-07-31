@@ -8,6 +8,7 @@ import (
 	"ncobase/common/log"
 	"ncobase/common/resp"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
@@ -301,54 +302,85 @@ func (m *Manager) RegisterRoutes(router *gin.Engine) {
 }
 
 // getInitOrder returns the initialization order based on dependencies
+//
+// noDeps - modules with no dependencies, first to initialize
+// withDeps - modules with dependencies
+// special - special modules that should be ordered last
 func getInitOrder(features map[string]*Wrapper) ([]string, error) {
-	graph := make(map[string][]string)
-	inDegree := make(map[string]int)
+	var noDeps, withDeps, special []string
+	specialModules := []string{"socket", "linker"} // exclude these modules from dependency check, ordering of these modules should be fixed
+	specialSet := make(map[string]bool)
+	for _, m := range specialModules {
+		specialSet[m] = true
+	}
 
-	// Build dependency graph and calculate in-degrees
+	dependencies := make(map[string]map[string]bool)
+	initialized := make(map[string]bool)
+
+	// analyze dependencies, classify modules into noDeps and withDeps
 	for name, feature := range features {
-		if name == "linker" {
-			continue // Skip 'linker'
+		if specialSet[name] {
+			special = append(special, name)
+			continue
 		}
 
+		deps := make(map[string]bool)
 		for _, dep := range feature.Metadata.Dependencies {
-			if dep == "linker" {
-				continue // Skip dependency on 'linker'
+			if !specialSet[dep] {
+				deps[dep] = true
 			}
-			graph[dep] = append(graph[dep], name)
-			inDegree[name]++
+		}
+
+		if len(deps) == 0 {
+			noDeps = append(noDeps, name)
+			initialized[name] = true
+		} else {
+			withDeps = append(withDeps, name)
+			dependencies[name] = deps
 		}
 	}
 
-	// Initialize order and queue
+	// sort noDeps modules, options
+	sort.Strings(noDeps)
+
+	// sort withDeps modules
 	var order []string
-	var queue []string
+	order = append(order, noDeps...)
 
-	// Initialize queue with features that have zero in-degree
-	for name := range features {
-		if inDegree[name] == 0 && name != "linker" {
-			queue = append(queue, name)
-		}
-	}
+	for len(withDeps) > 0 {
+		progress := false
+		remainingDeps := withDeps[:0]
 
-	for len(queue) > 0 {
-		name := queue[0]
-		queue = queue[1:]
-		order = append(order, name)
+		for _, name := range withDeps {
+			canInitialize := true
+			for dep := range dependencies[name] {
+				if !initialized[dep] {
+					canInitialize = false
+					break
+				}
+			}
 
-		for _, dep := range graph[name] {
-			inDegree[dep]--
-			if inDegree[dep] == 0 && dep != "linker" {
-				queue = append(queue, dep)
+			if canInitialize {
+				order = append(order, name)
+				initialized[name] = true
+				progress = true
+			} else {
+				remainingDeps = append(remainingDeps, name)
 			}
 		}
+
+		if !progress {
+			return nil, fmt.Errorf("cyclic dependency detected")
+		}
+
+		withDeps = remainingDeps
 	}
 
-	// Append 'linker' module at the end of the order if it exists
-	if _, ok := features["linker"]; ok {
-		order = append(order, "linker")
-	} else if len(order) != len(features) {
-		return nil, fmt.Errorf("cyclic dependency detected")
+	// add special modules
+	for _, name := range specialModules {
+		if _, ok := features[name]; ok {
+			order = append(order, name)
+		}
 	}
 
 	return order, nil
