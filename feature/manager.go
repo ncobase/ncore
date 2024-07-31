@@ -293,8 +293,10 @@ func (m *Manager) RegisterRoutes(router *gin.Engine) {
 	defer m.mu.RUnlock()
 
 	for _, f := range m.features {
-		f.Instance.RegisterRoutes(router)
-		// log.Infof(context.Background(), "Registered routes for %s", f.Metadata.Name)
+		if f.Instance.GetHandlers() != nil {
+			f.Instance.RegisterRoutes(router)
+			log.Infof(context.Background(), "Registered routes for %s", f.Metadata.Name)
+		}
 	}
 }
 
