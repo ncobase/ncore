@@ -14,7 +14,6 @@ import (
 	"ncobase/common/config"
 	"ncobase/common/elastic"
 	"ncobase/common/meili"
-	"ncobase/common/uuid"
 
 	"github.com/sirupsen/logrus"
 )
@@ -22,7 +21,6 @@ import (
 // Key constants
 const (
 	TraceIDKey      = "trace_id"
-	UserIDKey       = "user_id"
 	VersionKey      = "version"
 	SpanTitleKey    = "title"
 	SpanFunctionKey = "function"
@@ -80,23 +78,23 @@ func Init(c *config.Logger) (func(), error) {
 		}
 	}
 
-	// // Initialize MeiliSearch client
-	// if c.Meilisearch.Host != "" {
-	// 	meiliClient = meili.NewMeilisearch(c.Meilisearch.Host, c.Meilisearch.APIKey)
-	// 	indexName = c.IndexName
-	// 	AddMeiliSearchHook()
-	// }
-	//
-	// // Initialize Elasticsearch client
-	// if len(c.Elasticsearch.Addresses) > 0 {
-	// 	var err error
-	// 	esClient, err = elastic.NewClient(c.Elasticsearch.Addresses, c.Elasticsearch.Username, c.Elasticsearch.Password)
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("error initializing Elasticsearch client: %w", err)
-	// 	}
-	// 	indexName = c.IndexName
-	// 	AddElasticSearchHook()
-	// }
+	// Initialize MeiliSearch client
+	if c.Meilisearch.Host != "" {
+		meiliClient = meili.NewMeilisearch(c.Meilisearch.Host, c.Meilisearch.APIKey)
+		indexName = c.IndexName
+		AddMeiliSearchHook()
+	}
+
+	// Initialize Elasticsearch client
+	if len(c.Elasticsearch.Addresses) > 0 {
+		var err error
+		esClient, err = elastic.NewClient(c.Elasticsearch.Addresses, c.Elasticsearch.Username, c.Elasticsearch.Password)
+		if err != nil {
+			return nil, fmt.Errorf("error initializing Elasticsearch client: %w", err)
+		}
+		indexName = c.IndexName
+		AddElasticSearchHook()
+	}
 
 	// Return cleanup function
 	return func() {
@@ -142,33 +140,20 @@ func periodicLogRotation() {
 	}
 }
 
-// ContextWithTraceID ensures a trace ID is present in the context
-func ContextWithTraceID(ctx context.Context) context.Context {
-	if GetTraceID(ctx) == "" {
-		return context.WithValue(ctx, TraceIDKey, uuid.New().String())
-	}
-	return ctx
+// EntryWithFields creates a new log entry with the given fields and context
+func EntryWithFields(ctx context.Context, fields logrus.Fields) *logrus.Entry {
+	return entryFromContext(ctx).WithFields(fields)
 }
 
-// GetTraceID retrieves the trace ID from the context
-func GetTraceID(ctx context.Context) string {
-	if traceID, ok := ctx.Value(TraceIDKey).(string); ok {
-		return traceID
-	}
-	return ""
-}
-
-// EntryFromContext creates a new log entry with fields from context
-func EntryFromContext(ctx context.Context) *logrus.Entry {
+// entryFromContext creates a new log entry with fields from context
+func entryFromContext(ctx context.Context) *logrus.Entry {
 	fields := logrus.Fields{}
 
-	if traceID := GetTraceID(ctx); traceID != "" {
-		fields[TraceIDKey] = traceID
+	traceID := getTraceID(ctx)
+	if traceID == "" {
+		_, traceID = EnsureTraceID(ctx)
 	}
-
-	if userID, ok := ctx.Value(UserIDKey).(string); ok {
-		fields[UserIDKey] = userID
-	}
+	fields[TraceIDKey] = traceID
 
 	if version != "" {
 		fields[VersionKey] = version
@@ -177,24 +162,52 @@ func EntryFromContext(ctx context.Context) *logrus.Entry {
 	return StandardLogger().WithFields(fields)
 }
 
-func Debugf(ctx context.Context, format string, args ...interface{}) {
-	EntryFromContext(ctx).Debugf(format, args...)
+func Infof(ctx context.Context, format string, args ...any) {
+	entryFromContext(ctx).Infof(format, args...)
 }
 
-func Infof(ctx context.Context, format string, args ...interface{}) {
-	EntryFromContext(ctx).Infof(format, args...)
+func Debugf(ctx context.Context, format string, args ...any) {
+	entryFromContext(ctx).Debugf(format, args...)
 }
 
-func Warnf(ctx context.Context, format string, args ...interface{}) {
-	EntryFromContext(ctx).Warnf(format, args...)
+func Warnf(ctx context.Context, format string, args ...any) {
+	entryFromContext(ctx).Warnf(format, args...)
 }
 
-func Errorf(ctx context.Context, format string, args ...interface{}) {
-	EntryFromContext(ctx).Errorf(format, args...)
+func Errorf(ctx context.Context, format string, args ...any) {
+	entryFromContext(ctx).Errorf(format, args...)
 }
 
-func Fatalf(ctx context.Context, format string, args ...interface{}) {
-	EntryFromContext(ctx).Fatalf(format, args...)
+func Fatalf(ctx context.Context, format string, args ...any) {
+	entryFromContext(ctx).Fatalf(format, args...)
+}
+
+func Panicf(ctx context.Context, format string, args ...any) {
+	entryFromContext(ctx).Panicf(format, args...)
+}
+
+func Info(ctx context.Context, args ...any) {
+	entryFromContext(ctx).Info(args...)
+}
+
+func Debug(ctx context.Context, args ...any) {
+	entryFromContext(ctx).Debug(args...)
+}
+
+func Warn(ctx context.Context, args ...any) {
+	entryFromContext(ctx).Warn(args...)
+}
+
+func Error(ctx context.Context, args ...any) {
+	entryFromContext(ctx).Error(args...)
+}
+
+func Fatal(ctx context.Context, args ...any) {
+	entryFromContext(ctx).Fatal(args...)
+}
+
+func Panic(ctx context.Context, args ...any) {
+	entryFromContext(ctx).Panic(args...)
 }
 
 // MeiliSearch and Elasticsearch log hooks
@@ -232,15 +245,33 @@ func (h *ElasticSearchHook) Fire(entry *logrus.Entry) error {
 // AddMeiliSearchHook adds MeiliSearch hook to logrus
 func AddMeiliSearchHook() {
 	if meiliClient != nil {
-		StandardLogger().AddHook(&MeiliSearchHook{})
+		hook := &MeiliSearchHook{}
+		if !hookExists(hook) {
+			StandardLogger().AddHook(hook)
+		}
 	}
 }
 
 // AddElasticSearchHook adds Elasticsearch hook to logrus
 func AddElasticSearchHook() {
 	if esClient != nil {
-		StandardLogger().AddHook(&ElasticSearchHook{})
+		hook := &ElasticSearchHook{}
+		if !hookExists(hook) {
+			StandardLogger().AddHook(hook)
+		}
 	}
+}
+
+// hookExists checks if hook already exists
+func hookExists(hook logrus.Hook) bool {
+	for _, h := range StandardLogger().Hooks {
+		for _, existingHook := range h {
+			if existingHook == hook {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // SetOutput sets the output destination for the logger

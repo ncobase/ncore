@@ -6,25 +6,24 @@ const AuthorizationKey string = "Authorization"
 // BearerKey Bearer token prefix
 const BearerKey string = "Bearer "
 
-// XMdUserKey global user id
-const XMdUserKey string = "x-md-uid"
+// GinContextKey gin context key
+const GinContextKey = "gin-context"
 
-// XMdUsernameKey global username
-const XMdUsernameKey string = "x-md-uname"
+// TraceKey global trace id
+const TraceKey string = "x-md-trace"
 
-// XMdTokenKey global token
-const XMdTokenKey string = "x-md-token"
+// UserKey global user id
+const UserKey string = "x-md-uid"
 
-// XMdTenantKey global tenant id
-// XMdTenantKey = XMdDomainKey
-const XMdTenantKey string = "x-md-tid"
+// UsernameKey global username
+const UsernameKey string = "x-md-uname"
 
-// XMdDomainKey global domain id
-// XMdDomainKey = XMdTenantKey
-const XMdDomainKey string = "x-md-did"
+// TokenKey global token
+const TokenKey string = "x-md-token"
 
-// XMdTotalKey result total with response
-const XMdTotalKey string = "x-md-total"
+// TenantKey global tenant id
+// TenantKey = XMdDomainKey
+const TenantKey string = "x-md-tid"
 
-// XMdTraceKey global trace id
-const XMdTraceKey string = "x-md-trace"
+// TotalKey result total with response
+const TotalKey string = "x-md-total"
