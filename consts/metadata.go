@@ -25,3 +25,6 @@ const XMdDomainKey string = "x-md-did"
 
 // XMdTotalKey result total with response
 const XMdTotalKey string = "x-md-total"
+
+// XMdTraceKey global trace id
+const XMdTraceKey string = "x-md-trace"
