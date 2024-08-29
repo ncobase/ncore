@@ -14,4 +14,4 @@ const (
 )
 
 // PrimaryKey is the character set used for primary keys
-const PrimaryKey = Number + Lowercase + "_-"
+const PrimaryKey = Number + Lowercase + Uppercase + "_-"
