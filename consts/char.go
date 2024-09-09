@@ -15,3 +15,6 @@ const (
 
 // PrimaryKey is the character set used for primary keys
 const PrimaryKey = NumLowerUpper
+
+// PrimaryKeySize is the length of the primary key
+const PrimaryKeySize = 16

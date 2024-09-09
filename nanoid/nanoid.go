@@ -10,8 +10,7 @@ import (
 )
 
 const (
-	defaultSize    = 16
-	PrimaryKeySize = defaultSize
+	defaultSize = 16
 )
 
 var DefaultAlphabetLen = len(consts.NumLowerUpper)
@@ -56,7 +55,7 @@ func Number(l ...int) string {
 
 // PrimaryKey generate primary key
 func PrimaryKey(l ...int) func() string {
-	size := PrimaryKeySize
+	size := consts.PrimaryKeySize
 	if len(l) > 0 {
 		size = l[0]
 	}
@@ -70,7 +69,7 @@ func IsPrimaryKey(id string) bool {
 	if validator.IsEmpty(id) {
 		return false
 	}
-	size := PrimaryKeySize
+	size := consts.PrimaryKeySize
 	strLen := len(id)
 	inAlphabet := strings.ContainsAny(consts.PrimaryKey, id) && (DefaultAlphabetLen*size >= strLen*4)
 	return strLen == size && inAlphabet

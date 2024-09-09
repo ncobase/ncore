@@ -1,6 +1,7 @@
 package mixin
 
 import (
+	"ncobase/common/consts"
 	"ncobase/common/nanoid"
 
 	"entgo.io/ent"
@@ -33,7 +34,7 @@ var PrimaryKey = StringMixin{
 	Comment:     "primary key",
 	Immutable:   true,
 	Unique:      true,
-	MaxLen:      nanoid.PrimaryKeySize,
+	MaxLen:      consts.PrimaryKeySize,
 	DefaultFunc: nanoid.PrimaryKey(),
 }
 

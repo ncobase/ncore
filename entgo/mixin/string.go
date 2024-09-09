@@ -1,9 +1,8 @@
 package mixin
 
 import (
+	"ncobase/common/consts"
 	"regexp"
-
-	"ncobase/common/nanoid"
 
 	"entgo.io/ent"
 	"entgo.io/ent/schema/field"
@@ -152,9 +151,9 @@ var (
 	V5             = StringMixin{Field: "v5", Comment: "version 5", Optional: true}
 	V6             = StringMixin{Field: "v6", Comment: "version 6", Optional: true}
 	V7             = StringMixin{Field: "v7", Comment: "version 7", Optional: true}
-	CreatedBy      = StringMixin{Field: "created_by", Comment: "id of the creator", Optional: true, MaxLen: nanoid.PrimaryKeySize}
-	UpdatedBy      = StringMixin{Field: "updated_by", Comment: "id of the last updater", Optional: true, MaxLen: nanoid.PrimaryKeySize}
-	DeletedBy      = StringMixin{Field: "deleted_by", Comment: "id of the deleter", Optional: true, MaxLen: nanoid.PrimaryKeySize}
+	CreatedBy      = StringMixin{Field: "created_by", Comment: "id of the creator", Optional: true, MaxLen: consts.PrimaryKeySize}
+	UpdatedBy      = StringMixin{Field: "updated_by", Comment: "id of the last updater", Optional: true, MaxLen: consts.PrimaryKeySize}
+	DeletedBy      = StringMixin{Field: "deleted_by", Comment: "id of the deleter", Optional: true, MaxLen: consts.PrimaryKeySize}
 )
 
 // DateFormat default date format
