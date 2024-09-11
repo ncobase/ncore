@@ -9,7 +9,7 @@ import (
 
 // Client Meilisearch client
 type Client struct {
-	client *meilisearch.Client
+	client meilisearch.ServiceManager
 }
 
 // NewMeilisearch new Meilisearch client
@@ -17,10 +17,7 @@ func NewMeilisearch(host, apiKey string) *Client {
 	if host == "" {
 		return &Client{client: nil}
 	}
-	ms := meilisearch.NewClient(meilisearch.ClientConfig{
-		Host:   host,
-		APIKey: apiKey,
-	})
+	ms := meilisearch.New(host, meilisearch.WithAPIKey(apiKey))
 	return &Client{client: ms}
 }
 
@@ -81,6 +78,6 @@ func (c *Client) DeleteDocuments(index, documentID string) error {
 }
 
 // GetClient get Meilisearch client
-func (c *Client) GetClient() *meilisearch.Client {
+func (c *Client) GetClient() meilisearch.ServiceManager {
 	return c.client
 }
