@@ -20,7 +20,6 @@ import (
 
 // Key constants
 const (
-	TraceIDKey      = "trace_id"
 	VersionKey      = "version"
 	SpanTitleKey    = "title"
 	SpanFunctionKey = "function"
@@ -145,20 +144,14 @@ func (l *Logger) periodicLogRotation() {
 	}
 }
 
-// EntryWithFields creates a new log entry with the given fields and context
-func (l *Logger) EntryWithFields(ctx context.Context, fields logrus.Fields) *logrus.Entry {
-	return l.entryFromContext(ctx).WithFields(fields)
-}
-
 // entryFromContext creates a new log entry with fields from context
 func (l *Logger) entryFromContext(ctx context.Context) *logrus.Entry {
 	fields := logrus.Fields{}
 
 	traceID := getTraceID(ctx)
-	if traceID == "" {
-		_, traceID = EnsureTraceID(ctx)
+	if traceID != "" {
+		fields[traceKey] = traceID
 	}
-	fields[TraceIDKey] = traceID
 
 	if l.version != "" {
 		fields[VersionKey] = l.version
@@ -168,52 +161,56 @@ func (l *Logger) entryFromContext(ctx context.Context) *logrus.Entry {
 }
 
 // Log methods
-func (l *Logger) Infof(ctx context.Context, format string, args ...any) {
-	l.entryFromContext(ctx).Infof(format, args...)
+func (l *Logger) log(ctx context.Context, level logrus.Level, args ...interface{}) {
+	l.entryFromContext(ctx).Log(level, args...)
 }
 
-func (l *Logger) Debugf(ctx context.Context, format string, args ...any) {
-	l.entryFromContext(ctx).Debugf(format, args...)
+func (l *Logger) logf(ctx context.Context, level logrus.Level, format string, args ...interface{}) {
+	l.entryFromContext(ctx).Logf(level, format, args...)
 }
 
-func (l *Logger) Warnf(ctx context.Context, format string, args ...any) {
-	l.entryFromContext(ctx).Warnf(format, args...)
+func (l *Logger) Trace(ctx context.Context, args ...interface{}) {
+	l.log(ctx, logrus.TraceLevel, args...)
+}
+func (l *Logger) Debug(ctx context.Context, args ...interface{}) {
+	l.log(ctx, logrus.DebugLevel, args...)
+}
+func (l *Logger) Info(ctx context.Context, args ...interface{}) {
+	l.log(ctx, logrus.InfoLevel, args...)
+}
+func (l *Logger) Warn(ctx context.Context, args ...interface{}) {
+	l.log(ctx, logrus.WarnLevel, args...)
+}
+func (l *Logger) Error(ctx context.Context, args ...interface{}) {
+	l.log(ctx, logrus.ErrorLevel, args...)
+}
+func (l *Logger) Fatal(ctx context.Context, args ...interface{}) {
+	l.log(ctx, logrus.FatalLevel, args...)
+}
+func (l *Logger) Panic(ctx context.Context, args ...interface{}) {
+	l.log(ctx, logrus.PanicLevel, args...)
 }
 
-func (l *Logger) Errorf(ctx context.Context, format string, args ...any) {
-	l.entryFromContext(ctx).Errorf(format, args...)
+func (l *Logger) Tracef(ctx context.Context, format string, args ...interface{}) {
+	l.logf(ctx, logrus.TraceLevel, format, args...)
 }
-
-func (l *Logger) Fatalf(ctx context.Context, format string, args ...any) {
-	l.entryFromContext(ctx).Fatalf(format, args...)
+func (l *Logger) Debugf(ctx context.Context, format string, args ...interface{}) {
+	l.logf(ctx, logrus.DebugLevel, format, args...)
 }
-
-func (l *Logger) Panicf(ctx context.Context, format string, args ...any) {
-	l.entryFromContext(ctx).Panicf(format, args...)
+func (l *Logger) Infof(ctx context.Context, format string, args ...interface{}) {
+	l.logf(ctx, logrus.InfoLevel, format, args...)
 }
-
-func (l *Logger) Info(ctx context.Context, args ...any) {
-	l.entryFromContext(ctx).Info(args...)
+func (l *Logger) Warnf(ctx context.Context, format string, args ...interface{}) {
+	l.logf(ctx, logrus.WarnLevel, format, args...)
 }
-
-func (l *Logger) Debug(ctx context.Context, args ...any) {
-	l.entryFromContext(ctx).Debug(args...)
+func (l *Logger) Errorf(ctx context.Context, format string, args ...interface{}) {
+	l.logf(ctx, logrus.ErrorLevel, format, args...)
 }
-
-func (l *Logger) Warn(ctx context.Context, args ...any) {
-	l.entryFromContext(ctx).Warn(args...)
+func (l *Logger) Fatalf(ctx context.Context, format string, args ...interface{}) {
+	l.logf(ctx, logrus.FatalLevel, format, args...)
 }
-
-func (l *Logger) Error(ctx context.Context, args ...any) {
-	l.entryFromContext(ctx).Error(args...)
-}
-
-func (l *Logger) Fatal(ctx context.Context, args ...any) {
-	l.entryFromContext(ctx).Fatal(args...)
-}
-
-func (l *Logger) Panic(ctx context.Context, args ...any) {
-	l.entryFromContext(ctx).Panic(args...)
+func (l *Logger) Panicf(ctx context.Context, format string, args ...interface{}) {
+	l.logf(ctx, logrus.PanicLevel, format, args...)
 }
 
 // MeiliSearch and Elasticsearch log hooks
@@ -297,34 +294,44 @@ func (l *Logger) AddHook(hook logrus.Hook) {
 }
 
 // Exported functions for backward compatibility
+
 func SetVersion(v string)                   { StandardLogger().SetVersion(v) }
 func Init(c *config.Logger) (func(), error) { return StandardLogger().Init(c) }
+
 func EntryWithFields(ctx context.Context, fields logrus.Fields) *logrus.Entry {
-	return StandardLogger().EntryWithFields(ctx, fields)
+	entry := StandardLogger().entryFromContext(ctx)
+	return entry.WithFields(fields)
 }
-func Infof(ctx context.Context, format string, args ...any) {
-	StandardLogger().Infof(ctx, format, args...)
+
+func Trace(ctx context.Context, args ...interface{}) { StandardLogger().Trace(ctx, args...) }
+func Debug(ctx context.Context, args ...interface{}) { StandardLogger().Debug(ctx, args...) }
+func Info(ctx context.Context, args ...interface{})  { StandardLogger().Info(ctx, args...) }
+func Warn(ctx context.Context, args ...interface{})  { StandardLogger().Warn(ctx, args...) }
+func Error(ctx context.Context, args ...interface{}) { StandardLogger().Error(ctx, args...) }
+func Fatal(ctx context.Context, args ...interface{}) { StandardLogger().Fatal(ctx, args...) }
+func Panic(ctx context.Context, args ...interface{}) { StandardLogger().Panic(ctx, args...) }
+
+func Tracef(ctx context.Context, format string, args ...interface{}) {
+	StandardLogger().Tracef(ctx, format, args...)
 }
-func Debugf(ctx context.Context, format string, args ...any) {
+func Debugf(ctx context.Context, format string, args ...interface{}) {
 	StandardLogger().Debugf(ctx, format, args...)
 }
-func Warnf(ctx context.Context, format string, args ...any) {
+func Infof(ctx context.Context, format string, args ...interface{}) {
+	StandardLogger().Infof(ctx, format, args...)
+}
+func Warnf(ctx context.Context, format string, args ...interface{}) {
 	StandardLogger().Warnf(ctx, format, args...)
 }
-func Errorf(ctx context.Context, format string, args ...any) {
+func Errorf(ctx context.Context, format string, args ...interface{}) {
 	StandardLogger().Errorf(ctx, format, args...)
 }
-func Fatalf(ctx context.Context, format string, args ...any) {
+func Fatalf(ctx context.Context, format string, args ...interface{}) {
 	StandardLogger().Fatalf(ctx, format, args...)
 }
-func Panicf(ctx context.Context, format string, args ...any) {
+func Panicf(ctx context.Context, format string, args ...interface{}) {
 	StandardLogger().Panicf(ctx, format, args...)
 }
-func Info(ctx context.Context, args ...any)  { StandardLogger().Info(ctx, args...) }
-func Debug(ctx context.Context, args ...any) { StandardLogger().Debug(ctx, args...) }
-func Warn(ctx context.Context, args ...any)  { StandardLogger().Warn(ctx, args...) }
-func Error(ctx context.Context, args ...any) { StandardLogger().Error(ctx, args...) }
-func Fatal(ctx context.Context, args ...any) { StandardLogger().Fatal(ctx, args...) }
-func Panic(ctx context.Context, args ...any) { StandardLogger().Panic(ctx, args...) }
-func SetOutput(out io.Writer)                { StandardLogger().SetOutput(out) }
-func AddHook(hook logrus.Hook)               { StandardLogger().AddHook(hook) }
+
+func SetOutput(out io.Writer)  { StandardLogger().SetOutput(out) }
+func AddHook(hook logrus.Hook) { StandardLogger().AddHook(hook) }
