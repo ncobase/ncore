@@ -161,55 +161,55 @@ func (l *Logger) entryFromContext(ctx context.Context) *logrus.Entry {
 }
 
 // Log methods
-func (l *Logger) log(ctx context.Context, level logrus.Level, args ...interface{}) {
+func (l *Logger) log(ctx context.Context, level logrus.Level, args ...any) {
 	l.entryFromContext(ctx).Log(level, args...)
 }
 
-func (l *Logger) logf(ctx context.Context, level logrus.Level, format string, args ...interface{}) {
+func (l *Logger) logf(ctx context.Context, level logrus.Level, format string, args ...any) {
 	l.entryFromContext(ctx).Logf(level, format, args...)
 }
 
-func (l *Logger) Trace(ctx context.Context, args ...interface{}) {
+func (l *Logger) Trace(ctx context.Context, args ...any) {
 	l.log(ctx, logrus.TraceLevel, args...)
 }
-func (l *Logger) Debug(ctx context.Context, args ...interface{}) {
+func (l *Logger) Debug(ctx context.Context, args ...any) {
 	l.log(ctx, logrus.DebugLevel, args...)
 }
-func (l *Logger) Info(ctx context.Context, args ...interface{}) {
+func (l *Logger) Info(ctx context.Context, args ...any) {
 	l.log(ctx, logrus.InfoLevel, args...)
 }
-func (l *Logger) Warn(ctx context.Context, args ...interface{}) {
+func (l *Logger) Warn(ctx context.Context, args ...any) {
 	l.log(ctx, logrus.WarnLevel, args...)
 }
-func (l *Logger) Error(ctx context.Context, args ...interface{}) {
+func (l *Logger) Error(ctx context.Context, args ...any) {
 	l.log(ctx, logrus.ErrorLevel, args...)
 }
-func (l *Logger) Fatal(ctx context.Context, args ...interface{}) {
+func (l *Logger) Fatal(ctx context.Context, args ...any) {
 	l.log(ctx, logrus.FatalLevel, args...)
 }
-func (l *Logger) Panic(ctx context.Context, args ...interface{}) {
+func (l *Logger) Panic(ctx context.Context, args ...any) {
 	l.log(ctx, logrus.PanicLevel, args...)
 }
 
-func (l *Logger) Tracef(ctx context.Context, format string, args ...interface{}) {
+func (l *Logger) Tracef(ctx context.Context, format string, args ...any) {
 	l.logf(ctx, logrus.TraceLevel, format, args...)
 }
-func (l *Logger) Debugf(ctx context.Context, format string, args ...interface{}) {
+func (l *Logger) Debugf(ctx context.Context, format string, args ...any) {
 	l.logf(ctx, logrus.DebugLevel, format, args...)
 }
-func (l *Logger) Infof(ctx context.Context, format string, args ...interface{}) {
+func (l *Logger) Infof(ctx context.Context, format string, args ...any) {
 	l.logf(ctx, logrus.InfoLevel, format, args...)
 }
-func (l *Logger) Warnf(ctx context.Context, format string, args ...interface{}) {
+func (l *Logger) Warnf(ctx context.Context, format string, args ...any) {
 	l.logf(ctx, logrus.WarnLevel, format, args...)
 }
-func (l *Logger) Errorf(ctx context.Context, format string, args ...interface{}) {
+func (l *Logger) Errorf(ctx context.Context, format string, args ...any) {
 	l.logf(ctx, logrus.ErrorLevel, format, args...)
 }
-func (l *Logger) Fatalf(ctx context.Context, format string, args ...interface{}) {
+func (l *Logger) Fatalf(ctx context.Context, format string, args ...any) {
 	l.logf(ctx, logrus.FatalLevel, format, args...)
 }
-func (l *Logger) Panicf(ctx context.Context, format string, args ...interface{}) {
+func (l *Logger) Panicf(ctx context.Context, format string, args ...any) {
 	l.logf(ctx, logrus.PanicLevel, format, args...)
 }
 
@@ -303,33 +303,33 @@ func EntryWithFields(ctx context.Context, fields logrus.Fields) *logrus.Entry {
 	return entry.WithFields(fields)
 }
 
-func Trace(ctx context.Context, args ...interface{}) { StandardLogger().Trace(ctx, args...) }
-func Debug(ctx context.Context, args ...interface{}) { StandardLogger().Debug(ctx, args...) }
-func Info(ctx context.Context, args ...interface{})  { StandardLogger().Info(ctx, args...) }
-func Warn(ctx context.Context, args ...interface{})  { StandardLogger().Warn(ctx, args...) }
-func Error(ctx context.Context, args ...interface{}) { StandardLogger().Error(ctx, args...) }
-func Fatal(ctx context.Context, args ...interface{}) { StandardLogger().Fatal(ctx, args...) }
-func Panic(ctx context.Context, args ...interface{}) { StandardLogger().Panic(ctx, args...) }
+func Trace(ctx context.Context, args ...any) { StandardLogger().Trace(ctx, args...) }
+func Debug(ctx context.Context, args ...any) { StandardLogger().Debug(ctx, args...) }
+func Info(ctx context.Context, args ...any)  { StandardLogger().Info(ctx, args...) }
+func Warn(ctx context.Context, args ...any)  { StandardLogger().Warn(ctx, args...) }
+func Error(ctx context.Context, args ...any) { StandardLogger().Error(ctx, args...) }
+func Fatal(ctx context.Context, args ...any) { StandardLogger().Fatal(ctx, args...) }
+func Panic(ctx context.Context, args ...any) { StandardLogger().Panic(ctx, args...) }
 
-func Tracef(ctx context.Context, format string, args ...interface{}) {
+func Tracef(ctx context.Context, format string, args ...any) {
 	StandardLogger().Tracef(ctx, format, args...)
 }
-func Debugf(ctx context.Context, format string, args ...interface{}) {
+func Debugf(ctx context.Context, format string, args ...any) {
 	StandardLogger().Debugf(ctx, format, args...)
 }
-func Infof(ctx context.Context, format string, args ...interface{}) {
+func Infof(ctx context.Context, format string, args ...any) {
 	StandardLogger().Infof(ctx, format, args...)
 }
-func Warnf(ctx context.Context, format string, args ...interface{}) {
+func Warnf(ctx context.Context, format string, args ...any) {
 	StandardLogger().Warnf(ctx, format, args...)
 }
-func Errorf(ctx context.Context, format string, args ...interface{}) {
+func Errorf(ctx context.Context, format string, args ...any) {
 	StandardLogger().Errorf(ctx, format, args...)
 }
-func Fatalf(ctx context.Context, format string, args ...interface{}) {
+func Fatalf(ctx context.Context, format string, args ...any) {
 	StandardLogger().Fatalf(ctx, format, args...)
 }
-func Panicf(ctx context.Context, format string, args ...interface{}) {
+func Panicf(ctx context.Context, format string, args ...any) {
 	StandardLogger().Panicf(ctx, format, args...)
 }
 
