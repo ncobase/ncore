@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"ncobase/common/email"
-	"ncobase/common/log"
 )
 
 // SetEmailSender sets email sender to context.Context
@@ -44,7 +43,6 @@ func GetEmailSender(ctx context.Context) (email.Sender, error) {
 	// Create email sender based on the configured provider
 	sender, err := email.NewSender(emailProviderConfig)
 	if err != nil {
-		log.Errorf(ctx, "Error creating email sender: %v\n", err)
 		return nil, err
 	}
 

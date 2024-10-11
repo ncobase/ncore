@@ -4,23 +4,22 @@ import (
 	"context"
 	"ncobase/common/config"
 	"ncobase/common/consts"
-	"ncobase/common/tracing"
+	"ncobase/common/uuid"
 
 	"github.com/gin-gonic/gin"
 )
 
-type contextKey string
-
 const (
-	ginContextKey            = contextKey(consts.GinContextKey)
-	userIDKey                = contextKey(consts.UserKey)
-	tenantIDKey              = contextKey(consts.TenantKey)
-	tokenKey                 = contextKey(consts.TokenKey)
-	providerKey   contextKey = "provider"
-	profileKey    contextKey = "profile"
-	configKey     contextKey = "config"
-	emailSender   contextKey = "email_sender"
-	storageKey    contextKey = "storage"
+	ginContextKey = consts.GinContextKey
+	userIDKey     = consts.UserKey
+	tenantIDKey   = consts.TenantKey
+	tokenKey      = consts.TokenKey
+	providerKey   = "provider"
+	profileKey    = "profile"
+	configKey     = "config"
+	emailSender   = "email_sender"
+	storageKey    = "storage"
+	TraceIDKey    = "trace_id"
 )
 
 // FromGinContext extracts the context.Context from *gin.Context.
@@ -42,7 +41,7 @@ func GetGinContext(ctx context.Context) (*gin.Context, bool) {
 }
 
 // GetValue retrieves a value from the context.
-func GetValue(ctx context.Context, key contextKey) any {
+func GetValue(ctx context.Context, key string) any {
 	if c, ok := GetGinContext(ctx); ok {
 		if val, exists := c.Get(string(key)); exists {
 			return val
@@ -52,7 +51,7 @@ func GetValue(ctx context.Context, key contextKey) any {
 }
 
 // SetValue sets a value to the context.
-func SetValue(ctx context.Context, key contextKey, val any) context.Context {
+func SetValue(ctx context.Context, key string, val any) context.Context {
 	if c, ok := GetGinContext(ctx); ok {
 		c.Set(string(key), val)
 	}
@@ -140,16 +139,15 @@ func GetProfile(ctx context.Context) any {
 
 // GetTraceID gets trace id from context.Context or gin.Context.
 func GetTraceID(ctx context.Context) string {
-	if traceID := GetValue(ctx, tracing.TraceIDKey); traceID != "" {
-		return traceID.(string)
+	if traceID, ok := GetValue(ctx, TraceIDKey).(string); ok {
+		return traceID
 	}
-	return tracing.GetTraceID(ctx)
+	return ""
 }
 
 // SetTraceID sets trace id to context.Context and gin.Context if available.
 func SetTraceID(ctx context.Context, traceID string) context.Context {
-	ctx = SetValue(ctx, tracing.TraceIDKey, traceID)
-	return tracing.SetTraceID(ctx, traceID)
+	return SetValue(ctx, TraceIDKey, traceID)
 }
 
 // EnsureTraceID ensures that a trace ID exists in the context.
@@ -157,5 +155,6 @@ func EnsureTraceID(ctx context.Context) (context.Context, string) {
 	if traceID := GetTraceID(ctx); traceID != "" {
 		return ctx, traceID
 	}
-	return tracing.EnsureTraceID(ctx)
+	traceID := uuid.NewString()
+	return SetTraceID(ctx, traceID), traceID
 }

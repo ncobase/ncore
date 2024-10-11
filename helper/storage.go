@@ -2,7 +2,6 @@ package helper
 
 import (
 	"context"
-	"ncobase/common/log"
 	"ncobase/common/storage"
 
 	"github.com/casdoor/oss"
@@ -25,7 +24,6 @@ func GetStorage(ctx context.Context) (oss.StorageInterface, *storage.Config) {
 	// Initialize storage
 	s, err := storage.NewStorage(storageConfig)
 	if err != nil {
-		log.Errorf(ctx, "Error creating storage: %v\n", err)
 		return nil, nil
 	}
 
