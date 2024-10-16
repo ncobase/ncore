@@ -48,4 +48,5 @@ var (
 	Hidden      = BoolMixin{Field: "hidden", Comment: "is hidden", Optional: true}
 	IsCertified = BoolMixin{Field: "is_certified", Comment: "is certified", Optional: true}
 	IsAdmin     = BoolMixin{Field: "is_admin", Comment: "is admin", Optional: true}
+	Autoload    = BoolMixin{Field: "autoload", Comment: "Whether to load the option automatically", Default: true, Optional: true}
 )
