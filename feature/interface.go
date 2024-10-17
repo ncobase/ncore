@@ -23,7 +23,7 @@ type Interface interface {
 	// PostInit performs any necessary setup after initialization
 	PostInit() error
 	// RegisterRoutes registers routes for the feature (optional)
-	RegisterRoutes(router *gin.Engine)
+	RegisterRoutes(router *gin.RouterGroup)
 	// GetHandlers returns the handlers for the feature
 	GetHandlers() Handler
 	// GetServices returns the services for the feature

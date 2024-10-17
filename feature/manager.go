@@ -295,7 +295,8 @@ func (m *Manager) RegisterRoutes(router *gin.Engine) {
 
 	for _, f := range m.features {
 		if f.Instance.GetHandlers() != nil {
-			f.Instance.RegisterRoutes(router)
+			group := router.Group("/" + f.Metadata.Name)
+			f.Instance.RegisterRoutes(group)
 			log.Infof(context.Background(), "Registered routes for %s", f.Metadata.Name)
 		}
 	}
