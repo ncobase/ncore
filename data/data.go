@@ -3,44 +3,32 @@ package data
 import (
 	"context"
 	"database/sql"
-	"io"
 	"ncobase/common/config"
+	"ncobase/common/data/connection"
+	"ncobase/common/data/service"
 	"ncobase/common/elastic"
 	"ncobase/common/log"
 	"ncobase/common/meili"
 
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/redis/go-redis/v9"
+	"github.com/segmentio/kafka-go"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-
-	// sqlite3
-	_ "github.com/mattn/go-sqlite3"
-	// mysql
-	_ "github.com/go-sql-driver/mysql"
-	// postgres
-	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 var (
 	sharedInstance *Data
-	err            error
 )
 
-// Data struct to hold all database connections and clients
 type Data struct {
-	DB  *sql.DB
-	RC  *redis.Client
-	MS  *meili.Client
-	ES  *elastic.Client
-	MG  *mongo.Client
-	Neo neo4j.DriverWithContext
+	Conn *connection.Connections
+	Svc  *service.Services
 }
 
-// Option function type for configuring Data
+// Option function type for configuring Connections
 type Option func(*Data)
 
-// New creates a new Data instance with the provided options
 func New(conf *config.Data, createNewInstance ...bool) (*Data, func(name ...string), error) {
 	var createNew bool
 	if len(createNewInstance) > 0 {
@@ -57,50 +45,14 @@ func New(conf *config.Data, createNewInstance ...bool) (*Data, func(name ...stri
 		return sharedInstance, cleanup, nil
 	}
 
-	d := &Data{}
-
-	var opts []Option
-	if conf.Database != nil && conf.Database.Source != "" {
-		db, err := newDBClient(conf.Database)
-		if err != nil {
-			return nil, nil, err
-		}
-		opts = append(opts, WithDB(db))
+	conn, err := connection.New(conf)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	if conf.Redis != nil && conf.Redis.Addr != "" {
-		rc := newRedis(conf.Redis)
-		opts = append(opts, WithRedis(rc))
-	}
-
-	if conf.Meilisearch != nil && conf.Meilisearch.Host != "" {
-		ms := newMeilisearch(conf.Meilisearch)
-		opts = append(opts, WithMeilisearch(ms))
-	}
-
-	if conf.Elasticsearch != nil && len(conf.Elasticsearch.Addresses) > 0 {
-		es := newElasticsearch(conf.Elasticsearch)
-		opts = append(opts, WithElasticsearch(es))
-	}
-
-	if conf.MongoDB != nil && conf.MongoDB.URI != "" {
-		mg, err := newMongoClient(conf.MongoDB)
-		if err != nil {
-			return nil, nil, err
-		}
-		opts = append(opts, WithMongo(mg))
-	}
-
-	if conf.Neo4j != nil && conf.Neo4j.URI != "" {
-		neo, err := newNeo4jClient(conf.Neo4j)
-		if err != nil {
-			return nil, nil, err
-		}
-		opts = append(opts, WithNeo4j(neo))
-	}
-
-	for _, option := range opts {
-		option(d)
+	d := &Data{
+		Conn: conn,
+		Svc:  service.New(conn),
 	}
 
 	if !createNew {
@@ -117,274 +69,91 @@ func New(conf *config.Data, createNewInstance ...bool) (*Data, func(name ...stri
 	return d, cleanup, nil
 }
 
-// WithDB sets the database client in Data
+// WithDB sets the database client in Connections
 func WithDB(db *sql.DB) Option {
 	return func(d *Data) {
-		d.DB = db
+		d.Conn.DB = db
 	}
 }
 
-// WithRedis sets the Redis client in Data
+// WithRedis sets the Redis client in Connections
 func WithRedis(rc *redis.Client) Option {
 	return func(d *Data) {
-		d.RC = rc
+		d.Conn.RC = rc
 	}
 }
 
-// WithMeilisearch sets the Meilisearch client in Data
+// WithMeilisearch sets the Meilisearch client in Connections
 func WithMeilisearch(ms *meili.Client) Option {
 	return func(d *Data) {
-		d.MS = ms
+		d.Conn.MS = ms
 	}
 }
 
-// WithElasticsearch sets the Elasticsearch client in Data
+// WithElasticsearch sets the Elasticsearch client in Connections
 func WithElasticsearch(es *elastic.Client) Option {
 	return func(d *Data) {
-		d.ES = es
+		d.Conn.ES = es
 	}
 }
 
-// WithMongo sets the MongoDB client in Data
+// WithMongo sets the MongoDB client in Connections
 func WithMongo(mg *mongo.Client) Option {
 	return func(d *Data) {
-		d.MG = mg
+		d.Conn.MG = mg
 	}
 }
 
-// WithNeo4j sets the Neo4j client in Data
+// WithNeo4j sets the Neo4j client in Connections
 func WithNeo4j(neo neo4j.DriverWithContext) Option {
 	return func(d *Data) {
-		d.Neo = neo
+		d.Conn.Neo = neo
 	}
 }
 
-// newDBClient creates a new database client
-func newDBClient(conf *config.Database) (*sql.DB, error) {
-	if conf == nil {
-		log.Fatalf(context.Background(), "Database configuration is nil")
-		return nil, err
+// WithRabbitMQ sets the RabbitMQ client in Connections
+func WithRabbitMQ(rmq *amqp.Connection) Option {
+	return func(d *Data) {
+		d.Conn.RMQ = rmq
 	}
-
-	var db *sql.DB
-	switch conf.Driver {
-	case "postgres":
-		db, err = sql.Open("pgx", conf.Source)
-	case "mysql":
-		db, err = sql.Open("mysql", conf.Source)
-	case "sqlite3":
-		db, err = sql.Open("sqlite3", conf.Source)
-	default:
-		log.Fatalf(context.Background(), "Dialect %v not supported", conf.Driver)
-		return nil, err
-	}
-
-	if err != nil {
-		log.Fatalf(context.Background(), "Failed to open database: %v", err)
-		return nil, err
-	}
-
-	db.SetMaxIdleConns(conf.MaxIdleConn)
-	db.SetMaxOpenConns(conf.MaxOpenConn)
-	db.SetConnMaxLifetime(conf.ConnMaxLifeTime)
-
-	log.Infof(context.Background(), "Database %v connected", conf.Driver)
-
-	return db, nil
 }
 
-// newRedis creates a new Redis client
-func newRedis(conf *config.Redis) *redis.Client {
-	if conf == nil || conf.Addr == "" {
-		log.Infof(context.Background(), "Redis configuration is nil or empty")
-		return nil
+// WithKafka sets the Kafka client in Connections
+func WithKafka(kfk *kafka.Conn) Option {
+	return func(d *Data) {
+		d.Conn.KFK = kfk
 	}
-
-	rc := redis.NewClient(&redis.Options{
-		Addr:         conf.Addr,
-		Username:     conf.Username,
-		Password:     conf.Password,
-		DB:           conf.Db,
-		ReadTimeout:  conf.ReadTimeout,
-		WriteTimeout: conf.WriteTimeout,
-		DialTimeout:  conf.DialTimeout,
-		PoolSize:     10,
-	})
-
-	timeout, cancelFunc := context.WithTimeout(context.Background(), conf.DialTimeout)
-	defer cancelFunc()
-	if err := rc.Ping(timeout).Err(); err != nil {
-		log.Errorf(context.Background(), "Redis connect error: %v", err)
-	}
-
-	log.Infof(context.Background(), "Redis connected")
-
-	return rc
 }
 
-// newMeilisearch creates a new Meilisearch client
-func newMeilisearch(conf *config.Meilisearch) *meili.Client {
-	if conf == nil || conf.Host == "" {
-		log.Infof(context.Background(), "Meilisearch configuration is nil or empty")
-		return nil
-	}
-
-	ms := meili.NewMeilisearch(conf.Host, conf.APIKey)
-
-	if _, err := ms.GetClient().Health(); err != nil {
-		log.Errorf(context.Background(), "Meilisearch connect error: %v", err)
-		return nil
-	}
-
-	log.Infof(context.Background(), "Meilisearch connected")
-
-	return ms
-}
-
-// newElasticsearch creates a new Elasticsearch client
-func newElasticsearch(conf *config.Elasticsearch) *elastic.Client {
-	if conf == nil || len(conf.Addresses) == 0 {
-		log.Infof(context.Background(), "Elasticsearch configuration is nil or empty")
-		return nil
-	}
-
-	es, err := elastic.NewClient(conf.Addresses, conf.Username, conf.Password)
-	if err != nil {
-		log.Errorf(context.Background(), "Elasticsearch client creation error: %v", err)
-		return nil
-	}
-
-	res, err := es.GetClient().Info()
-	if err != nil {
-		log.Errorf(context.Background(), "Elasticsearch connect error: %v", err)
-		return nil
-	}
-	defer func(Body io.ReadCloser) {
-		if err := Body.Close(); err != nil {
-			log.Errorf(context.Background(), "Elasticsearch response body close error: %v", err)
-		}
-	}(res.Body)
-
-	if res.IsError() {
-		log.Errorf(context.Background(), "Elasticsearch info error: %s", res.Status())
-		return nil
-	}
-
-	log.Infof(context.Background(), "Elasticsearch connected")
-
-	return es
-}
-
-// newMongoClient creates a new MongoDB client
-func newMongoClient(conf *config.MongoDB) (*mongo.Client, error) {
-	if conf == nil || conf.URI == "" {
-		log.Infof(context.Background(), "MongoDB configuration is nil or empty")
-		return nil, nil
-	}
-
-	clientOptions := options.Client().ApplyURI(conf.URI)
-	if conf.Username != "" && conf.Password != "" {
-		clientOptions.SetAuth(options.Credential{
-			Username: conf.Username,
-			Password: conf.Password,
-		})
-	}
-
-	client, err := mongo.Connect(context.Background(), clientOptions)
-	if err != nil {
-		log.Errorf(context.Background(), "MongoDB connect error: %v", err)
-		return nil, err
-	}
-	if err := client.Ping(context.Background(), nil); err != nil {
-		log.Errorf(context.Background(), "MongoDB ping error: %v", err)
-		return nil, err
-	}
-
-	log.Infof(context.Background(), "MongoDB connected")
-
-	return client, nil
-}
-
-// newNeo4jClient creates a new Neo4j client
-func newNeo4jClient(conf *config.Neo4j) (neo4j.DriverWithContext, error) {
-	if conf == nil || conf.URI == "" {
-		log.Infof(context.Background(), "Neo4j configuration is nil or empty")
-		return nil, nil
-	}
-
-	driver, err := neo4j.NewDriverWithContext(conf.URI, neo4j.BasicAuth(conf.Username, conf.Password, ""))
-	if err != nil {
-		log.Errorf(context.Background(), "Neo4j connect error: %v", err)
-		return nil, err
-	}
-
-	if err := driver.VerifyConnectivity(context.Background()); err != nil {
-		log.Errorf(context.Background(), "Neo4j verify connectivity error: %v", err)
-		return nil, err
-	}
-
-	log.Infof(context.Background(), "Neo4j connected")
-
-	return driver, nil
-}
-
-// Close closes all resources in Data and returns any errors encountered
 func (d *Data) Close() (errs []error) {
-	// Close Redis client if not already closed
-	if d.RC != nil {
-		if err := d.RC.Close(); err != nil {
-			errs = append(errs, err)
-		} else {
-			d.RC = nil
-		}
+	// Close connections
+	if connErrs := d.Conn.Close(); len(connErrs) > 0 {
+		errs = append(errs, connErrs...)
 	}
 
-	// Close SQL database client if not already closed
-	if d.DB != nil {
-		if err := d.DB.Close(); err != nil {
-			errs = append(errs, err)
-		} else {
-			d.DB = nil
-		}
-	}
-
-	// Disconnect MongoDB client if not already disconnected
-	if d.MG != nil {
-		if err := d.MG.Disconnect(context.Background()); err != nil {
-			errs = append(errs, err)
-		} else {
-			d.MG = nil
-		}
-	}
-
-	// Close Neo4j client if not already closed
-	if d.Neo != nil {
-		if err := d.Neo.Close(context.Background()); err != nil {
-			errs = append(errs, err)
-		} else {
-			d.Neo = nil
-		}
+	// Close services
+	if svcEerrs := d.Svc.Close(); len(svcEerrs) > 0 {
+		errs = append(errs, svcEerrs...)
 	}
 
 	if len(errs) > 0 {
 		return errs
 	}
+
 	return nil
 }
 
-// Ping checks the database connection
 func (d *Data) Ping(ctx context.Context) error {
-	if d.DB != nil {
-		return d.DB.PingContext(ctx)
+	if d.Conn.DB != nil {
+		return d.Conn.DB.PingContext(ctx)
 	}
 	return nil
 }
 
-// GetMongoDatabase retrieves a specific MongoDB database
-func (d *Data) GetMongoDatabase(databaseName string) *mongo.Database {
-	if d.MG == nil {
+func (d *Data) GetMongoDatabase(databaseName string) interface{} {
+	if d.Conn.MG == nil {
 		log.Errorf(context.Background(), "MongoDB client is nil")
 		return nil
 	}
-	return d.MG.Database(databaseName)
+	return d.Conn.MG.Database(databaseName)
 }

@@ -14,6 +14,8 @@ type Data struct {
 	*Elasticsearch
 	*MongoDB
 	*Neo4j
+	*RabbitMQ
+	*Kafka
 }
 
 // Database database config struct
@@ -65,6 +67,27 @@ type Neo4j struct {
 	Password string
 }
 
+// RabbitMQ rabbitmq config struct
+type RabbitMQ struct {
+	URL               string
+	Username          string
+	Password          string
+	Vhost             string
+	ConnectionTimeout time.Duration
+	HeartbeatInterval time.Duration
+}
+
+// Kafka kafka config struct
+type Kafka struct {
+	Brokers        []string
+	ClientID       string
+	ConsumerGroup  string
+	Topic          string
+	ReadTimeout    time.Duration
+	WriteTimeout   time.Duration
+	ConnectTimeout time.Duration
+}
+
 func getDataConfig(v *viper.Viper) *Data {
 	return &Data{
 		Database: &Database{
@@ -103,6 +126,23 @@ func getDataConfig(v *viper.Viper) *Data {
 			URI:      v.GetString("data.neo4j.uri"),
 			Username: v.GetString("data.neo4j.username"),
 			Password: v.GetString("data.neo4j.password"),
+		},
+		RabbitMQ: &RabbitMQ{
+			URL:               v.GetString("data.rabbitmq.url"),
+			Username:          v.GetString("data.rabbitmq.username"),
+			Password:          v.GetString("data.rabbitmq.password"),
+			Vhost:             v.GetString("data.rabbitmq.vhost"),
+			ConnectionTimeout: v.GetDuration("data.rabbitmq.connection_timeout"),
+			HeartbeatInterval: v.GetDuration("data.rabbitmq.heartbeat_interval"),
+		},
+		Kafka: &Kafka{
+			Brokers:        v.GetStringSlice("data.kafka.brokers"),
+			ClientID:       v.GetString("data.kafka.client_id"),
+			ConsumerGroup:  v.GetString("data.kafka.consumer_group"),
+			Topic:          v.GetString("data.kafka.topic"),
+			ReadTimeout:    v.GetDuration("data.kafka.read_timeout"),
+			WriteTimeout:   v.GetDuration("data.kafka.write_timeout"),
+			ConnectTimeout: v.GetDuration("data.kafka.connect_timeout"),
 		},
 	}
 }
