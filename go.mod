@@ -26,7 +26,9 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.24
 	github.com/meilisearch/meilisearch-go v0.28.0
 	github.com/neo4j/neo4j-go-driver/v5 v5.25.0
+	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/redis/go-redis/v9 v9.6.1
+	github.com/segmentio/kafka-go v0.4.47
 	github.com/sendgrid/sendgrid-go v3.16.0+incompatible
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.19.0
@@ -87,10 +89,8 @@ require (
 	github.com/montanaflynn/stats v0.7.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/pierrec/lz4/v4 v4.1.15 // indirect
-	github.com/rabbitmq/amqp091-go v1.10.0 // indirect
 	github.com/sagikazarmark/locafero v0.6.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
-	github.com/segmentio/kafka-go v0.4.47 // indirect
 	github.com/sendgrid/rest v2.6.9+incompatible // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
