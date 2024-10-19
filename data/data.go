@@ -150,7 +150,7 @@ func (d *Data) Ping(ctx context.Context) error {
 	return nil
 }
 
-func (d *Data) GetMongoDatabase(databaseName string) interface{} {
+func (d *Data) GetMongoDatabase(databaseName string) any {
 	if d.Conn.MG == nil {
 		log.Errorf(context.Background(), "MongoDB client is nil")
 		return nil
