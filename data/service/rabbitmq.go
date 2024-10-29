@@ -77,5 +77,8 @@ func (s *RabbitMQService) ConsumeMessages(queue string, handler func([]byte) err
 
 // Close closes the RabbitMQ service
 func (s *RabbitMQService) Close() error {
+	if err := s.conn.Close(); err != nil {
+		return fmt.Errorf("failed to close RabbitMQ connection: %w", err)
+	}
 	return s.conn.Close()
 }

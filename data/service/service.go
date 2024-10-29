@@ -15,15 +15,21 @@ func New(conn *connection.Connections) *Services {
 }
 
 func (s *Services) Close() (errs []error) {
-	// Close RabbitMQ service
-	if err := s.RabbitMQ.Close(); err != nil {
-		errs = append(errs, err)
-	}
-	// Close Kafka service
-	if err := s.Kafka.Close(); err != nil {
-		errs = append(errs, err)
+	// Close RabbitMQ service if connection exists
+	if s.RabbitMQ != nil && s.RabbitMQ.conn != nil {
+		if err := s.RabbitMQ.conn.Close(); err != nil {
+			errs = append(errs, err)
+		}
 	}
 
+	// Close Kafka service if connection exists
+	if s.Kafka != nil && s.Kafka.conn != nil {
+		if err := s.Kafka.conn.Close(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	// Return errors if any
 	if len(errs) > 0 {
 		return errs
 	}

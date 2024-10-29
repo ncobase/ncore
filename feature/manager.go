@@ -38,10 +38,16 @@ func NewManager(conf *config.Config) (*Manager, error) {
 		return nil, fmt.Errorf("failed to create data connections: %v", err)
 	}
 
-	consulClient, err := api.NewClient(api.DefaultConfig())
-	if err != nil {
-		cleanup()
-		return nil, fmt.Errorf("failed to create Consul client: %v", err)
+	var consulClient *api.Client
+	if conf.Consul == nil {
+		consulConfig := api.DefaultConfig()
+		consulConfig.Address = conf.Consul.Address
+		consulConfig.Scheme = conf.Consul.Scheme
+		consulClient, err = api.NewClient(consulConfig)
+		if err != nil {
+			cleanup()
+			return nil, fmt.Errorf("failed to create Consul client: %v", err)
+		}
 	}
 
 	return &Manager{
@@ -340,6 +346,11 @@ func (m *Manager) RegisterConsulService(name string, address string, port int) e
 
 // DeregisterConsulService deregisters a service from Consul
 func (m *Manager) DeregisterConsulService(name string) error {
+	if m.conf.Consul == nil || m.consul == nil {
+		// Consul is not configured
+		// log.Info(context.Background(), "Consul is not configured")
+		return nil
+	}
 	return m.consul.Agent().ServiceDeregister(name)
 }
 
