@@ -451,12 +451,12 @@ func (m *Manager) GetStatus() map[string]string {
 }
 
 // ManageRoutes manages routes for all features / plugins
-func (m *Manager) ManageRoutes(e *gin.Engine) {
-	e.GET("/features", func(c *gin.Context) {
+func (m *Manager) ManageRoutes(r *gin.RouterGroup) {
+	r.GET("/features", func(c *gin.Context) {
 		resp.Success(c.Writer, m.GetFeatures())
 	})
 
-	e.POST("/features/load", func(c *gin.Context) {
+	r.POST("/features/load", func(c *gin.Context) {
 		name := c.Query("name")
 		if name == "" {
 			resp.Fail(c.Writer, resp.BadRequest(ecode.FieldIsRequired("name")))
@@ -471,7 +471,7 @@ func (m *Manager) ManageRoutes(e *gin.Engine) {
 		resp.Success(c.Writer, fmt.Sprintf("%s loaded successfully", name))
 	})
 
-	e.POST("/features/unload", func(c *gin.Context) {
+	r.POST("/features/unload", func(c *gin.Context) {
 		name := c.Query("name")
 		if name == "" {
 			resp.Fail(c.Writer, resp.BadRequest(ecode.FieldIsRequired("name")))
@@ -484,7 +484,7 @@ func (m *Manager) ManageRoutes(e *gin.Engine) {
 		resp.Success(c.Writer, fmt.Sprintf("%s unloaded successfully", name))
 	})
 
-	e.POST("/features/reload", func(c *gin.Context) {
+	r.POST("/features/reload", func(c *gin.Context) {
 		name := c.Query("name")
 		if name == "" {
 			resp.Fail(c.Writer, resp.BadRequest(ecode.FieldIsRequired("name")))
