@@ -44,14 +44,22 @@ type Interface interface {
 
 // Metadata represents the metadata of a feature
 type Metadata struct {
-	Name         string   `json:"name,omitempty"`
-	Version      string   `json:"version,omitempty"`
+	// Name is the name of the feature
+	Name string `json:"name,omitempty"`
+	// Version is the version of the feature
+	Version string `json:"version,omitempty"`
+	// Dependencies are the dependencies of the feature
 	Dependencies []string `json:"dependencies,omitempty"`
-	Description  string   `json:"description,omitempty"`
+	// Description is the description of the feature
+	Description string `json:"description,omitempty"`
+	// Group is the belong group of the feature
+	Group string `json:"group,omitempty"`
 }
 
 // Wrapper wraps a Interface instance with its metadata
 type Wrapper struct {
-	Metadata Metadata  `json:"metadata"`
+	// Metadata is the metadata of the feature
+	Metadata Metadata `json:"metadata"`
+	// Instance is the instance of the feature
 	Instance Interface `json:"instance,omitempty"`
 }
