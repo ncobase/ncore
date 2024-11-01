@@ -589,7 +589,7 @@ func (m *Manager) ExecuteWithCircuitBreaker(featureName string, fn func() (any, 
 // special - special modules that should be ordered last
 func getInitOrder(features map[string]*Wrapper) ([]string, error) {
 	var noDeps, withDeps, special []string
-	specialModules := []string{"socket", "linker"} // exclude these modules from dependency check
+	specialModules := []string{"relation", "relations", "linker", "linkers"} // exclude these modules from dependency check
 	specialSet := make(map[string]bool)
 	for _, m := range specialModules {
 		specialSet[m] = true
@@ -597,6 +597,12 @@ func getInitOrder(features map[string]*Wrapper) ([]string, error) {
 
 	dependencies := make(map[string]map[string]bool)
 	initialized := make(map[string]bool)
+
+	// Collect all available feature names
+	availableFeatures := make(map[string]bool)
+	for name := range features {
+		availableFeatures[name] = true
+	}
 
 	// analyze dependencies, classify modules into noDeps and withDeps
 	for name, feature := range features {
@@ -606,8 +612,14 @@ func getInitOrder(features map[string]*Wrapper) ([]string, error) {
 		}
 
 		deps := make(map[string]bool)
+
+		// Check if all dependencies exist
 		for _, dep := range feature.Metadata.Dependencies {
 			if !specialSet[dep] {
+				// Check if dependency exists in features
+				if !availableFeatures[dep] {
+					return nil, fmt.Errorf("feature '%s' depends on '%s' which does not exist", name, dep)
+				}
 				deps[dep] = true
 			}
 		}
