@@ -18,7 +18,8 @@ import (
 )
 
 var (
-	sharedInstance *Data
+	sharedInstance    *Data
+	errExecuteCleanup = "execute %s data cleanup."
 )
 
 type Data struct {
@@ -37,7 +38,7 @@ func New(conf *config.Data, createNewInstance ...bool) (*Data, func(name ...stri
 
 	if !createNew && sharedInstance != nil {
 		cleanup := func(name ...string) {
-			log.Infof(context.Background(), "execute %s data cleanup.", name[0])
+			// log.Infof(context.Background(), errExecuteCleanup, name[0])
 			if errs := sharedInstance.Close(); len(errs) > 0 {
 				log.Fatalf(context.Background(), "cleanup errors: %v", errs)
 			}
@@ -60,7 +61,7 @@ func New(conf *config.Data, createNewInstance ...bool) (*Data, func(name ...stri
 	}
 
 	cleanup := func(name ...string) {
-		log.Infof(context.Background(), "execute %s data cleanup.", name[0])
+		// log.Infof(context.Background(), errExecuteCleanup, name[0])
 		if errs := d.Close(); len(errs) > 0 {
 			log.Fatalf(context.Background(), "cleanup errors: %v", errs)
 		}
@@ -136,11 +137,7 @@ func (d *Data) Close() (errs []error) {
 		errs = append(errs, svcEerrs...)
 	}
 
-	if len(errs) > 0 {
-		return errs
-	}
-
-	return nil
+	return errs
 }
 
 func (d *Data) Ping(ctx context.Context) error {

@@ -3,10 +3,12 @@ package connection
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"ncobase/common/config"
 	"ncobase/common/elastic"
 	"ncobase/common/log"
 	"ncobase/common/meili"
+	"sync"
 
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -17,14 +19,16 @@ import (
 
 // Connections struct to hold all database connections and clients
 type Connections struct {
-	DB  *sql.DB
-	RC  *redis.Client
-	MS  *meili.Client
-	ES  *elastic.Client
-	MG  *mongo.Client
-	Neo neo4j.DriverWithContext
-	RMQ *amqp.Connection
-	KFK *kafka.Conn
+	DB     *sql.DB
+	RC     *redis.Client
+	MS     *meili.Client
+	ES     *elastic.Client
+	MG     *mongo.Client
+	Neo    neo4j.DriverWithContext
+	RMQ    *amqp.Connection
+	KFK    *kafka.Conn
+	closed bool
+	mu     sync.Mutex
 }
 
 // New creates a new Connections
@@ -40,15 +44,24 @@ func New(conf *config.Data) (*Connections, error) {
 	}
 
 	if conf.Redis != nil && conf.Redis.Addr != "" {
-		c.RC, _ = newRedisClient(conf.Redis)
+		c.RC, err = newRedisClient(conf.Redis)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if conf.Meilisearch != nil && conf.Meilisearch.Host != "" {
-		c.MS, _ = newMeilisearchClient(conf.Meilisearch)
+		c.MS, err = newMeilisearchClient(conf.Meilisearch)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if conf.Elasticsearch != nil && len(conf.Elasticsearch.Addresses) > 0 {
-		c.ES, _ = newElasticsearchClient(conf.Elasticsearch)
+		c.ES, err = newElasticsearchClient(conf.Elasticsearch)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if conf.MongoDB != nil && conf.MongoDB.URI != "" {
@@ -84,53 +97,75 @@ func New(conf *config.Data) (*Connections, error) {
 
 // Close closes all data connections
 func (d *Connections) Close() (errs []error) {
-	// Close Redis client if not already closed
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	// Check if already closed
+	if d.closed {
+		return nil
+	}
+
+	// Close Redis client if connected
 	if d.RC != nil {
-		if err := d.RC.Close(); err != nil {
-			errs = append(errs, err)
+		if err := d.pingRedis(context.Background()); err == nil {
+			if err := d.RC.Close(); err != nil {
+				errs = append(errs, errors.New("redis close error: "+err.Error()))
+			}
 		}
+		d.RC = nil
 	}
 
-	// Close SQL database client if not already closed
+	// Close SQL database client if connected
 	if d.DB != nil {
-		if err := d.DB.Close(); err != nil {
-			errs = append(errs, err)
+		if err := d.DB.PingContext(context.Background()); err == nil {
+			if err := d.DB.Close(); err != nil {
+				errs = append(errs, errors.New("database close error: "+err.Error()))
+			}
 		}
+		d.DB = nil
 	}
 
-	// Disconnect MongoDB client if not already disconnected
+	// Disconnect MongoDB client if connected
 	if d.MG != nil {
-		if err := d.MG.Disconnect(context.Background()); err != nil {
-			errs = append(errs, err)
+		if err := d.MG.Ping(context.Background(), nil); err == nil {
+			if err := d.MG.Disconnect(context.Background()); err != nil {
+				errs = append(errs, errors.New("mongodb close error: "+err.Error()))
+			}
 		}
+		d.MG = nil
 	}
 
-	// Close Neo4j client if not already closed
+	// Close Neo4j client if connected
 	if d.Neo != nil {
 		if err := d.Neo.Close(context.Background()); err != nil {
-			errs = append(errs, err)
+			errs = append(errs, errors.New("neo4j close error: "+err.Error()))
 		}
+		d.Neo = nil
 	}
 
-	// Close RabbitMQ client if not already closed
+	// Close RabbitMQ client if connected
 	if d.RMQ != nil {
-		if err := d.RMQ.Close(); err != nil {
-			errs = append(errs, err)
+		if !d.RMQ.IsClosed() {
+			if err := d.RMQ.Close(); err != nil {
+				errs = append(errs, errors.New("rabbitmq close error: "+err.Error()))
+			}
 		}
+		d.RMQ = nil
 	}
 
-	// Close Kafka client if not already closed
+	// Close Kafka client if connected
 	if d.KFK != nil {
-		if err := d.KFK.Close(); err != nil {
-			errs = append(errs, err)
+		if err := d.pingKafka(); err == nil {
+			if err := d.KFK.Close(); err != nil {
+				errs = append(errs, errors.New("kafka close error: "+err.Error()))
+			}
 		}
+		d.KFK = nil
 	}
 
-	if len(errs) > 0 {
-		return errs
-	}
+	d.closed = true
 
-	return nil
+	return errs
 }
 
 // Ping checks the database connection
@@ -148,4 +183,23 @@ func (d *Connections) GetMongoDatabase(databaseName string) *mongo.Database {
 		return nil
 	}
 	return d.MG.Database(databaseName)
+}
+
+// pingRedis checks if Redis connection is alive
+func (d *Connections) pingRedis(ctx context.Context) error {
+	if d.RC == nil {
+		return errors.New("redis client is nil")
+	}
+	return d.RC.Ping(ctx).Err()
+}
+
+// pingKafka checks if Kafka connection is alive
+func (d *Connections) pingKafka() error {
+	if d.KFK == nil {
+		return errors.New("kafka connection is nil")
+	}
+
+	// Try to read connection properties as a connection check
+	_, err := d.KFK.Controller()
+	return err
 }

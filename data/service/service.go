@@ -29,10 +29,5 @@ func (s *Services) Close() (errs []error) {
 		}
 	}
 
-	// Return errors if any
-	if len(errs) > 0 {
-		return errs
-	}
-
-	return nil
+	return errs
 }
