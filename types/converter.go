@@ -11,7 +11,7 @@ type TypeConverter struct{}
 
 // ConvertValue converts a string value to the corresponding type based on the type string
 // Supported types: string, number, boolean, object, array
-func ConvertValue(typeStr string, value string) (interface{}, error) {
+func ConvertValue(typeStr string, value string) (any, error) {
 	switch typeStr {
 	case "string":
 		return value, nil
@@ -38,14 +38,14 @@ func ConvertValue(typeStr string, value string) (interface{}, error) {
 		}
 
 	case "object":
-		var result map[string]interface{}
+		var result map[string]any
 		if err := json.Unmarshal([]byte(value), &result); err != nil {
 			return nil, fmt.Errorf("invalid object format: %v", err)
 		}
 		return result, nil
 
 	case "array":
-		var result []interface{}
+		var result []any
 		if err := json.Unmarshal([]byte(value), &result); err != nil {
 			return nil, fmt.Errorf("invalid array format: %v", err)
 		}
@@ -58,7 +58,7 @@ func ConvertValue(typeStr string, value string) (interface{}, error) {
 
 // ToString converts any value to its string representation
 // Returns empty string for nil values
-func ToString(value interface{}) string {
+func ToString(value any) string {
 	if value == nil {
 		return ""
 	}
@@ -74,7 +74,7 @@ func ToString(value interface{}) string {
 		return strconv.FormatInt(v, 10)
 	case float64:
 		return strconv.FormatFloat(v, 'f', -1, 64)
-	case map[string]interface{}, []interface{}:
+	case map[string]any, []any:
 		if bytes, err := json.Marshal(v); err == nil {
 			return string(bytes)
 		}
@@ -86,7 +86,7 @@ func ToString(value interface{}) string {
 
 // ToInt attempts to convert a value to an integer
 // Supports conversion from string, float64, bool, and integer types
-func ToInt(value interface{}) (int64, error) {
+func ToInt(value any) (int64, error) {
 	switch v := value.(type) {
 	case int:
 		return int64(v), nil
@@ -108,7 +108,7 @@ func ToInt(value interface{}) (int64, error) {
 
 // ToFloat attempts to convert a value to a float64
 // Supports conversion from string, integer types, and bool
-func ToFloat(value interface{}) (float64, error) {
+func ToFloat(value any) (float64, error) {
 	switch v := value.(type) {
 	case float64:
 		return v, nil
@@ -132,7 +132,7 @@ func ToFloat(value interface{}) (float64, error) {
 // Supports conversion from string, number types, and bool
 // For strings, accepts "true", "1", "yes", "on" as true values
 // and "false", "0", "no", "off", "" as false values
-func ToBool(value interface{}) (bool, error) {
+func ToBool(value any) (bool, error) {
 	switch v := value.(type) {
 	case bool:
 		return v, nil
@@ -158,12 +158,12 @@ func ToBool(value interface{}) (bool, error) {
 
 // ToObject attempts to convert a value to a map[string]interface{}
 // Supports conversion from string (JSON) and existing maps
-func ToObject(value interface{}) (map[string]interface{}, error) {
+func ToObject(value any) (map[string]any, error) {
 	switch v := value.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		return v, nil
 	case string:
-		var result map[string]interface{}
+		var result map[string]any
 		if err := json.Unmarshal([]byte(v), &result); err != nil {
 			return nil, fmt.Errorf("invalid object format: %v", err)
 		}
@@ -175,12 +175,12 @@ func ToObject(value interface{}) (map[string]interface{}, error) {
 
 // ToArray attempts to convert a value to []interface{}
 // Supports conversion from string (JSON) and existing arrays
-func ToArray(value interface{}) ([]interface{}, error) {
+func ToArray(value any) ([]any, error) {
 	switch v := value.(type) {
-	case []interface{}:
+	case []any:
 		return v, nil
 	case string:
-		var result []interface{}
+		var result []any
 		if err := json.Unmarshal([]byte(v), &result); err != nil {
 			return nil, fmt.Errorf("invalid array format: %v", err)
 		}
