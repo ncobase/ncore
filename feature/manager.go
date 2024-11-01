@@ -569,7 +569,7 @@ func (m *Manager) registerFeatureRoutes(router *gin.Engine, f *Wrapper) {
 	m.circuitBreakers[f.Metadata.Name] = cb
 	group := router.Group("")
 	f.Instance.RegisterRoutes(group)
-	log.Infof(context.Background(), "Registered routes for %s with circuit breaker", f.Metadata.Name)
+	// log.Infof(context.Background(), "Registered routes for %s with circuit breaker", f.Metadata.Name)
 }
 
 // ExecuteWithCircuitBreaker executes a function with circuit breaker protection
