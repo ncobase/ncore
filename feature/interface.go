@@ -52,6 +52,8 @@ type Metadata struct {
 	Dependencies []string `json:"dependencies,omitempty"`
 	// Description is the description of the feature
 	Description string `json:"description,omitempty"`
+	// Type is the type of the feature, e.g. plugin or module
+	Type string `json:"type,omitempty"`
 	// Group is the belong group of the feature
 	Group string `json:"group,omitempty"`
 }

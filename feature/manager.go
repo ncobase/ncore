@@ -453,7 +453,21 @@ func (m *Manager) GetStatus() map[string]string {
 // ManageRoutes manages routes for all features / plugins
 func (m *Manager) ManageRoutes(r *gin.RouterGroup) {
 	r.GET("/features", func(c *gin.Context) {
-		resp.Success(c.Writer, m.GetFeatures())
+		features := m.GetFeatures()
+		result := make(map[string]map[string][]Metadata)
+
+		for _, feature := range features {
+			group := feature.Metadata.Group
+			if group == "" {
+				group = feature.Metadata.Name
+			}
+			if _, ok := result[group]; !ok {
+				result[group] = make(map[string][]Metadata)
+			}
+			result[group][feature.Metadata.Type] = append(result[group][feature.Metadata.Type], feature.Metadata)
+		}
+
+		resp.Success(c.Writer, result)
 	})
 
 	r.POST("/features/load", func(c *gin.Context) {
