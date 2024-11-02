@@ -39,23 +39,31 @@ func (m *Manager) LoadPlugins() error {
 // loadPluginsInFile loads plugins in production mode
 func (m *Manager) loadPluginsInFile() error {
 	fc := m.conf.Extension
-	fd := fc.Path
+	basePath := fc.Path
 
-	pds, err := filepath.Glob(filepath.Join(fd, "*"+GetPlatformExt()))
-	if err != nil {
-		log.Errorf(context.Background(), "failed to list plugin files: %v", err)
-		return err
+	// multiple paths
+	pluginPaths := []string{
+		filepath.Join(basePath, "*"+GetPlatformExt()),            // extension/*
+		filepath.Join(basePath, "plugins", "*"+GetPlatformExt()), // extension/plugins/*
 	}
 
-	for _, pp := range pds {
-		pluginName := strings.TrimSuffix(filepath.Base(pp), GetPlatformExt())
-		if !m.shouldLoadPlugin(pluginName) {
-			log.Infof(context.Background(), "🚧 Skipping plugin %s based on configuration", pluginName)
+	for _, pattern := range pluginPaths {
+		pds, err := filepath.Glob(pattern)
+		if err != nil {
+			log.Errorf(context.Background(), "failed to list plugin files in %s: %v", pattern, err)
 			continue
 		}
-		if err := m.loadPlugin(pp); err != nil {
-			log.Errorf(context.Background(), "Failed to load plugin %s: %v", pluginName, err)
-			return err
+
+		for _, pp := range pds {
+			pluginName := strings.TrimSuffix(filepath.Base(pp), GetPlatformExt())
+			if !m.shouldLoadPlugin(pluginName) {
+				log.Infof(context.Background(), "🚧 Skipping plugin %s based on configuration", pluginName)
+				continue
+			}
+			if err := m.loadPlugin(pp); err != nil {
+				log.Errorf(context.Background(), "Failed to load plugin %s: %v", pluginName, err)
+				return err
+			}
 		}
 	}
 
