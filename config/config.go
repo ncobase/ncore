@@ -25,22 +25,22 @@ var (
 
 // Config is a struct representing the application's configuration.
 type Config struct {
-	AppName  string
-	RunMode  string
-	Protocol string
-	Domain   string
-	Host     string
-	Port     int
-	Consul   *Consul
-	Observes *Observes
-	Feature  *Feature
-	Frontend *Frontend
-	Logger   *Logger
-	Data     *Data
-	Auth     *Auth
-	Storage  *storage.Config
-	OAuth    *OAuth
-	Email    *email.Email
+	AppName   string
+	RunMode   string
+	Protocol  string
+	Domain    string
+	Host      string
+	Port      int
+	Consul    *Consul
+	Observes  *Observes
+	Extension *Extension
+	Frontend  *Frontend
+	Logger    *Logger
+	Data      *Data
+	Auth      *Auth
+	Storage   *storage.Config
+	OAuth     *OAuth
+	Email     *email.Email
 }
 
 func init() {
@@ -101,22 +101,22 @@ func loadConfig(configPath string) (*Config, error) {
 	}
 
 	config := &Config{
-		AppName:  v.GetString("app_name"),
-		RunMode:  v.GetString("run_mode"),
-		Protocol: v.GetString("server.protocol"),
-		Domain:   v.GetString("server.domain"),
-		Host:     v.GetString("server.host"),
-		Port:     v.GetInt("server.port"),
-		Consul:   getConsulConfig(v),
-		Observes: getObservesConfig(v),
-		Feature:  getFeatureConfig(v),
-		Auth:     getAuth(v),
-		Frontend: getFrontendConfig(v),
-		Logger:   getLoggerConfig(v),
-		Data:     getDataConfig(v),
-		Storage:  getStorageConfig(v),
-		OAuth:    getOAuthConfig(v),
-		Email:    getEmailConfig(v),
+		AppName:   v.GetString("app_name"),
+		RunMode:   v.GetString("run_mode"),
+		Protocol:  v.GetString("server.protocol"),
+		Domain:    v.GetString("server.domain"),
+		Host:      v.GetString("server.host"),
+		Port:      v.GetInt("server.port"),
+		Consul:    getConsulConfig(v),
+		Observes:  getObservesConfig(v),
+		Extension: getExtensionConfig(v),
+		Auth:      getAuth(v),
+		Frontend:  getFrontendConfig(v),
+		Logger:    getLoggerConfig(v),
+		Data:      getDataConfig(v),
+		Storage:   getStorageConfig(v),
+		OAuth:     getOAuthConfig(v),
+		Email:     getEmailConfig(v),
 	}
 
 	return config, nil

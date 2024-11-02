@@ -1,4 +1,4 @@
-package feature
+package extension
 
 import (
 	"context"

@@ -10,5 +10,5 @@
 ├── README.md          # This file
 └── registry/          # Components for extending proxy functionality
     ├── middleware.go  # Middleware registry and implementations
-    └── plugins.go     # Plugin system for additional features
+    └── plugins.go     # Plugin system for additional extensions
 ```

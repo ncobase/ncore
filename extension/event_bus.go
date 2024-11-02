@@ -1,10 +1,10 @@
-package feature
+package extension
 
 import (
 	"sync"
 )
 
-// EventBus represents a simple event bus for inter-feature communication
+// EventBus represents a simple event bus for inter-extension communication
 type EventBus struct {
 	subscribers map[string][]func(any)
 	mu          sync.RWMutex

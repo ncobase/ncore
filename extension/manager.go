@@ -1,4 +1,4 @@
-package feature
+package extension
 
 import (
 	"context"
@@ -19,9 +19,9 @@ import (
 	"github.com/sony/gobreaker"
 )
 
-// Manager represents a feature / plugin manager
+// Manager represents a extension / plugin manager
 type Manager struct {
-	features        map[string]*Wrapper
+	extensions      map[string]*Wrapper
 	conf            *config.Config
 	mu              sync.RWMutex
 	initialized     bool
@@ -31,7 +31,7 @@ type Manager struct {
 	data            *data.Data
 }
 
-// NewManager creates a new feature / plugin manager
+// NewManager creates a new extension / plugin manager
 func NewManager(conf *config.Config) (*Manager, error) {
 	d, cleanup, err := data.New(conf.Data)
 	if err != nil {
@@ -51,7 +51,7 @@ func NewManager(conf *config.Config) (*Manager, error) {
 	}
 
 	return &Manager{
-		features:        make(map[string]*Wrapper),
+		extensions:      make(map[string]*Wrapper),
 		conf:            conf,
 		eventBus:        NewEventBus(),
 		consul:          consulClient,
@@ -60,21 +60,21 @@ func NewManager(conf *config.Config) (*Manager, error) {
 	}, nil
 }
 
-// Register registers a feature
+// Register registers a extension
 func (m *Manager) Register(f Interface) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if m.initialized {
-		return fmt.Errorf("cannot register feature after initialization")
+		return fmt.Errorf("cannot register extension after initialization")
 	}
 
 	name := f.Name()
-	if _, exists := m.features[name]; exists {
-		return fmt.Errorf("feature %s already registered", name)
+	if _, exists := m.extensions[name]; exists {
+		return fmt.Errorf("extension %s already registered", name)
 	}
 
-	m.features[name] = &Wrapper{
+	m.extensions[name] = &Wrapper{
 		Metadata: f.GetMetadata(),
 		Instance: f,
 	}
@@ -92,7 +92,7 @@ func (m *Manager) LoadPlugins() error {
 
 // loadPluginsInFile loads plugins in production mode
 func (m *Manager) loadPluginsInFile() error {
-	fc := m.conf.Feature
+	fc := m.conf.Extension
 	fd := fc.Path
 
 	pds, err := filepath.Glob(filepath.Join(fd, "*.so"))
@@ -125,7 +125,7 @@ func (m *Manager) loadPluginsInBuilt() error {
 			log.Errorf(context.Background(), "Failed to initialize plugin %s: %v", c.Metadata.Name, err)
 			continue
 		}
-		m.features[c.Metadata.Name] = c
+		m.extensions[c.Metadata.Name] = c
 		log.Infof(context.Background(), "Plugin %s loaded and initialized successfully", c.Metadata.Name)
 	}
 
@@ -148,7 +148,7 @@ func (m *Manager) initializePlugin(c *Wrapper) error {
 
 // shouldLoadPlugin returns true if the plugin should be loaded
 func (m *Manager) shouldLoadPlugin(name string) bool {
-	fc := m.conf.Feature
+	fc := m.conf.Extension
 
 	if len(fc.Includes) > 0 {
 		for _, include := range fc.Includes {
@@ -176,7 +176,7 @@ func (m *Manager) loadPlugin(path string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if _, exists := m.features[name]; exists {
+	if _, exists := m.extensions[name]; exists {
 		return nil // plugin already loaded
 	}
 
@@ -187,33 +187,33 @@ func (m *Manager) loadPlugin(path string) error {
 
 	loadedPlugin := GetPlugin(name)
 	if loadedPlugin != nil {
-		m.features[name] = loadedPlugin
+		m.extensions[name] = loadedPlugin
 		log.Infof(context.Background(), "Plugin %s loaded successfully", name)
 	}
 
 	return nil
 }
 
-// UnloadPlugin unloads a single feature
+// UnloadPlugin unloads a single extension
 func (m *Manager) UnloadPlugin(name string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	feature, exists := m.features[name]
+	extension, exists := m.extensions[name]
 	if !exists {
-		return fmt.Errorf("feature %s not found", name)
+		return fmt.Errorf("extension %s not found", name)
 	}
 
-	if err := feature.Instance.PreCleanup(); err != nil {
-		log.Errorf(context.Background(), "failed pre-cleanup of feature %s: %v", name, err)
+	if err := extension.Instance.PreCleanup(); err != nil {
+		log.Errorf(context.Background(), "failed pre-cleanup of extension %s: %v", name, err)
 	}
 
-	if err := feature.Instance.Cleanup(); err != nil {
-		log.Errorf(context.Background(), "failed to cleanup feature %s: %v", name, err)
+	if err := extension.Instance.Cleanup(); err != nil {
+		log.Errorf(context.Background(), "failed to cleanup extension %s: %v", name, err)
 		return err
 	}
 
-	delete(m.features, name)
+	delete(m.extensions, name)
 	delete(m.circuitBreakers, name)
 
 	if err := m.DeregisterConsulService(name); err != nil {
@@ -223,19 +223,19 @@ func (m *Manager) UnloadPlugin(name string) error {
 	return nil
 }
 
-// InitFeatures initializes all registered features
-func (m *Manager) InitFeatures() error {
+// InitExtensions initializes all registered extensions
+func (m *Manager) InitExtensions() error {
 	m.mu.Lock()
 	if m.initialized {
 		m.mu.Unlock()
-		return fmt.Errorf("features already initialized")
+		return fmt.Errorf("extensions already initialized")
 	}
 	// Check dependencies before determining initialization order
 	if err := m.checkDependencies(); err != nil {
 		m.mu.Unlock()
 		return err
 	}
-	initOrder, err := getInitOrder(m.features)
+	initOrder, err := getInitOrder(m.extensions)
 	if err != nil {
 		log.Errorf(context.Background(), "failed to determine initialization order: %v", err)
 		m.mu.Unlock()
@@ -245,34 +245,34 @@ func (m *Manager) InitFeatures() error {
 
 	// Pre-initialization
 	for _, name := range initOrder {
-		feature := m.features[name]
-		if err := feature.Instance.PreInit(); err != nil {
-			log.Errorf(context.Background(), "failed pre-initialization of feature %s: %v", name, err)
-			continue // Skip current feature and move to the next one
+		extension := m.extensions[name]
+		if err := extension.Instance.PreInit(); err != nil {
+			log.Errorf(context.Background(), "failed pre-initialization of extension %s: %v", name, err)
+			continue // Skip current extension and move to the next one
 		}
 	}
 
 	// Initialization
 	for _, name := range initOrder {
-		feature := m.features[name]
-		if err := feature.Instance.Init(m.conf, m); err != nil {
-			log.Errorf(context.Background(), "failed to initialize feature %s: %v", name, err)
-			continue // Skip current feature and move to the next one
+		extension := m.extensions[name]
+		if err := extension.Instance.Init(m.conf, m); err != nil {
+			log.Errorf(context.Background(), "failed to initialize extension %s: %v", name, err)
+			continue // Skip current extension and move to the next one
 		}
 	}
 
 	// Post-initialization
 	for _, name := range initOrder {
-		feature := m.features[name]
-		if err := feature.Instance.PostInit(); err != nil {
-			log.Errorf(context.Background(), "failed post-initialization of feature %s: %v", name, err)
-			continue // Skip current feature and move to the next one
+		extension := m.extensions[name]
+		if err := extension.Instance.PostInit(); err != nil {
+			log.Errorf(context.Background(), "failed post-initialization of extension %s: %v", name, err)
+			continue // Skip current extension and move to the next one
 		}
 	}
 
 	// Ensure all services are initialized
-	for _, feature := range m.features {
-		_ = feature.Instance.GetServices()
+	for _, extension := range m.extensions {
+		_ = extension.Instance.GetServices()
 	}
 
 	// Lock again to safely update the initialized flag
@@ -280,53 +280,53 @@ func (m *Manager) InitFeatures() error {
 	m.initialized = true
 	m.mu.Unlock()
 
-	// log.Infof(context.Background(), " All features initialized successfully")
+	// log.Infof(context.Background(), " All extensions initialized successfully")
 	return nil
 }
 
-// GetFeature returns a specific feature
-func (m *Manager) GetFeature(name string) (Interface, error) {
+// GetExtension returns a specific extension
+func (m *Manager) GetExtension(name string) (Interface, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	feature, exists := m.features[name]
+	extension, exists := m.extensions[name]
 	if !exists {
-		return nil, fmt.Errorf("feature %s not found", name)
+		return nil, fmt.Errorf("extension %s not found", name)
 	}
 
-	return feature.Instance, nil
+	return extension.Instance, nil
 }
 
-// GetFeatures returns the loaded features
-func (m *Manager) GetFeatures() map[string]*Wrapper {
+// GetExtensions returns the loaded extensions
+func (m *Manager) GetExtensions() map[string]*Wrapper {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	features := make(map[string]*Wrapper)
-	for name, feature := range m.features {
-		features[name] = feature
+	extensions := make(map[string]*Wrapper)
+	for name, extension := range m.extensions {
+		extensions[name] = extension
 	}
-	return features
+	return extensions
 }
 
-// Cleanup cleans up all loaded features
+// Cleanup cleans up all loaded extensions
 func (m *Manager) Cleanup() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	for _, feature := range m.features {
-		if err := feature.Instance.PreCleanup(); err != nil {
-			log.Errorf(context.Background(), "failed pre-cleanup of feature %s: %v", feature.Metadata.Name, err)
+	for _, extension := range m.extensions {
+		if err := extension.Instance.PreCleanup(); err != nil {
+			log.Errorf(context.Background(), "failed pre-cleanup of extension %s: %v", extension.Metadata.Name, err)
 		}
-		if err := feature.Instance.Cleanup(); err != nil {
-			log.Errorf(context.Background(), "failed to cleanup feature %s: %v", feature.Metadata.Name, err)
+		if err := extension.Instance.Cleanup(); err != nil {
+			log.Errorf(context.Background(), "failed to cleanup extension %s: %v", extension.Metadata.Name, err)
 		}
-		if err := m.DeregisterConsulService(feature.Metadata.Name); err != nil {
-			log.Errorf(context.Background(), "failed to deregister service %s from Consul: %v", feature.Metadata.Name, err)
+		if err := m.DeregisterConsulService(extension.Metadata.Name); err != nil {
+			log.Errorf(context.Background(), "failed to deregister service %s from Consul: %v", extension.Metadata.Name, err)
 		}
 	}
 
-	m.features = make(map[string]*Wrapper)
+	m.extensions = make(map[string]*Wrapper)
 	m.circuitBreakers = make(map[string]*gobreaker.CircuitBreaker)
 	m.initialized = false
 
@@ -367,154 +367,154 @@ func (m *Manager) GetConsulService(name string) (*api.AgentService, error) {
 	return service, nil
 }
 
-// GetHandler returns a specific handler from a feature
+// GetHandler returns a specific handler from a extension
 func (m *Manager) GetHandler(f string) (Handler, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	feature, exists := m.features[f]
+	extension, exists := m.extensions[f]
 	if !exists {
-		return nil, fmt.Errorf("feature %s not found", f)
+		return nil, fmt.Errorf("extension %s not found", f)
 	}
 
-	handler := feature.Instance.GetHandlers()
+	handler := extension.Instance.GetHandlers()
 	if handler == nil {
-		return nil, fmt.Errorf("no handler found in feature %s", f)
+		return nil, fmt.Errorf("no handler found in extension %s", f)
 	}
 
 	return handler, nil
 }
 
-// GetHandlers returns all registered feature handlers
+// GetHandlers returns all registered extension handlers
 func (m *Manager) GetHandlers() map[string]Handler {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	handlers := make(map[string]Handler)
-	for name, feature := range m.features {
-		handlers[name] = feature.Instance.GetHandlers()
+	for name, extension := range m.extensions {
+		handlers[name] = extension.Instance.GetHandlers()
 	}
 	return handlers
 }
 
-// GetService returns a specific service from a feature
-func (m *Manager) GetService(featureName string) (Service, error) {
+// GetService returns a specific service from a extension
+func (m *Manager) GetService(extensionName string) (Service, error) {
 	m.mu.RLock()
-	feature, exists := m.features[featureName]
+	extension, exists := m.extensions[extensionName]
 	m.mu.RUnlock()
 
 	if !exists {
-		return nil, fmt.Errorf("feature %s not found", featureName)
+		return nil, fmt.Errorf("extension %s not found", extensionName)
 	}
 
-	service := feature.Instance.GetServices()
+	service := extension.Instance.GetServices()
 	if service == nil {
-		return nil, fmt.Errorf("no service found in feature %s", featureName)
+		return nil, fmt.Errorf("no service found in extension %s", extensionName)
 	}
 
 	return service, nil
 }
 
-// GetServices returns all registered feature services
+// GetServices returns all registered extension services
 func (m *Manager) GetServices() map[string]Service {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	services := make(map[string]Service)
-	for name, feature := range m.features {
-		services[name] = feature.Instance.GetServices()
+	for name, extension := range m.extensions {
+		services[name] = extension.Instance.GetServices()
 	}
 	return services
 }
 
-// GetMetadata returns the metadata of all registered features
+// GetMetadata returns the metadata of all registered extensions
 func (m *Manager) GetMetadata() map[string]Metadata {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	metadata := make(map[string]Metadata)
-	for name, feature := range m.features {
-		metadata[name] = feature.Metadata
+	for name, extension := range m.extensions {
+		metadata[name] = extension.Metadata
 	}
 	return metadata
 }
 
-// GetStatus returns the status of all registered features
+// GetStatus returns the status of all registered extensions
 func (m *Manager) GetStatus() map[string]string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	status := make(map[string]string)
-	for name, feature := range m.features {
-		status[name] = feature.Instance.Status()
+	for name, extension := range m.extensions {
+		status[name] = extension.Instance.Status()
 	}
 	return status
 }
 
-// ManageRoutes manages routes for all features / plugins
+// ManageRoutes manages routes for all extensions / plugins
 func (m *Manager) ManageRoutes(r *gin.RouterGroup) {
-	r.GET("/features", func(c *gin.Context) {
-		features := m.GetFeatures()
+	r.GET("/exts", func(c *gin.Context) {
+		extensions := m.GetExtensions()
 		result := make(map[string]map[string][]Metadata)
 
-		for _, feature := range features {
-			group := feature.Metadata.Group
+		for _, extension := range extensions {
+			group := extension.Metadata.Group
 			if group == "" {
-				group = feature.Metadata.Name
+				group = extension.Metadata.Name
 			}
 			if _, ok := result[group]; !ok {
 				result[group] = make(map[string][]Metadata)
 			}
-			result[group][feature.Metadata.Type] = append(result[group][feature.Metadata.Type], feature.Metadata)
+			result[group][extension.Metadata.Type] = append(result[group][extension.Metadata.Type], extension.Metadata)
 		}
 
 		resp.Success(c.Writer, result)
 	})
 
-	r.POST("/features/load", func(c *gin.Context) {
+	r.POST("/exts/load", func(c *gin.Context) {
 		name := c.Query("name")
 		if name == "" {
 			resp.Fail(c.Writer, resp.BadRequest(ecode.FieldIsRequired("name")))
 			return
 		}
-		fc := m.conf.Feature
+		fc := m.conf.Extension
 		fp := filepath.Join(fc.Path, name+".so")
 		if err := m.loadPlugin(fp); err != nil {
-			resp.Fail(c.Writer, resp.InternalServer(fmt.Sprintf("Failed to load feature %s: %v", name, err)))
+			resp.Fail(c.Writer, resp.InternalServer(fmt.Sprintf("Failed to load extension %s: %v", name, err)))
 			return
 		}
 		resp.Success(c.Writer, fmt.Sprintf("%s loaded successfully", name))
 	})
 
-	r.POST("/features/unload", func(c *gin.Context) {
+	r.POST("/exts/unload", func(c *gin.Context) {
 		name := c.Query("name")
 		if name == "" {
 			resp.Fail(c.Writer, resp.BadRequest(ecode.FieldIsRequired("name")))
 			return
 		}
 		if err := m.UnloadPlugin(name); err != nil {
-			resp.Fail(c.Writer, resp.InternalServer(fmt.Sprintf("Failed to unload feature %s: %v", name, err)))
+			resp.Fail(c.Writer, resp.InternalServer(fmt.Sprintf("Failed to unload extension %s: %v", name, err)))
 			return
 		}
 		resp.Success(c.Writer, fmt.Sprintf("%s unloaded successfully", name))
 	})
 
-	r.POST("/features/reload", func(c *gin.Context) {
+	r.POST("/exts/reload", func(c *gin.Context) {
 		name := c.Query("name")
 		if name == "" {
 			resp.Fail(c.Writer, resp.BadRequest(ecode.FieldIsRequired("name")))
 			return
 		}
 		if err := m.ReloadPlugin(name); err != nil {
-			resp.Fail(c.Writer, resp.InternalServer(fmt.Sprintf("Failed to reload feature %s: %v", name, err)))
+			resp.Fail(c.Writer, resp.InternalServer(fmt.Sprintf("Failed to reload extension %s: %v", name, err)))
 			return
 		}
 		resp.Success(c.Writer, fmt.Sprintf("%s reloaded successfully", name))
 	})
 }
 
-// ReloadPlugin reloads a single feature / plugin
+// ReloadPlugin reloads a single extension / plugin
 func (m *Manager) ReloadPlugin(name string) error {
-	fc := m.conf.Feature
+	fc := m.conf.Extension
 	fd := fc.Path
 	fp := filepath.Join(fd, name+".so")
 
@@ -525,9 +525,9 @@ func (m *Manager) ReloadPlugin(name string) error {
 	return m.loadPlugin(fp)
 }
 
-// ReloadPlugins reloads all features / plugins
+// ReloadPlugins reloads all extensions / plugins
 func (m *Manager) ReloadPlugins() error {
-	fc := m.conf.Feature
+	fc := m.conf.Extension
 	fd := fc.Path
 	pds, err := filepath.Glob(filepath.Join(fd, "*.so"))
 	if err != nil {
@@ -542,20 +542,20 @@ func (m *Manager) ReloadPlugins() error {
 	return nil
 }
 
-// RegisterRoutes registers all feature routes with the provided router
+// RegisterRoutes registers all extension routes with the provided router
 func (m *Manager) RegisterRoutes(router *gin.Engine) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	for _, f := range m.features {
+	for _, f := range m.extensions {
 		if f.Instance.GetHandlers() != nil {
-			m.registerFeatureRoutes(router, f)
+			m.registerExtensionRoutes(router, f)
 		}
 	}
 }
 
-// registerFeatureRoutes registers routes for a single feature
-func (m *Manager) registerFeatureRoutes(router *gin.Engine, f *Wrapper) {
+// registerExtensionRoutes registers routes for a single extension
+func (m *Manager) registerExtensionRoutes(router *gin.Engine, f *Wrapper) {
 	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{
 		Name:        f.Metadata.Name,
 		MaxRequests: 100,
@@ -573,10 +573,10 @@ func (m *Manager) registerFeatureRoutes(router *gin.Engine, f *Wrapper) {
 }
 
 // ExecuteWithCircuitBreaker executes a function with circuit breaker protection
-func (m *Manager) ExecuteWithCircuitBreaker(featureName string, fn func() (any, error)) (any, error) {
-	cb, ok := m.circuitBreakers[featureName]
+func (m *Manager) ExecuteWithCircuitBreaker(extensionName string, fn func() (any, error)) (any, error) {
+	cb, ok := m.circuitBreakers[extensionName]
 	if !ok {
-		return nil, fmt.Errorf("circuit breaker not found for feature %s", featureName)
+		return nil, fmt.Errorf("circuit breaker not found for extension %s", extensionName)
 	}
 
 	return cb.Execute(fn)
@@ -587,7 +587,7 @@ func (m *Manager) ExecuteWithCircuitBreaker(featureName string, fn func() (any, 
 // noDeps - modules with no dependencies, first to initialize
 // withDeps - modules with dependencies
 // special - special modules that should be ordered last
-func getInitOrder(features map[string]*Wrapper) ([]string, error) {
+func getInitOrder(extensions map[string]*Wrapper) ([]string, error) {
 	var noDeps, withDeps, special []string
 	specialModules := []string{"relation", "relations", "linker", "linkers"} // exclude these modules from dependency check
 	specialSet := make(map[string]bool)
@@ -598,14 +598,14 @@ func getInitOrder(features map[string]*Wrapper) ([]string, error) {
 	dependencies := make(map[string]map[string]bool)
 	initialized := make(map[string]bool)
 
-	// Collect all available feature names
-	availableFeatures := make(map[string]bool)
-	for name := range features {
-		availableFeatures[name] = true
+	// Collect all available extension names
+	availableExtensions := make(map[string]bool)
+	for name := range extensions {
+		availableExtensions[name] = true
 	}
 
 	// analyze dependencies, classify modules into noDeps and withDeps
-	for name, feature := range features {
+	for name, extension := range extensions {
 		if specialSet[name] {
 			special = append(special, name)
 			continue
@@ -614,11 +614,11 @@ func getInitOrder(features map[string]*Wrapper) ([]string, error) {
 		deps := make(map[string]bool)
 
 		// Check if all dependencies exist
-		for _, dep := range feature.Metadata.Dependencies {
+		for _, dep := range extension.Metadata.Dependencies {
 			if !specialSet[dep] {
-				// Check if dependency exists in features
-				if !availableFeatures[dep] {
-					return nil, fmt.Errorf("feature '%s' depends on '%s' which does not exist", name, dep)
+				// Check if dependency exists in extensions
+				if !availableExtensions[dep] {
+					return nil, fmt.Errorf("extension '%s' depends on '%s' which does not exist", name, dep)
 				}
 				deps[dep] = true
 			}
@@ -695,22 +695,22 @@ func (m *Manager) SubscribeToMessages(queue string, handler func([]byte) error) 
 	return fmt.Errorf("no message queue service available")
 }
 
-// PublishEvent publishes an event to all features
+// PublishEvent publishes an event to all extensions
 func (m *Manager) PublishEvent(eventName string, data any) {
 	m.eventBus.Publish(eventName, data)
 }
 
-// SubscribeEvent allows a feature to subscribe to an event
+// SubscribeEvent allows a extension to subscribe to an event
 func (m *Manager) SubscribeEvent(eventName string, handler func(any)) {
 	m.eventBus.Subscribe(eventName, handler)
 }
 
 // checkDependencies checks if all dependencies are loaded
 func (m *Manager) checkDependencies() error {
-	for name, feature := range m.features {
-		for _, dep := range feature.Instance.Dependencies() {
-			if _, ok := m.features[dep]; !ok {
-				return fmt.Errorf("feature '%s' depends on '%s', which is not available", name, dep)
+	for name, extension := range m.extensions {
+		for _, dep := range extension.Instance.Dependencies() {
+			if _, ok := m.extensions[dep]; !ok {
+				return fmt.Errorf("extension '%s' depends on '%s', which is not available", name, dep)
 			}
 		}
 	}
@@ -719,5 +719,5 @@ func (m *Manager) checkDependencies() error {
 
 // isIncludePluginMode returns true if the mode is "c2hlbgo"
 func isIncludePluginMode(conf *config.Config) bool {
-	return conf.Feature.Mode == "c2hlbgo"
+	return conf.Extension.Mode == "c2hlbgo"
 }
