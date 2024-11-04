@@ -75,7 +75,7 @@ func getSlaveConfigs(v *viper.Viper) []*DBNode {
 		return slaves
 	}
 
-	slavesList, ok := slavesConfig.([]interface{})
+	slavesList, ok := slavesConfig.([]any)
 	if !ok {
 		return slaves
 	}

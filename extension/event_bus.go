@@ -37,8 +37,8 @@ func NewEventBus() *EventBus {
 }
 
 // GetMetrics returns metrics
-func (eb *EventBus) GetMetrics() map[string]interface{} {
-	return map[string]interface{}{
+func (eb *EventBus) GetMetrics() map[string]any {
+	return map[string]any{
 		"processed_events": eb.metrics.processed.Load(),
 		"failed_events":    eb.metrics.failed.Load(),
 		"last_event_time":  eb.metrics.lastEventTime.Load(),

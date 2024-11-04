@@ -214,11 +214,11 @@ func (m *Manager) ClearServiceCache() {
 }
 
 // GetServiceCacheStats returns the service cache stats
-func (m *Manager) GetServiceCacheStats() map[string]interface{} {
+func (m *Manager) GetServiceCacheStats() map[string]any {
 	m.serviceCache.mu.RLock()
 	defer m.serviceCache.mu.RUnlock()
 
-	return map[string]interface{}{
+	return map[string]any{
 		"size":        len(m.serviceCache.services),
 		"last_update": m.serviceCache.lastUpdate,
 		"ttl":         m.serviceCache.ttl,
