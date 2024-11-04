@@ -1,203 +1,274 @@
 # Extension System
 
-> This is the plug-in and module extension system that provides dynamic loading, lifecycle management, and inter-module communication capabilities.
+> A flexible and robust extension system that provides dynamic loading, lifecycle management, and inter-module communication capabilities.
 
-## Structure
+## Overview
+
+The Extension System is designed to provide a plugin architecture that allows for:
+
+- Dynamic loading/unloading of extensions
+- Service discovery and registration
+- Event-driven communication between extensions
+- Lifecycle management
+- Health monitoring and circuit breaking
+
+## Architecture
 
 ```plaintext
-├── event_bus.go          # Event bus implementation
-├── interface.go          # Extension interface definitions
-├── manager.go            # Core manager implementation
-├── manager_discovery.go  # Service discovery and registration
-├── manager_plugins.go    # Plugin loading and management
-├── manager_routes.go     # Route management and HTTP handlers
-├── manager_utils.go      # Utility functions
-├── plugin.go            # Plugin system implementation
-└── README.md            # This file
+├── event_bus.go          # Event system implementation
+├── interface.go          # Core interfaces
+├── manager.go            # Extension manager
+├── manager_plugins.go    # Plugin management
+├── manager_routes.go     # HTTP routing
+├── manager_utils.go      # Utilities
+├── plugin.go            # Plugin system
+├── README.md             # This file
+└── service_discovery.go  # Service discovery
 ```
 
-## Component Details
+## Core Components
 
-### Core Components
+### 1. Event System
 
-#### event_bus.go
+The event system provides asynchronous communication between extensions.
 
-Implements a pub/sub event system that enables:
+Features:
 
-- Asynchronous communication between extensions
-- Event-driven architecture support
-- Message broadcasting capabilities
+- Type-safe event data structure
+- Retry mechanism
+- Panic recovery
+- Metrics collection
+- Queue size monitoring
 
-#### interface.go
-
-Defines the core interfaces for the extension system:
-
-- Extension lifecycle methods (Init, PreInit, PostInit, etc.)
-- Service and handler interfaces
-- Metadata structures
-
-#### manager.go
-
-Contains the core extension manager implementation:
-
-- Extension registry management
-- Circuit breaker integration
-- Basic extension operations
-- Resource cleanup handling
-
-### Manager Components
-
-#### manager_discovery.go
-
-Handles service discovery and registration:
-
-- Service registration and deregistration
-- Service discovery interface
-- Multiple discovery backend support
-- Service health monitoring
-- Service metadata management
-
-Current implementations:
-
-- Consul service discovery
-- (Expandable for other discovery mechanisms)
-
-##### Usage example
-
-```go
-// Register a service
-err := manager.RegisterService("myservice", "localhost", 8080)
-
-// Get service details
-service, err := manager.GetService("myservice")
-
-// Get all services
-services, err := manager.GetServices()
-```
-
-#### manager_plugins.go
-
-Manages plugin operations:
-
-- Cross-platform plugin loading
-- Plugin lifecycle management
-- Hot-reloading capabilities
-- Platform-specific extension handling
-
-#### manager_routes.go
-
-- Handles HTTP routing and API endpoints:
-
-- Route registration
-- Handler management
-- API endpoint exposure
-- Circuit breaker integration for routes
-
-#### manager_utils.go
-
-Provides utility functions:
-
-- Dependency resolution
-- Startup sequence management
-- Configuration helpers
-- Plugin filtering
-- Status management
-- Metadata operations
-
-### Plugin System
-
-#### plugin.go
-
-Implements core plugin functionality:
-
-- Plugin loading mechanisms
-- Plugin registration
-- Plugin interface implementations
-- Plugin state management
-
-## Usage
-
-### Basic Extension Registration
-
-```go
-// Create a new extension manager
-manager, err := extension.NewManager(config)
-if err != nil {
-log.Fatal(err)
-}
-
-// Register an extension
-err = manager.Register(myExtension)
-if err != nil {
-log.Fatal(err)
-}
-```
-
-### Plugin Loading
-
-```go
-// Load all plugins
-if err := manager.LoadPlugins(); err != nil {
-log.Fatal(err)
-}
-
-// Load specific plugin
-if err := manager.loadPlugin("path/to/plugin.so"); err != nil {
-log.Fatal(err)
-}
-```
-
-### Event Communication
+Example:
 
 ```go
 // Subscribe to events
-manager.SubscribeEvent("eventName", func(data any) {
-// Handle event
+manager.SubscribeEvent("user.created", func(data any) {
+    eventData := data.(EventData)
+    // Handle event
 })
 
-// Publish events
-manager.PublishEvent("eventName", data)
+// Publish events with retry
+manager.eventBus.PublishWithRetry("user.created", userData, 3)
+
+// Get event metrics
+metrics := manager.eventBus.GetMetrics()
 ```
 
-## Platform Support
+### 2. Service Discovery
 
-The extension system supports multiple platforms:
+Built-in service discovery mechanism using Consul.
 
-- Linux (.so)
-- macOS (.dylib)
-- Windows (.dll)
+Features:
+
+- Service registration/deregistration
+- Health checking
+- Service caching
+- Cache TTL management
+- Status monitoring
+
+Example:
+
+```go
+// Register a service
+info := &ServiceInfo{
+    Address: "localhost:8080",
+    Tags:    []string{"api", "v1"},
+    Meta:    map[string]string{"version": "1.0"},
+}
+err := manager.RegisterConsulService("user-service", info)
+
+// Get service info with caching
+service, err := manager.GetConsulService("user-service")
+
+// Check service health
+status := manager.CheckServiceHealth("user-service")
+```
+
+### 3. Plugin Management
+
+Supports dynamic loading and unloading of plugins across platforms.
+
+Features:
+
+- Cross-platform support (.so, .dylib, .dll)
+- Hot-reloading
+- Dependency management
+- Initialization ordering
+- Resource cleanup
+
+Example:
+
+```go
+// Load all plugins
+err := manager.LoadPlugins()
+
+// Load specific plugin
+err := manager.loadPlugin("./plugins/my-plugin.so")
+
+// Reload plugin
+err := manager.ReloadPlugin("my-plugin")
+```
+
+## Extension Lifecycle
+
+An extension goes through the following phases:
+
+1. **Registration**
+
+ ```go
+ err := manager.Register(myExtension)
+ ```
+
+2. **Pre-initialization**
+
+ ```go
+ func (e *Extension) PreInit() error {
+     // Setup resources
+ }
+ ```
+
+3. **Initialization**
+
+ ```go
+ func (e *Extension) Init(conf *config.Config, m *Manager) error {
+     // Initialize extension
+ }
+ ```
+
+4. **Post-initialization**
+
+ ```go
+ func (e *Extension) PostInit() error {
+     // Post-setup tasks
+ }
+   ```
+
+5. **Cleanup**
+
+ ```go
+ func (e *Extension) Cleanup() error {
+     // Cleanup resources
+ }
+   ```
+
+## HTTP API Endpoints
+
+The system provides RESTful APIs for extension management:
+
+```
+GET  /exts              # List all extensions
+POST /exts/load        # Load an extension
+POST /exts/unload      # Unload an extension
+POST /exts/reload      # Reload an extension
+```
+
+## Circuit Breaking
+
+Built-in circuit breaker for fault tolerance:
+
+```go
+result, err := manager.ExecuteWithCircuitBreaker("service-name", func() (any, error) {
+    // Your code here
+    return result, nil
+})
+```
 
 ## Best Practices
 
-### Dependency Management
+### 1. Extension Development
 
-- Clearly define dependencies in extension metadata
-- Avoid circular dependencies
-- Use dependency injection where possible
+- Implement all interface methods
+- Handle cleanup properly
+- Use dependency injection
+- Follow error handling patterns
+- Include proper logging
+- Add metrics where appropriate
 
-### Error Handling
+### 2. Service Discovery
 
-- Always check for errors when loading plugins
-- Implement proper cleanup in error cases
-- Use circuit breakers for external service calls
+- Always validate service info
+- Handle registration failures gracefully
+- Implement proper health checks
+- Use appropriate TTL values for caching
+- Monitor service health status
 
-### Resource Management
+### 3. Event Handling
 
-- Clean up resources in PreCleanup and Cleanup methods
-- Implement proper shutdown sequences
-- Handle connection pooling appropriately
+- Use strongly typed event data
+- Implement retry for important events
+- Handle panics in event handlers
+- Monitor event metrics
+- Clean up event handlers
 
-### Testing
+### 4. Resource Management
 
-- Write tests for each extension
-- Mock external services in tests
-- Test cross-platform compatibility
+- Implement PreCleanup and Cleanup
+- Close connections properly
+- Clear caches when needed
+- Handle timeouts appropriately
+- Release resources in error cases
+
+## Configuration
+
+Example configuration:
+
+```go
+type Config struct {
+    Extension struct {
+        Path     string   // Plugin directory path
+        Mode     string   // Plugin mode
+        Includes []string // Included plugins
+        Excludes []string // Excluded plugins
+    }
+    Consul *struct {
+        Address    string // Consul address
+        Scheme     string // HTTP/HTTPS
+        Discovery struct {
+            HealthCheck   bool
+            CheckInterval string
+            Timeout      string
+        }
+    }
+}
+```
+
+## Monitoring
+
+### Metrics Available:
+
+- Event processing stats
+- Service health status
+- Cache hit rates
+- Circuit breaker states
+- Plugin loading status
+
+Example:
+
+```go
+// Get event metrics
+eventMetrics := manager.eventBus.GetMetrics()
+
+// Get cache stats
+cacheStats := manager.GetServiceCacheStats()
+```
+
+## Testing
+
+Recommended testing approaches:
+
+1. Unit tests for individual components
+2. Integration tests for plugin loading
+3. Event system testing
+4. Service discovery testing
+5. Cache behavior testing
 
 ## Contributing
 
-When contributing to the extension system:
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Create tests for new functionality
+5. Create pull request
 
-- Follow the existing code structure
-- Add appropriate documentation
-- Include tests for new functionality
-- Ensure cross-platform compatibility

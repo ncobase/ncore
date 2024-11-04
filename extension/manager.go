@@ -7,6 +7,7 @@ import (
 	"ncobase/common/data"
 	"ncobase/common/log"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/consul/api"
 	"github.com/sony/gobreaker"
@@ -22,17 +23,28 @@ type Manager struct {
 	consul          *api.Client
 	circuitBreakers map[string]*gobreaker.CircuitBreaker
 	data            *data.Data
+	serviceCache    *serviceCache
 }
 
 // NewManager creates a new extension / plugin manager
 func NewManager(conf *config.Config) (*Manager, error) {
+	// if err := validateConfig(conf); err != nil {
+	// 	return nil, fmt.Errorf("invalid configuration: %w", err)
+	// }
+
 	d, cleanup, err := data.New(conf.Data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create data connections: %v", err)
 	}
 
+	defer func() {
+		if err != nil {
+			cleanup()
+		}
+	}()
+
 	var consulClient *api.Client
-	if conf.Consul == nil {
+	if conf.Consul != nil {
 		consulConfig := api.DefaultConfig()
 		consulConfig.Address = conf.Consul.Address
 		consulConfig.Scheme = conf.Consul.Scheme
@@ -43,6 +55,8 @@ func NewManager(conf *config.Config) (*Manager, error) {
 		}
 	}
 
+	svcCache := newServiceCache(30 * time.Second)
+
 	return &Manager{
 		extensions:      make(map[string]*Wrapper),
 		conf:            conf,
@@ -50,6 +64,7 @@ func NewManager(conf *config.Config) (*Manager, error) {
 		consul:          consulClient,
 		circuitBreakers: make(map[string]*gobreaker.CircuitBreaker),
 		data:            d,
+		serviceCache:    svcCache,
 	}, nil
 }
 
@@ -72,6 +87,15 @@ func (m *Manager) Register(f Interface) error {
 		Instance: f,
 	}
 
+	if m.conf.Consul != nil && m.consul != nil && f.NeedServiceDiscovery() {
+		svcInfo := f.GetServiceInfo()
+		if svcInfo != nil {
+			if err := m.RegisterConsulService(name, svcInfo); err != nil {
+				log.Warnf(context.Background(), "Failed to register extension %s with Consul: %v", name, err)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -82,6 +106,7 @@ func (m *Manager) InitExtensions() error {
 		m.mu.Unlock()
 		return fmt.Errorf("extensions already initialized")
 	}
+
 	// Check dependencies before determining initialization order
 	if err := m.checkDependencies(); err != nil {
 		m.mu.Unlock()
@@ -166,6 +191,9 @@ func (m *Manager) Cleanup() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	// clean service cache
+	m.serviceCache.clear()
+
 	for _, extension := range m.extensions {
 		if err := extension.Instance.PreCleanup(); err != nil {
 			log.Errorf(context.Background(), "failed pre-cleanup of extension %s: %v", extension.Metadata.Name, err)
@@ -173,8 +201,11 @@ func (m *Manager) Cleanup() {
 		if err := extension.Instance.Cleanup(); err != nil {
 			log.Errorf(context.Background(), "failed to cleanup extension %s: %v", extension.Metadata.Name, err)
 		}
-		if err := m.DeregisterConsulService(extension.Metadata.Name); err != nil {
-			log.Errorf(context.Background(), "failed to deregister service %s from Consul: %v", extension.Metadata.Name, err)
+		// Deregister from Consul
+		if m.conf.Consul != nil && m.consul != nil && extension.Instance.NeedServiceDiscovery() {
+			if err := m.DeregisterConsulService(extension.Metadata.Name); err != nil {
+				log.Errorf(context.Background(), "failed to deregister service %s from Consul: %v", extension.Metadata.Name, err)
+			}
 		}
 	}
 

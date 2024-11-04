@@ -40,6 +40,10 @@ type Interface interface {
 	Version() string
 	// Dependencies returns the dependencies of the extension
 	Dependencies() []string
+	// NeedServiceDiscovery returns if the extension needs to be registered as a service
+	NeedServiceDiscovery() bool
+	// GetServiceInfo returns service registration info if NeedServiceDiscovery returns true
+	GetServiceInfo() *ServiceInfo
 }
 
 // Metadata represents the metadata of a extension
@@ -64,4 +68,11 @@ type Wrapper struct {
 	Metadata Metadata `json:"metadata"`
 	// Instance is the instance of the extension
 	Instance Interface `json:"instance,omitempty"`
+}
+
+// ServiceInfo contains information needed for service registration
+type ServiceInfo struct {
+	Address string            `json:"address"`
+	Tags    []string          `json:"tags"`
+	Meta    map[string]string `json:"meta"`
 }

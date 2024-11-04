@@ -6,6 +6,20 @@ import (
 	"sort"
 )
 
+// // validateConfig validates the configuration
+// func validateConfig(conf *config.Config) error {
+// 	if conf == nil {
+// 		return fmt.Errorf("configuration cannot be nil")
+// 	}
+// 	if conf.Extension == nil {
+// 		return fmt.Errorf("extension configuration cannot be nil")
+// 	}
+// 	if conf.Extension.Path == "" {
+// 		return fmt.Errorf("extension path is required")
+// 	}
+// 	return nil
+// }
+
 // initializePlugin initializes a single plugin
 func (m *Manager) initializePlugin(c *Wrapper) error {
 	if err := c.Instance.PreInit(); err != nil {
