@@ -19,7 +19,7 @@ import (
 
 // Connections struct to hold all database connections and clients
 type Connections struct {
-	DB     *sql.DB
+	DBM    *DBManager
 	RC     *redis.Client
 	MS     *meili.Client
 	ES     *elastic.Client
@@ -36,8 +36,8 @@ func New(conf *config.Data) (*Connections, error) {
 	c := &Connections{}
 	var err error
 
-	if conf.Database != nil && conf.Database.Source != "" {
-		c.DB, err = newDBClient(conf.Database)
+	if conf.Database != nil && conf.Database.Master != nil && conf.Database.Master.Source != "" {
+		c.DBM, err = NewDBManager(conf.Database)
 		if err != nil {
 			return nil, err
 		}
@@ -115,14 +115,12 @@ func (d *Connections) Close() (errs []error) {
 		d.RC = nil
 	}
 
-	// Close SQL database client if connected
-	if d.DB != nil {
-		if err := d.DB.PingContext(context.Background()); err == nil {
-			if err := d.DB.Close(); err != nil {
-				errs = append(errs, errors.New("database close error: "+err.Error()))
-			}
+	// Close database connections if connected
+	if d.DBM != nil {
+		if err := d.DBM.Close(); err != nil {
+			errs = append(errs, errors.New("database close error: "+err.Error()))
 		}
-		d.DB = nil
+		d.DBM = nil
 	}
 
 	// Disconnect MongoDB client if connected
@@ -168,12 +166,28 @@ func (d *Connections) Close() (errs []error) {
 	return errs
 }
 
-// Ping checks the database connection
+// Ping checks all database connections
 func (d *Connections) Ping(ctx context.Context) error {
-	if d.DB != nil {
-		return d.DB.PingContext(ctx)
+	if d.DBM != nil {
+		return d.DBM.Health(ctx)
 	}
 	return nil
+}
+
+// DB returns the master database connection for write operations
+func (d *Connections) DB() *sql.DB {
+	if d.DBM == nil {
+		return nil
+	}
+	return d.DBM.Master()
+}
+
+// DBRead returns a slave database connection for read operations
+func (d *Connections) DBRead() (*sql.DB, error) {
+	if d.DBM == nil {
+		return nil, errors.New("database manager is nil")
+	}
+	return d.DBM.Slave()
 }
 
 // GetMongoDatabase retrieves a specific MongoDB database

@@ -3,6 +3,7 @@ package data
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"ncobase/common/config"
 	"ncobase/common/data/connection"
 	"ncobase/common/data/service"
@@ -70,10 +71,10 @@ func New(conf *config.Data, createNewInstance ...bool) (*Data, func(name ...stri
 	return d, cleanup, nil
 }
 
-// WithDB sets the database client in Connections
-func WithDB(db *sql.DB) Option {
+// WithDBManager sets the database manager in Connections
+func WithDBManager(dbm *connection.DBManager) Option {
 	return func(d *Data) {
-		d.Conn.DB = db
+		d.Conn.DBM = dbm
 	}
 }
 
@@ -126,6 +127,63 @@ func WithKafka(kfk *kafka.Conn) Option {
 	}
 }
 
+// GetTx retrieves transaction from context
+func GetTx(ctx context.Context) (*sql.Tx, error) {
+	tx, ok := ctx.Value("tx").(*sql.Tx)
+	if !ok {
+		return nil, fmt.Errorf("transaction not found in context")
+	}
+	return tx, nil
+}
+
+// WithTx wraps a function within a transaction
+func (d *Data) WithTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	db := d.DB()
+	if db == nil {
+		return fmt.Errorf("database connection is nil")
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	err = fn(context.WithValue(ctx, "tx", tx))
+	if err != nil {
+		if rbErr := tx.Rollback(); rbErr != nil {
+			return fmt.Errorf("tx err: %v, rb err: %v", err, rbErr)
+		}
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// WithTxRead wraps a function within a read-only transaction
+func (d *Data) WithTxRead(ctx context.Context, fn func(ctx context.Context) error) error {
+	dbRead, err := d.DBRead()
+	if err != nil {
+		return err
+	}
+
+	tx, err := dbRead.BeginTx(ctx, &sql.TxOptions{
+		ReadOnly: true,
+	})
+	if err != nil {
+		return err
+	}
+
+	err = fn(context.WithValue(ctx, "tx", tx))
+	if err != nil {
+		if rbErr := tx.Rollback(); rbErr != nil {
+			return fmt.Errorf("tx err: %v, rb err: %v", err, rbErr)
+		}
+		return err
+	}
+
+	return tx.Commit()
+}
+
 func (d *Data) Close() (errs []error) {
 	// Close connections
 	if connErrs := d.Conn.Close(); len(connErrs) > 0 {
@@ -140,13 +198,31 @@ func (d *Data) Close() (errs []error) {
 	return errs
 }
 
-func (d *Data) Ping(ctx context.Context) error {
-	if d.Conn.DB != nil {
-		return d.Conn.DB.PingContext(ctx)
+// DB returns the master database connection for write operations
+func (d *Data) DB() *sql.DB {
+	if d.Conn != nil {
+		return d.Conn.DB()
 	}
 	return nil
 }
 
+// DBRead returns a slave database connection for read operations
+func (d *Data) DBRead() (*sql.DB, error) {
+	if d.Conn != nil {
+		return d.Conn.DBRead()
+	}
+	return nil, nil
+}
+
+// Ping checks all database connections
+func (d *Data) Ping(ctx context.Context) error {
+	if d.Conn != nil {
+		return d.Conn.Ping(ctx)
+	}
+	return nil
+}
+
+// GetMongoDatabase retrieves a specific MongoDB database
 func (d *Data) GetMongoDatabase(databaseName string) any {
 	if d.Conn.MG == nil {
 		log.Errorf(context.Background(), "MongoDB client is nil")
