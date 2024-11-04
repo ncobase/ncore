@@ -18,10 +18,10 @@ The Extension System is designed to provide a plugin architecture that allows fo
 ├── event_bus.go          # Event system implementation
 ├── interface.go          # Core interfaces
 ├── manager.go            # Extension manager
+├── manager_http.go       # HTTP routing
 ├── manager_plugins.go    # Plugin management
-├── manager_routes.go     # HTTP routing
 ├── manager_utils.go      # Utilities
-├── plugin.go            # Plugin system
+├── plugin.go             # Plugin system
 ├── README.md             # This file
 └── service_discovery.go  # Service discovery
 ```
