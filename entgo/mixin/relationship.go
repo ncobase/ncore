@@ -57,4 +57,5 @@ var (
 	CatalogID      = IDMixin{Field: "catalog_id", Comment: "catalog id", MaxLen: consts.PrimaryKeySize}
 	ObjectID       = IDMixin{Field: "object_id", Comment: "object id", MaxLen: consts.PrimaryKeySize}
 	OAuthID        = IDMixin{Field: "oauth_id", Comment: "oauth id"}
+	ChannelID      = IDMixin{Field: "channel_id", Comment: "channel id", MaxLen: consts.PrimaryKeySize}
 )

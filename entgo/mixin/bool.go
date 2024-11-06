@@ -49,4 +49,7 @@ var (
 	IsCertified = BoolMixin{Field: "is_certified", Comment: "is certified", Optional: true}
 	IsAdmin     = BoolMixin{Field: "is_admin", Comment: "is admin", Optional: true}
 	Autoload    = BoolMixin{Field: "autoload", Comment: "Whether to load the option automatically", Default: true, Optional: true}
+	Read        = BoolMixin{Field: "read", Comment: "is read", Optional: true}
+	ReadWrite   = BoolMixin{Field: "read_write", Comment: "is read write", Optional: true}
+	Write       = BoolMixin{Field: "write", Comment: "is write", Optional: true}
 )
