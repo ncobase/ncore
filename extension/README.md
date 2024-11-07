@@ -1,6 +1,7 @@
 # Extension System
 
-> A flexible and robust extension system that provides dynamic loading, lifecycle management, and inter-module communication capabilities.
+> A flexible and robust extension system that provides dynamic loading, lifecycle management, and inter-module
+> communication capabilities.
 
 ## Overview
 

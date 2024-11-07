@@ -7,7 +7,14 @@ import (
 	"ncobase/common/config"
 	"ncobase/common/data/connection"
 	"ncobase/common/data/service"
+	"ncobase/common/elastic"
 	"ncobase/common/log"
+	"ncobase/common/meili"
+
+	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/redis/go-redis/v9"
+	"github.com/segmentio/kafka-go"
 )
 
 var (
@@ -120,18 +127,12 @@ func (d *Data) WithTxRead(ctx context.Context, fn func(ctx context.Context) erro
 	return tx.Commit()
 }
 
-func (d *Data) Close() (errs []error) {
-	// Close connections
-	if connErrs := d.Conn.Close(); len(connErrs) > 0 {
-		errs = append(errs, connErrs...)
+// GetDBManager get database manager
+func (d *Data) GetDBManager() *connection.DBManager {
+	if d.Conn != nil {
+		return d.Conn.DBM
 	}
-
-	// Close services
-	if svcEerrs := d.Svc.Close(); len(svcEerrs) > 0 {
-		errs = append(errs, svcEerrs...)
-	}
-
-	return errs
+	return nil
 }
 
 // DB returns the master database connection for write operations
@@ -150,10 +151,59 @@ func (d *Data) DBRead() (*sql.DB, error) {
 	return nil, nil
 }
 
+// GetRedis get redis
+func (d *Data) GetRedis() *redis.Client {
+	return d.Conn.RC
+}
+
+// GetMeilisearch get meilisearch
+func (d *Data) GetMeilisearch() *meili.Client {
+	return d.Conn.MS
+}
+
+// GetElasticsearch get meilisearch
+func (d *Data) GetElasticsearch() *elastic.Client {
+	return d.Conn.ES
+}
+
+// GetMongoManager get mongo manager
+func (d *Data) GetMongoManager() *connection.MongoManager {
+	return d.Conn.MGM
+}
+
+// GetNeo4j get neo4j
+func (d *Data) GetNeo4j() neo4j.DriverWithContext {
+	return d.Conn.Neo
+}
+
+// GetRabbitMQ get rabbitMQ
+func (d *Data) GetRabbitMQ() *amqp.Connection {
+	return d.Conn.RMQ
+}
+
+// GetKafka get kafka
+func (d *Data) GetKafka() *kafka.Conn {
+	return d.Conn.KFK
+}
+
 // Ping checks all database connections
 func (d *Data) Ping(ctx context.Context) error {
 	if d.Conn != nil {
 		return d.Conn.Ping(ctx)
 	}
 	return nil
+}
+
+func (d *Data) Close() (errs []error) {
+	// Close connections
+	if connErrs := d.Conn.Close(); len(connErrs) > 0 {
+		errs = append(errs, connErrs...)
+	}
+
+	// Close services
+	if svcEerrs := d.Svc.Close(); len(svcEerrs) > 0 {
+		errs = append(errs, svcEerrs...)
+	}
+
+	return errs
 }
