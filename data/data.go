@@ -7,15 +7,7 @@ import (
 	"ncobase/common/config"
 	"ncobase/common/data/connection"
 	"ncobase/common/data/service"
-	"ncobase/common/elastic"
 	"ncobase/common/log"
-	"ncobase/common/meili"
-
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
-	amqp "github.com/rabbitmq/amqp091-go"
-	"github.com/redis/go-redis/v9"
-	"github.com/segmentio/kafka-go"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 var (
@@ -69,62 +61,6 @@ func New(conf *config.Data, createNewInstance ...bool) (*Data, func(name ...stri
 	}
 
 	return d, cleanup, nil
-}
-
-// WithDBManager sets the database manager in Connections
-func WithDBManager(dbm *connection.DBManager) Option {
-	return func(d *Data) {
-		d.Conn.DBM = dbm
-	}
-}
-
-// WithRedis sets the Redis client in Connections
-func WithRedis(rc *redis.Client) Option {
-	return func(d *Data) {
-		d.Conn.RC = rc
-	}
-}
-
-// WithMeilisearch sets the Meilisearch client in Connections
-func WithMeilisearch(ms *meili.Client) Option {
-	return func(d *Data) {
-		d.Conn.MS = ms
-	}
-}
-
-// WithElasticsearch sets the Elasticsearch client in Connections
-func WithElasticsearch(es *elastic.Client) Option {
-	return func(d *Data) {
-		d.Conn.ES = es
-	}
-}
-
-// WithMongo sets the MongoDB client in Connections
-func WithMongo(mg *mongo.Client) Option {
-	return func(d *Data) {
-		d.Conn.MG = mg
-	}
-}
-
-// WithNeo4j sets the Neo4j client in Connections
-func WithNeo4j(neo neo4j.DriverWithContext) Option {
-	return func(d *Data) {
-		d.Conn.Neo = neo
-	}
-}
-
-// WithRabbitMQ sets the RabbitMQ client in Connections
-func WithRabbitMQ(rmq *amqp.Connection) Option {
-	return func(d *Data) {
-		d.Conn.RMQ = rmq
-	}
-}
-
-// WithKafka sets the Kafka client in Connections
-func WithKafka(kfk *kafka.Conn) Option {
-	return func(d *Data) {
-		d.Conn.KFK = kfk
-	}
 }
 
 // GetTx retrieves transaction from context
@@ -220,13 +156,4 @@ func (d *Data) Ping(ctx context.Context) error {
 		return d.Conn.Ping(ctx)
 	}
 	return nil
-}
-
-// GetMongoDatabase retrieves a specific MongoDB database
-func (d *Data) GetMongoDatabase(databaseName string) any {
-	if d.Conn.MG == nil {
-		log.Errorf(context.Background(), "MongoDB client is nil")
-		return nil
-	}
-	return d.Conn.MG.Database(databaseName)
 }

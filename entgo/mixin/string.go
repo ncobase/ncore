@@ -143,6 +143,7 @@ var (
 	Memo           = StringMixin{Field: "memo", Comment: "Memo, big text", Optional: true}
 	Remark         = StringMixin{Field: "remark", Comment: "Remark, big text", Optional: true}
 	PType          = StringMixin{Field: "p_type", Comment: "permission type", Optional: true}
+	Version        = StringMixin{Field: "version", Comment: "Version", Optional: true}
 	V0             = StringMixin{Field: "v0", Comment: "version 0", Optional: true}
 	V1             = StringMixin{Field: "v1", Comment: "version 1", Optional: true}
 	V2             = StringMixin{Field: "v2", Comment: "version 2", Optional: true}

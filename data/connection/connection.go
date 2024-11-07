@@ -6,7 +6,6 @@ import (
 	"errors"
 	"ncobase/common/config"
 	"ncobase/common/elastic"
-	"ncobase/common/log"
 	"ncobase/common/meili"
 	"sync"
 
@@ -14,7 +13,6 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/redis/go-redis/v9"
 	"github.com/segmentio/kafka-go"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // Connections struct to hold all database connections and clients
@@ -23,7 +21,7 @@ type Connections struct {
 	RC     *redis.Client
 	MS     *meili.Client
 	ES     *elastic.Client
-	MG     *mongo.Client
+	MGM    *MongoManager
 	Neo    neo4j.DriverWithContext
 	RMQ    *amqp.Connection
 	KFK    *kafka.Conn
@@ -64,8 +62,8 @@ func New(conf *config.Data) (*Connections, error) {
 		}
 	}
 
-	if conf.MongoDB != nil && conf.MongoDB.URI != "" {
-		c.MG, err = newMongoClient(conf.MongoDB)
+	if conf.MongoDB != nil && conf.MongoDB.Master.URI != "" {
+		c.MGM, err = NewMongoManager(conf.MongoDB)
 		if err != nil {
 			return nil, err
 		}
@@ -124,13 +122,11 @@ func (d *Connections) Close() (errs []error) {
 	}
 
 	// Disconnect MongoDB client if connected
-	if d.MG != nil {
-		if err := d.MG.Ping(context.Background(), nil); err == nil {
-			if err := d.MG.Disconnect(context.Background()); err != nil {
-				errs = append(errs, errors.New("mongodb close error: "+err.Error()))
-			}
+	if d.MGM != nil {
+		if err := d.MGM.Close(context.Background()); err != nil {
+			errs = append(errs, errors.New("mongodb close error: "+err.Error()))
 		}
-		d.MG = nil
+		d.MGM = nil
 	}
 
 	// Close Neo4j client if connected
@@ -188,15 +184,6 @@ func (d *Connections) DBRead() (*sql.DB, error) {
 		return nil, errors.New("database manager is nil")
 	}
 	return d.DBM.Slave()
-}
-
-// GetMongoDatabase retrieves a specific MongoDB database
-func (d *Connections) GetMongoDatabase(databaseName string) *mongo.Database {
-	if d.MG == nil {
-		log.Errorf(context.Background(), "MongoDB client is nil")
-		return nil
-	}
-	return d.MG.Database(databaseName)
 }
 
 // pingRedis checks if Redis connection is alive
