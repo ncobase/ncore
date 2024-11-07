@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"ncobase/common/config"
-	"ncobase/common/elastic"
-	"ncobase/common/meili"
+	"ncobase/common/data/elastic"
+	"ncobase/common/data/meili"
 	"sync"
 
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"

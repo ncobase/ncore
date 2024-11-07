@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"ncobase/common/data/elastic"
+	"ncobase/common/data/meili"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,8 +14,6 @@ import (
 	"time"
 
 	"ncobase/common/config"
-	"ncobase/common/elastic"
-	"ncobase/common/meili"
 
 	"github.com/sirupsen/logrus"
 )

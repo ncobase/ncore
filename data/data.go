@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"ncobase/common/config"
 	"ncobase/common/data/connection"
+	"ncobase/common/data/elastic"
+	"ncobase/common/data/meili"
 	"ncobase/common/data/service"
-	"ncobase/common/elastic"
 	"ncobase/common/log"
-	"ncobase/common/meili"
 
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	amqp "github.com/rabbitmq/amqp091-go"

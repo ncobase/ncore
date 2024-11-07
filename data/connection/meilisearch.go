@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"ncobase/common/config"
+	"ncobase/common/data/meili"
 	"ncobase/common/log"
-	"ncobase/common/meili"
 )
 
 // newMeilisearchClient creates a new Meilisearch client

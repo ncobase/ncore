@@ -5,7 +5,7 @@ import (
 	"errors"
 	"io"
 	"ncobase/common/config"
-	"ncobase/common/elastic"
+	"ncobase/common/data/elastic"
 	"ncobase/common/log"
 )
 
