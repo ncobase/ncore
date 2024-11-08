@@ -189,7 +189,7 @@ func getMongoSlaveConfigs(v *viper.Viper) []*MongoNode {
 	}
 
 	// check if the slaves config is a slice
-	slavesInterface, ok := slavesConfig.([]interface{})
+	slavesInterface, ok := slavesConfig.([]any)
 	if !ok {
 		fmt.Println("Invalid mongodb slaves configuration format")
 		return slaves

@@ -187,7 +187,7 @@ func (m *MongoManager) WithTransaction(ctx context.Context, fn func(mongo.Sessio
 	}
 	defer session.EndSession(ctx)
 
-	_, err = session.WithTransaction(ctx, func(sctx mongo.SessionContext) (interface{}, error) {
+	_, err = session.WithTransaction(ctx, func(sctx mongo.SessionContext) (any, error) {
 		return nil, fn(sctx)
 	}, opts...)
 
