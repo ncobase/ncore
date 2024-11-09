@@ -155,6 +155,10 @@ func (wb *MongoWeightBalancer) Next(slaves []*mongo.Client) (*mongo.Client, erro
 
 // Master returns the master client
 func (m *MongoManager) Master() *mongo.Client {
+	// check if manager is nil
+	if m == nil {
+		return nil
+	}
 	return m.master
 }
 
