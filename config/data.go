@@ -9,6 +9,7 @@ import (
 
 // Data data config struct
 type Data struct {
+	Enveronment string `json:"environment"`
 	*Database
 	*Redis
 	*Meilisearch
@@ -41,6 +42,7 @@ type DBNode struct {
 
 func getDataConfig(v *viper.Viper) *Data {
 	return &Data{
+		Enveronment: v.GetString("data.environment"),
 		Database: &Database{
 			Master: &DBNode{
 				Driver:          v.GetString("data.database.master.driver"),
