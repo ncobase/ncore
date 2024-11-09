@@ -56,10 +56,12 @@ var (
 		UpdateDefault: func() int64 { return time.Now().UnixMilli() },
 		Optional:      true,
 	}
-	DeletedAt = TimeMixin{Field: "deleted_at", Comment: "deleted at", Optional: true}
-	ExpiredAt = TimeMixin{Field: "expired_at", Comment: "expired at", Optional: true}
-	Expires   = TimeMixin{Field: "expires", Comment: "expires", Optional: true}
-	Released  = TimeMixin{Field: "released", Comment: "released", Optional: true}
+	DeletedAt   = TimeMixin{Field: "deleted_at", Comment: "deleted at", Optional: true}
+	ExpiredAt   = TimeMixin{Field: "expired_at", Comment: "expired at", Optional: true}
+	Expires     = TimeMixin{Field: "expires", Comment: "expires", Optional: true}
+	Released    = TimeMixin{Field: "released", Comment: "released", Optional: true}
+	StartedAt   = TimeMixin{Field: "started_at", Comment: "started time", Default: func() int64 { return time.Now().UnixMilli() }}
+	CompletedAt = TimeMixin{Field: "completed_at", Comment: "completed time", Optional: true}
 )
 
 // TimeAt composes created_at and updated_at time fields.

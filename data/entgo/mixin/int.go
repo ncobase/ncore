@@ -38,4 +38,7 @@ var (
 	IncrementStep = IntField{Field: "increment_step", Comment: "Increment step", Default: 1}
 	StartValue    = IntField{Field: "start_value", Comment: "Start value", Default: 1}
 	CurrentValue  = IntField{Field: "current_value", Comment: "Current value", Default: 0}
+	RetryLimit    = IntField{Field: "retry_limit", Comment: "max retry times", Default: 0}
+	RetryDelay    = IntField{Field: "retry_delay", Comment: "retry delay in seconds", Default: 0}
+	RemindTime    = IntField{Field: "remind_time", Comment: "remind time before due", Default: 0}
 )

@@ -14,3 +14,9 @@ type Struct = struct{}
 
 // StringArray String array type
 type StringArray = []string
+
+// SortOrder represents sort order
+type SortOrder string
+
+// SortField represents sort fields
+type SortField string
