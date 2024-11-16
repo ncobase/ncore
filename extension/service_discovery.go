@@ -1,4 +1,3 @@
-// pkg/extension/service_discovery.go
 package extension
 
 import (

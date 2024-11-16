@@ -22,7 +22,7 @@ func ConvertToSyncMap[T any](m map[string]T) *sync.Map {
 // returning them as a standard Go map.
 func ConvertToMap[T any](sm *sync.Map) map[string]T {
 	m := make(map[string]T)
-	sm.Range(func(key, value interface{}) bool {
+	sm.Range(func(key, value any) bool {
 		if k, ok := key.(string); ok {
 			if v, ok := value.(T); ok {
 				m[k] = v
