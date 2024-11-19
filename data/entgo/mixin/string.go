@@ -82,6 +82,7 @@ var _ ent.Mixin = (*StringMixin)(nil)
 
 // Specific mixins can be created using the generic StringMixin.
 var (
+	TextStatus     = StringMixin{Field: "status", Comment: "Status, text status", Optional: true}
 	Email          = StringMixin{Field: "email", Comment: "email", Optional: true}
 	Username       = StringMixin{Field: "username", Comment: "username", Optional: true}
 	UsernameUnique = StringMixin{Field: "username", Comment: "username", Unique: true, NotEmpty: true, Optional: true, MaxLen: 50, MatchRegex: regexp.MustCompile("^[a-zA-Z0-9]{4,16}$")}
