@@ -115,7 +115,7 @@ func GetRegister(r *http.Request, key string) (string, error) {
 }
 
 // GetTokenFromResult retrieves a token from the result map.
-func GetTokenFromResult(result *types.JSON, key string) (string, error) {
+func GetTokenFromResult(result *map[string]any, key string) (string, error) {
 	value, ok := types.ToValue(result)[key]
 	if !ok {
 		return "", fmt.Errorf("key %s not found in result", key)
@@ -128,7 +128,7 @@ func GetTokenFromResult(result *types.JSON, key string) (string, error) {
 }
 
 // SetTokensFromResult sets access and refresh tokens from the result map.
-func SetTokensFromResult(w http.ResponseWriter, r *http.Request, result *types.JSON, domain ...string) error {
+func SetTokensFromResult(w http.ResponseWriter, r *http.Request, result *map[string]any, domain ...string) error {
 	var dm string
 	if len(domain) > 0 {
 		dm = domain[0]
@@ -149,7 +149,7 @@ func SetTokensFromResult(w http.ResponseWriter, r *http.Request, result *types.J
 }
 
 // SetRegisterTokenFromResult sets registration token from the result map.
-func SetRegisterTokenFromResult(w http.ResponseWriter, r *http.Request, result *types.JSON, domain ...string) error {
+func SetRegisterTokenFromResult(w http.ResponseWriter, r *http.Request, result *map[string]any, domain ...string) error {
 	var dm string
 	if len(domain) > 0 {
 		dm = domain[0]
