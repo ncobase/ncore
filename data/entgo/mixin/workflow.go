@@ -59,9 +59,8 @@ type TaskAssigneeMixin struct {
 
 func (TaskAssigneeMixin) Fields() []ent.Field {
 	return []ent.Field{
-		field.String("assignee").Comment("Task assignee"),
-		field.String("assignee_dept").Optional().Comment("Assignee's department"),
-		field.JSON("candidates", types.Array{}).Comment("Candidate assignees"),
+		field.JSON("assignees", types.JSONArray{}).Comment("Task assignees"),
+		field.JSON("candidates", types.JSONArray{}).Comment("Candidate assignees"),
 		field.String("delegated_from").Optional().Comment("Delegated from user"),
 		field.String("delegated_reason").Optional().Comment("Delegation reason"),
 		field.Bool("is_delegated").Default(false).Comment("Whether task is delegated"),
@@ -142,7 +141,7 @@ type BusinessTagMixin struct {
 
 func (BusinessTagMixin) Fields() []ent.Field {
 	return []ent.Field{
-		field.JSON("business_tags", types.Array{}).Optional().Comment("Business tags"),
+		field.JSON("business_tags", types.StringArray{}).Optional().Comment("Business tags"),
 		field.String("module_code").Comment("Module code"),
 		field.String("category").Optional().Comment("Category"),
 	}
@@ -155,8 +154,8 @@ type PermissionMixin struct {
 
 func (PermissionMixin) Fields() []ent.Field {
 	return []ent.Field{
-		field.JSON("viewers", types.Array{}).Optional().Comment("Users with view permission"),
-		field.JSON("editors", types.Array{}).Optional().Comment("Users with edit permission"),
+		field.JSON("viewers", types.StringArray{}).Optional().Comment("Users with view permission"),
+		field.JSON("editors", types.StringArray{}).Optional().Comment("Users with edit permission"),
 		field.JSON("permission_configs", types.JSON{}).Optional().Comment("Permission configurations"),
 		field.JSON("role_configs", types.JSON{}).Optional().Comment("Role configurations"),
 		field.JSON("visible_range", types.JSON{}).Optional().Comment("Visibility range"),

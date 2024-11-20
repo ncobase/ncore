@@ -5,11 +5,6 @@ import (
 	"sort"
 )
 
-const (
-	SortAsc  SortOrder = "asc"
-	SortDesc SortOrder = "desc"
-)
-
 // TreeNode represents a tree node.
 type TreeNode interface {
 	GetID() string
