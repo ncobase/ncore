@@ -92,9 +92,11 @@ type TimeTrackingMixin struct {
 
 func (TimeTrackingMixin) Fields() []ent.Field {
 	return []ent.Field{
-		field.Time("start_time").Default(time.Now).Comment("Start time"),
-		field.Time("end_time").Optional().Nillable().Comment("End time"),
-		field.Time("due_time").Optional().Nillable().Comment("Due time"),
+		field.Int64("start_time").DefaultFunc(func() int64 {
+			return time.Now().UnixMilli()
+		}).Comment("Start time"),
+		field.Int64("end_time").Optional().Nillable().Comment("End time"),
+		field.Int64("due_time").Optional().Nillable().Comment("Due time"),
 		field.Int("duration").Optional().Comment("Duration in seconds"),
 		field.Int("priority").Default(0).Comment("Priority level"),
 		field.Bool("is_timeout").Default(false).Comment("Whether timed out"),
@@ -112,7 +114,7 @@ func (DataTrackingMixin) Fields() []ent.Field {
 		field.JSON("origin_data", types.JSON{}).Comment("Original form data"),
 		field.JSON("current_data", types.JSON{}).Comment("Current form data"),
 		field.JSON("change_logs", []types.JSON{}).Optional().Comment("Data change history"),
-		field.Time("last_modified").Optional().Comment("Last modification time"),
+		field.Int64("last_modified").Optional().Comment("Last modification time"),
 		field.String("last_modifier").Optional().Comment("Last modifier"),
 		field.JSON("operation_logs", []types.JSON{}).Optional().Comment("Operation logs"),
 	}
