@@ -53,7 +53,10 @@ func (m *Manager) checkDependencies() error {
 // special - special modules that should be ordered last
 func getInitOrder(extensions map[string]*Wrapper) ([]string, error) {
 	var noDeps, withDeps, special []string
-	specialModules := []string{"relation", "relations", "linker", "linkers"} // exclude these modules from dependency check
+	// Exclude these modules from dependency check, adjust as needed
+	var specialModules []string
+	// Example of how to add modules dynamically
+	// specialModules = append(specialModules, "relation", "relations", "linker", "linkers")
 	specialSet := make(map[string]bool)
 	for _, m := range specialModules {
 		specialSet[m] = true
