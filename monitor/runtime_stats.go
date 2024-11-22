@@ -73,8 +73,8 @@ type RuntimeStats struct {
 	cancel context.CancelFunc
 }
 
-// RuntimeMetrics tracks runtime metrics
-type RuntimeMetrics struct {
+// Metrics tracks runtime metrics
+type Metrics struct {
 	Memory     int64   `json:"memory"`     // Memory usage in bytes
 	CPU        float64 `json:"cpu"`        // CPU usage percentage
 	Goroutines int32   `json:"goroutines"` // Number of goroutines
@@ -98,7 +98,7 @@ type RuntimeMetrics struct {
 //	defer monitor.Stop()
 //
 //	// Get current usage
-//	usage := monitor.GetRuntimeMetrics()
+//	usage := monitor.GetMetrics()
 func NewRuntimeStats(ctx context.Context, config *RuntimeStatsConfig) (*RuntimeStats, error) {
 	if config == nil {
 		config = DefaultConfig()
@@ -147,7 +147,7 @@ func (m *RuntimeStats) monitorRuntime() {
 			if !m.enabled.Load() {
 				return
 			}
-			m.updateRuntimeMetrics()
+			m.updateMetrics()
 		}
 	}
 }
@@ -162,8 +162,8 @@ func uint64ToFloat64(u uint64) float64 {
 	return math.Float64frombits(u)
 }
 
-// updateRuntimeMetrics updates current runtime metrics
-func (m *RuntimeStats) updateRuntimeMetrics() {
+// updateMetrics updates current runtime metrics
+func (m *RuntimeStats) updateMetrics() {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 
@@ -216,12 +216,12 @@ func (m *RuntimeStats) calculateCPUUsage() float64 {
 	return (gcTime / timeSinceLastGC) * 100
 }
 
-// GetRuntimeMetrics gets current runtime metrics
-func (m *RuntimeStats) GetRuntimeMetrics() RuntimeMetrics {
+// GetMetrics gets current runtime metrics
+func (m *RuntimeStats) GetMetrics() Metrics {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 
-	usage := RuntimeMetrics{
+	usage := Metrics{
 		Memory:     atomic.LoadInt64(&m.currentMemory),
 		CPU:        uint64ToFloat64(atomic.LoadUint64(&m.currentCPU)),
 		Goroutines: atomic.LoadInt32(&m.goroutines),
@@ -240,8 +240,8 @@ func (m *RuntimeStats) GetRuntimeMetrics() RuntimeMetrics {
 }
 
 // GetPeakUsage gets peak runtime usage
-func (m *RuntimeStats) GetPeakUsage() RuntimeMetrics {
-	return RuntimeMetrics{
+func (m *RuntimeStats) GetPeakUsage() Metrics {
+	return Metrics{
 		Memory:     atomic.LoadInt64(&m.peakMemory),
 		CPU:        uint64ToFloat64(atomic.LoadUint64(&m.peakCPU)),
 		Goroutines: atomic.LoadInt32(&m.peakThreads),

@@ -6,8 +6,8 @@ import (
 	"sync/atomic"
 )
 
-// ConcurrencyManager manages concurrent executions with enhanced features
-type ConcurrencyManager struct {
+// Manager manages concurrent executions with enhanced features
+type Manager struct {
 	maxConcurrent int32
 	current       atomic.Int32
 	semaphore     chan struct{}
@@ -16,12 +16,12 @@ type ConcurrencyManager struct {
 	rejectedCount   atomic.Int64
 }
 
-// NewConcurrencyManager creates a new ConcurrencyManager with validation
+// NewManager creates a new concurrency manager with validation
 //
 // Usage:
 //
 //	// Create a manager that allows up to 10 concurrent operations
-//	cm, err := NewConcurrencyManager(10)
+//	cm, err := NewManager(10)
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
@@ -47,19 +47,19 @@ type ConcurrencyManager struct {
 //	// Example 3: Check metrics
 //	metrics := cm.GetMetrics()
 //	log.Printf("Current usage: %d/%d", metrics["current"], 10)
-func NewConcurrencyManager(max int32) (*ConcurrencyManager, error) {
+func NewManager(max int32) (*Manager, error) {
 	if max <= 0 {
 		return nil, fmt.Errorf("max concurrent must be positive, got: %d", max)
 	}
 
-	return &ConcurrencyManager{
+	return &Manager{
 		maxConcurrent: max,
 		semaphore:     make(chan struct{}, max),
 	}, nil
 }
 
 // Acquire attempts to acquire a concurrency slot with timeout
-func (m *ConcurrencyManager) Acquire(ctx context.Context) error {
+func (m *Manager) Acquire(ctx context.Context) error {
 	select {
 	case m.semaphore <- struct{}{}:
 		m.current.Add(1)
@@ -72,7 +72,7 @@ func (m *ConcurrencyManager) Acquire(ctx context.Context) error {
 }
 
 // Release releases a concurrency slot
-func (m *ConcurrencyManager) Release() {
+func (m *Manager) Release() {
 	select {
 	case <-m.semaphore:
 		m.current.Add(-1)
@@ -83,7 +83,7 @@ func (m *ConcurrencyManager) Release() {
 }
 
 // GetMetrics returns current metrics
-func (m *ConcurrencyManager) GetMetrics() map[string]int64 {
+func (m *Manager) GetMetrics() map[string]int64 {
 	return map[string]int64{
 		"current":          int64(m.current.Load()),
 		"total_executions": m.totalExecutions.Load(),
@@ -92,7 +92,7 @@ func (m *ConcurrencyManager) GetMetrics() map[string]int64 {
 }
 
 // TryAcquire attempts to acquire without blocking
-func (m *ConcurrencyManager) TryAcquire() bool {
+func (m *Manager) TryAcquire() bool {
 	select {
 	case m.semaphore <- struct{}{}:
 		m.current.Add(1)
@@ -104,6 +104,6 @@ func (m *ConcurrencyManager) TryAcquire() bool {
 }
 
 // Available returns the number of available slots
-func (m *ConcurrencyManager) Available() int32 {
+func (m *Manager) Available() int32 {
 	return m.maxConcurrent - m.current.Load()
 }

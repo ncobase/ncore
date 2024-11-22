@@ -69,7 +69,7 @@ package monitor_test
 //
 // 	// Simulate HTTP handler
 // 	handler := func(w http.ResponseWriter, r *http.Request) {
-// 		usage := m.GetRuntimeMetrics()
+// 		usage := m.GetMetrics()
 // 		health := HealthStatus{
 // 			Status:     "healthy",
 // 			Memory:     usage.Memory,
@@ -102,7 +102,7 @@ package monitor_test
 // 	}
 //
 // 	// Calculate load score based on runtime usage
-// 	calculateLoadScore := func(usage monitor.RuntimeMetrics) float64 {
+// 	calculateLoadScore := func(usage monitor.Metrics) float64 {
 // 		// Simple scoring example:
 // 		// 50% weight to CPU, 30% to memory, 20% to goroutine count
 // 		memoryScore := float64(usage.Memory) / float64(1<<30) * 100 // Convert to GB and percentage
@@ -122,7 +122,7 @@ package monitor_test
 // 	minLoad := float64(100)
 //
 // 	for i := range instances {
-// 		usage := instances[i].Monitor.GetRuntimeMetrics()
+// 		usage := instances[i].Monitor.GetMetrics()
 // 		load := calculateLoadScore(usage)
 // 		if load < minLoad {
 // 			minLoad = load
@@ -165,7 +165,7 @@ package monitor_test
 // 	defer m.Stop()
 //
 // 	// Record baseline
-// 	baseLine := m.GetRuntimeMetrics()
+// 	baseLine := m.GetMetrics()
 //
 // 	// Simulate some work
 // 	work := make([]byte, 1024*1024)
@@ -174,7 +174,7 @@ package monitor_test
 // 	}
 //
 // 	// Get current and peak usage
-// 	current := m.GetRuntimeMetrics()
+// 	current := m.GetMetrics()
 // 	peak := m.GetPeakUsage()
 //
 // 	report := PerformanceReport{
@@ -206,7 +206,7 @@ package monitor_test
 // 	defer m.Stop()
 //
 // 	scaler := &AutoScaler{}
-// 	usage := m.GetRuntimeMetrics()
+// 	usage := m.GetMetrics()
 // 	peak := m.GetPeakUsage()
 //
 // 	// Make scaling decision based on runtime usage
@@ -229,7 +229,7 @@ package monitor_test
 // 	defer m.Stop()
 //
 // 	// Get detailed runtime usage
-// 	usage := m.GetRuntimeMetrics()
+// 	usage := m.GetMetrics()
 // 	fmt.Printf("Debug stats:\n"+
 // 		"Memory: %d bytes\n"+
 // 		"CPU: %.2f%%\n"+

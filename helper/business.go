@@ -1,4 +1,4 @@
-package biz
+package helper
 
 import (
 	"crypto/rand"

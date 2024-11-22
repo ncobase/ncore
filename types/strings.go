@@ -1,4 +1,4 @@
-package util
+package types
 
 // Find returns the smallest index i at which x == a[i],
 // or len(a) if there is no such index.

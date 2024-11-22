@@ -36,7 +36,7 @@ func TestRuntimeStats_Basic(t *testing.T) {
 	// Wait for first metrics collection
 	time.Sleep(2 * time.Second)
 
-	usage := monitor.GetRuntimeMetrics()
+	usage := monitor.GetMetrics()
 
 	if usage.Memory == 0 {
 		t.Error("memory usage should not be zero")
@@ -129,7 +129,7 @@ func TestRuntimeStats_Config(t *testing.T) {
 	// Wait for metrics collection
 	time.Sleep(200 * time.Millisecond)
 
-	usage := monitor.GetRuntimeMetrics()
+	usage := monitor.GetMetrics()
 
 	if usage.CPU != 0 {
 		t.Error("CPU usage should be zero when CPU monitoring is disabled")
@@ -173,7 +173,7 @@ func TestRuntimeStats_PeakUsage(t *testing.T) {
 }
 
 // Benchmarks
-func BenchmarkRuntimeStats_GetRuntimeMetrics(b *testing.B) {
+func BenchmarkRuntimeStats_GetMetrics(b *testing.B) {
 	ctx := context.Background()
 	monitor, err := NewRuntimeStats(ctx, nil)
 	if err != nil {
@@ -185,11 +185,11 @@ func BenchmarkRuntimeStats_GetRuntimeMetrics(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = monitor.GetRuntimeMetrics()
+		_ = monitor.GetMetrics()
 	}
 }
 
-func BenchmarkRuntimeStats_UpdateRuntimeMetrics(b *testing.B) {
+func BenchmarkRuntimeStats_UpdateMetrics(b *testing.B) {
 	ctx := context.Background()
 	monitor, err := NewRuntimeStats(ctx, nil)
 	if err != nil {
@@ -201,7 +201,7 @@ func BenchmarkRuntimeStats_UpdateRuntimeMetrics(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		monitor.updateRuntimeMetrics()
+		monitor.updateMetrics()
 	}
 }
 
@@ -217,7 +217,7 @@ func BenchmarkRuntimeStats_Parallel(b *testing.B) {
 
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			_ = monitor.GetRuntimeMetrics()
+			_ = monitor.GetMetrics()
 			_ = monitor.CheckThresholds()
 		}
 	})
@@ -254,7 +254,7 @@ func BenchmarkRuntimeStats_HighLoad(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = monitor.GetRuntimeMetrics()
+		_ = monitor.GetMetrics()
 		_ = monitor.CheckThresholds()
 	}
 }

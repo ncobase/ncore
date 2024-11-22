@@ -109,8 +109,8 @@ func DefaultConfig() *Config {
 	}
 }
 
-// QueueMetrics represents queue metrics
-type QueueMetrics struct {
+// Metrics represents queue metrics
+type Metrics struct {
 	EnqueueCount   atomic.Int64
 	DequeueCount   atomic.Int64
 	ProcessCount   atomic.Int64
@@ -141,7 +141,7 @@ type TaskQueue struct {
 	config *Config
 
 	// Runtime components
-	metrics    *QueueMetrics
+	metrics    *Metrics
 	processing sync.Map
 	ctx        context.Context
 	cancel     context.CancelFunc
@@ -265,7 +265,7 @@ func NewTaskQueue(ctx context.Context, cfg *Config, processor TaskProcessor) *Ta
 		timerQueue:    NewTimerQueue(cfg.QueueSize),
 		processor:     processor,
 		config:        cfg,
-		metrics:       &QueueMetrics{},
+		metrics:       &Metrics{},
 		ctx:           ctx,
 		cancel:        cancel,
 	}

@@ -1,12 +1,10 @@
 package types
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
-
-	"ncobase/common/validator"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -62,32 +60,6 @@ func ParseLocalTime(str string) (t time.Time, err error) {
 	return
 }
 
-// FormatTime format time
-func FormatTime(t time.Time, layout string) string {
-	if validator.IsEmpty(layout) {
-		return ""
-	}
-	patterns := []string{
-		// 年
-		"yyyy", "2006", // 完整表示的年份
-		"yy", "06", // 2 位数字表示的年份
-		// 月
-		"MM", "01", // 数字表示的月份，有前导零
-		// 日
-		"dd", "02", // 月份中的第几天，有前导零的 2 位数字
-		// 小时
-		"hh", "03", // 12 小时格式，有前导零
-		"HH", "15", // 24 小时格式，有前导零
-		// 分钟
-		"mm", "04", // 有前导零的分钟数
-		// 秒
-		"ss", "05", // 秒数，有前导零
-	}
-	replacer := strings.NewReplacer(patterns...)
-	layout = replacer.Replace(layout)
-	return t.Format(layout)
-}
-
 // UnixSecToTime unix sec to time
 func UnixSecToTime(sec int64) time.Time {
 	return time.Unix(sec, 0)
@@ -100,7 +72,7 @@ func ToPBTimestamp(t time.Time) *timestamppb.Timestamp {
 
 // PtrToPBTimestamp convert *time.Time to *timestamppb.Timestamp
 func PtrToPBTimestamp(t *time.Time) *timestamppb.Timestamp {
-	if validator.IsNil(t) {
+	if t == nil {
 		return nil
 	}
 	return timestamppb.New(*t)
@@ -128,4 +100,53 @@ func AdjustToEndOfDay(value any) (int64, error) {
 	}
 
 	return adjustedTime.UnixMilli(), nil
+}
+
+const timeLayout = "2006-01-02 15:04:05"
+
+// FormatTime format time to string
+func FormatTime(t *time.Time, layout ...string) *string {
+	if t == nil {
+		return nil
+	}
+	l := timeLayout
+	if len(layout) > 0 && layout[0] != "" {
+		l = layout[0]
+	}
+	s := t.Format(l)
+	return &s
+}
+
+// UnixMilliToString timestamp to string
+func UnixMilliToString(t *int64, layout ...string) *string {
+	if t == nil {
+		return nil
+	}
+	l := timeLayout
+	if len(layout) > 0 && layout[0] != "" {
+		l = layout[0]
+	}
+	s := UnixMilliToTime(t).Format(l)
+	return &s
+}
+
+// UnixMilliToTime timestamp to time.Time
+func UnixMilliToTime(i *int64) *time.Time {
+	if i == nil {
+		return nil
+	}
+	t := time.UnixMilli(*i)
+	return &t
+}
+
+func ToUnixMilli(v any) int64 {
+	switch t := v.(type) {
+	case float64:
+		return int64(t)
+	case json.Number:
+		n, _ := t.Int64()
+		return n
+	default:
+		return 0
+	}
 }
