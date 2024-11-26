@@ -40,9 +40,24 @@ func (cfg *Config) Validate() error {
 	return nil
 }
 
-// TaskProcessor is an interface that processes a task
-type TaskProcessor interface {
+// Processor represents a task processor
+type Processor interface {
 	Process(task any) error
+}
+
+// defaultProcessor provides default task processing logic
+type defaultProcessor struct{}
+
+func (p *defaultProcessor) Process(task any) error {
+	switch t := task.(type) {
+	case func() error:
+		return t()
+	case func():
+		t()
+		return nil
+	default:
+		return errors.New("unsupported task type")
+	}
 }
 
 // Metrics tracks pool's operational metrics
@@ -69,7 +84,7 @@ type Pool struct {
 	maxWorkers  int
 	queueSize   int
 	taskTimeout time.Duration
-	processor   TaskProcessor
+	processor   Processor
 
 	// Runtime components
 	tasks  chan any
@@ -129,12 +144,20 @@ type Pool struct {
 //	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 //	defer cancel()
 //	pool.Stop(ctx)
-func NewPool(cfg *Config, processor TaskProcessor) *Pool {
+func NewPool(cfg *Config, processors ...Processor) *Pool {
 	if cfg == nil {
 		cfg = DefaultConfig()
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+
+	// Set default processor if none provided
+	var processor Processor
+	if len(processors) > 0 {
+		processor = processors[0]
+	} else {
+		processor = &defaultProcessor{}
+	}
 
 	return &Pool{
 		maxWorkers:  cfg.MaxWorkers,
@@ -257,4 +280,14 @@ func (p *Pool) GetMetrics() map[string]int64 {
 func (p *Pool) IsBusy() bool {
 	return p.metrics.ActiveWorkers.Load() >= int64(p.maxWorkers) ||
 		p.metrics.PendingTasks.Load() >= int64(p.queueSize)
+}
+
+// IsIdle returns whether the pool is idle
+func (p *Pool) IsIdle() bool {
+	return p.metrics.ActiveWorkers.Load() == 0
+}
+
+// IsEmpty returns whether the pool is empty
+func (p *Pool) IsEmpty() bool {
+	return p.metrics.PendingTasks.Load() == 0
 }

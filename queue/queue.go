@@ -3,6 +3,7 @@ package queue
 import (
 	"context"
 	"errors"
+	"fmt"
 	"ncobase/common/worker"
 	"net"
 	"strings"
@@ -35,6 +36,21 @@ const (
 // TaskProcessor represents the actual task execution logic
 type TaskProcessor interface {
 	Process(task *QueuedTask) error
+}
+
+// defaultProcessor provides default task processing logic
+type defaultProcessor struct{}
+
+func (p *defaultProcessor) Process(task *QueuedTask) error {
+	switch t := task.Data.(type) {
+	case func() error:
+		return t()
+	case func():
+		t()
+		return nil
+	default:
+		return fmt.Errorf("unsupported task data type: %T", task.Data)
+	}
 }
 
 // QueuedTask represents a task in queue
@@ -74,6 +90,29 @@ type Config struct {
 
 	// Monitoring configuration
 	MetricsWindow time.Duration
+}
+
+// Option defines the function type for queue options
+type Option func(*TaskQueue)
+
+// WithProcessor sets a custom task processor
+func WithProcessor(processor TaskProcessor) Option {
+	return func(q *TaskQueue) {
+		if processor != nil {
+			q.processor = processor
+		}
+	}
+}
+
+// WithConfig sets the queue configuration
+func WithConfig(cfg *Config) Option {
+	return func(q *TaskQueue) {
+		if cfg != nil {
+			if err := cfg.Validate(); err == nil {
+				q.config = cfg
+			}
+		}
+	}
 }
 
 // Validate validates the configuration
@@ -151,15 +190,14 @@ type TaskQueue struct {
 //
 // Usage:
 //
-// // Define a custom task
-//
+//	// Define a custom task
 //	type CustomTask struct {
 //	    Name string
 //	    Data interface{}
 //	}
 //
-// // Implement TaskProcessor for CustomTask
-// type CustomTaskProcessor struct{}
+//	// Implement TaskProcessor for CustomTask
+//	type CustomTaskProcessor struct{}
 //
 //	func (p *CustomTaskProcessor) Process(task *queue.QueuedTask) error {
 //	    // Convert task data to CustomTask
@@ -174,9 +212,20 @@ type TaskQueue struct {
 //	    return nil
 //	}
 //
-// // Configuration for the task queue
+//	// Create queue with default processor (handles func() and func() error)
+//	q1 := NewTaskQueue(context.Background())
 //
-//	cfg := &queue.Config{
+//	// Add a simple task using default processor
+//	err := q1.Push(&QueuedTask{
+//	    ID: "func-task",
+//	    Data: func() error {
+//	        // Do some work
+//	        return nil
+//	    },
+//	})
+//
+//	// Configuration for the task queue
+//	cfg := &Config{
 //	    Workers:     10,
 //	    QueueSize:   1000,
 //	    TaskTimeout: time.Minute,
@@ -185,17 +234,18 @@ type TaskQueue struct {
 //	    RetryDelay:  time.Second * 5,
 //	}
 //
-// // Initialize task processor and queue
-// processor := &CustomTaskProcessor{}
-// ctx := context.Background()
-// q := queue.NewTaskQueue(ctx, cfg, processor)
+//	// Create queue with custom processor and configuration
+//	processor := &CustomTaskProcessor{}
+//	q2 := NewTaskQueue(context.Background(),
+//	    WithProcessor(processor),
+//	    WithConfig(cfg),
+//	)
 //
-// // Start the task queue
-// q.Start()
+//	// Start the task queue
+//	q2.Start()
 //
-// // Example tasks
-//
-//	normalTask := &queue.QueuedTask{
+//	// Example tasks
+//	normalTask := &QueuedTask{
 //	    ID:   "task-1",
 //	    Type: "normal",
 //	    Data: &CustomTask{
@@ -204,7 +254,7 @@ type TaskQueue struct {
 //	    },
 //	}
 //
-//	priorityTask := &queue.QueuedTask{
+//	priorityTask := &QueuedTask{
 //	    ID:       "task-2",
 //	    Type:     "priority",
 //	    Priority: 5,
@@ -214,7 +264,7 @@ type TaskQueue struct {
 //	    },
 //	}
 //
-//	timerTask := &queue.QueuedTask{
+//	timerTask := &QueuedTask{
 //	    ID:        "task-3",
 //	    Type:      "timer",
 //	    TriggerAt: time.Now().Add(time.Minute),
@@ -224,53 +274,54 @@ type TaskQueue struct {
 //	    },
 //	}
 //
-// // Add tasks to the queue
-//
-//	if err := q.Push(normalTask); err != nil {
+//	// Add tasks to the queue
+//	if err := q2.Push(normalTask); err != nil {
 //	    fmt.Printf("Failed to push normal task: %v", err)
 //	}
 //
-//	if err := q.Push(priorityTask); err != nil {
+//	if err := q2.Push(priorityTask); err != nil {
 //	    fmt.Printf("Failed to push priority task: %v", err)
 //	}
 //
-//	if err := q.Push(timerTask); err != nil {
+//	if err := q2.Push(timerTask); err != nil {
 //	    fmt.Printf("Failed to push timer task: %v", err)
 //	}
 //
-// // Retrieve queue metrics
-// metrics := q.GetMetrics()
+//	// Retrieve queue metrics
+//	metrics := q2.GetMetrics()
 //
-// // Stop the task queue with a timeout
-// stopCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-// defer cancel()
-// q.Stop(stopCtx)
-func NewTaskQueue(ctx context.Context, cfg *Config, processor TaskProcessor) *TaskQueue {
-	if cfg == nil {
-		cfg = DefaultConfig()
+//	// Stop the task queue with a timeout
+//	stopCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+//	defer cancel()
+//	q2.Stop(stopCtx)
+func NewTaskQueue(ctx context.Context, opts ...Option) *TaskQueue {
+	ctx, cancel := context.WithCancel(ctx)
+
+	// Initialize with defaults
+	q := &TaskQueue{
+		processor: &defaultProcessor{},
+		config:    DefaultConfig(),
+		metrics:   &Metrics{},
+		ctx:       ctx,
+		cancel:    cancel,
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
+	// Apply options
+	for _, opt := range opts {
+		opt(q)
+	}
+
+	// Initialize queues
+	q.normalQueue = make(chan *QueuedTask, q.config.QueueSize)
+	q.priorityQueue = NewPriorityQueue(q.config.QueueSize, q.config.MaxPriority)
+	q.timerQueue = NewTimerQueue(q.config.QueueSize)
 
 	// Initialize worker pool
 	workerCfg := &worker.Config{
-		MaxWorkers:  cfg.Workers,
-		QueueSize:   cfg.QueueSize,
-		TaskTimeout: cfg.TaskTimeout,
+		MaxWorkers:  q.config.Workers,
+		QueueSize:   q.config.QueueSize,
+		TaskTimeout: q.config.TaskTimeout,
 	}
-
-	q := &TaskQueue{
-		normalQueue:   make(chan *QueuedTask, cfg.QueueSize),
-		priorityQueue: NewPriorityQueue(cfg.QueueSize, cfg.MaxPriority),
-		timerQueue:    NewTimerQueue(cfg.QueueSize),
-		processor:     processor,
-		config:        cfg,
-		metrics:       &Metrics{},
-		ctx:           ctx,
-		cancel:        cancel,
-	}
-
-	// Create worker pool with task processor
 	q.workerPool = worker.NewPool(workerCfg, q)
 
 	return q
@@ -550,4 +601,9 @@ func (q *TaskQueue) GetMetrics() map[string]int64 {
 // IsBusy returns whether the queue is currently busy
 func (q *TaskQueue) IsBusy() bool {
 	return q.workerPool.IsBusy()
+}
+
+// IsEmpty returns whether the queue is empty
+func (q *TaskQueue) IsEmpty() bool {
+	return q.workerPool.IsEmpty()
 }
