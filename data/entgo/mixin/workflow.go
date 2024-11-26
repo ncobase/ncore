@@ -59,8 +59,8 @@ type TaskAssigneeMixin struct {
 
 func (TaskAssigneeMixin) Fields() []ent.Field {
 	return []ent.Field{
-		field.JSON("assignees", types.JSONArray{}).Comment("Task assignees"),
-		field.JSON("candidates", types.JSONArray{}).Comment("Candidate assignees"),
+		field.JSON("assignees", types.StringArray{}).Comment("Task assignees"),
+		field.JSON("candidates", types.StringArray{}).Comment("Candidate assignees"),
 		field.String("delegated_from").Optional().Comment("Delegated from user"),
 		field.String("delegated_reason").Optional().Comment("Delegation reason"),
 		field.Bool("is_delegated").Default(false).Comment("Whether task is delegated"),
