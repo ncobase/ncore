@@ -10,7 +10,7 @@ import (
 	"errors"
 	"io"
 
-	"ncobase/common/log"
+	"ncobase/common/logger"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -23,7 +23,7 @@ const (
 func HashPassword(ctx context.Context, password string) (string, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcryptCost)
 	if err != nil {
-		log.Errorf(ctx, "encrypt.HashPassword error: %v", err)
+		logger.Errorf(ctx, "encrypt.HashPassword error: %v", err)
 		return "", err
 	}
 	return string(hash), nil

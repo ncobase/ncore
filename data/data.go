@@ -9,7 +9,7 @@ import (
 	"ncobase/common/data/elastic"
 	"ncobase/common/data/meili"
 	"ncobase/common/data/service"
-	"ncobase/common/log"
+	"ncobase/common/logger"
 
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -40,7 +40,7 @@ func New(conf *config.Data, createNewInstance ...bool) (*Data, func(name ...stri
 		cleanup := func(name ...string) {
 			// log.Infof(context.Background(), errExecuteCleanup, name[0])
 			if errs := sharedInstance.Close(); len(errs) > 0 {
-				log.Fatalf(context.Background(), "cleanup errors: %v", errs)
+				logger.Fatalf(context.Background(), "cleanup errors: %v", errs)
 			}
 		}
 		return sharedInstance, cleanup, nil
@@ -63,7 +63,7 @@ func New(conf *config.Data, createNewInstance ...bool) (*Data, func(name ...stri
 	cleanup := func(name ...string) {
 		// log.Infof(context.Background(), errExecuteCleanup, name[0])
 		if errs := d.Close(); len(errs) > 0 {
-			log.Fatalf(context.Background(), "cleanup errors: %v", errs)
+			logger.Fatalf(context.Background(), "cleanup errors: %v", errs)
 		}
 	}
 

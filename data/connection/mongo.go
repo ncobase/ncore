@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"ncobase/common/config"
-	"ncobase/common/log"
+	"ncobase/common/logger"
 	"sync"
 	"sync/atomic"
 
@@ -38,7 +38,7 @@ func NewMongoManager(conf *config.MongoDB) (*MongoManager, error) {
 	for i, slaveCfg := range conf.Slaves {
 		slave, err := newMongoClient(slaveCfg)
 		if err != nil {
-			log.Warnf(context.Background(), "Failed to connect to slave MongoDB %d: %v", i, err)
+			logger.Warnf(context.Background(), "Failed to connect to slave MongoDB %d: %v", i, err)
 			continue
 		}
 		slaves = append(slaves, slave)
@@ -46,7 +46,7 @@ func NewMongoManager(conf *config.MongoDB) (*MongoManager, error) {
 
 	// if no slave available, use master for reads
 	if len(slaves) == 0 {
-		log.Warnf(context.Background(), "No slave MongoDB available, using master for reads")
+		logger.Warnf(context.Background(), "No slave MongoDB available, using master for reads")
 		slaves = append(slaves, master)
 	}
 
@@ -239,7 +239,7 @@ func (m *MongoManager) Health(ctx context.Context) error {
 	var healthySlaves []*mongo.Client
 	for _, slave := range m.slaves {
 		if err := slave.Ping(ctx, nil); err != nil {
-			log.Warnf(ctx, "Slave mongodb health check failed: %v", err)
+			logger.Warnf(ctx, "Slave mongodb health check failed: %v", err)
 			continue
 		}
 		healthySlaves = append(healthySlaves, slave)
@@ -250,7 +250,7 @@ func (m *MongoManager) Health(ctx context.Context) error {
 
 	// If no healthy slaves, use master
 	if len(m.slaves) == 0 {
-		log.Warnf(ctx, "No healthy slave mongodb available, using master for reads")
+		logger.Warnf(ctx, "No healthy slave mongodb available, using master for reads")
 		m.slaves = append(m.slaves, m.master)
 	}
 
@@ -285,7 +285,7 @@ func (m *MongoManager) Close(ctx context.Context) error {
 // newMongoClient creates a new MongoDB client
 func newMongoClient(conf *config.MongoNode) (*mongo.Client, error) {
 	if conf == nil || conf.URI == "" {
-		log.Infof(context.Background(), "MongoDB configuration is nil or empty")
+		logger.Infof(context.Background(), "MongoDB configuration is nil or empty")
 		return nil, nil
 	}
 
@@ -293,15 +293,15 @@ func newMongoClient(conf *config.MongoNode) (*mongo.Client, error) {
 
 	client, err := mongo.Connect(context.Background(), clientOptions)
 	if err != nil {
-		log.Errorf(context.Background(), "MongoDB connect error: %v", err)
+		logger.Errorf(context.Background(), "MongoDB connect error: %v", err)
 		return nil, err
 	}
 	if err := client.Ping(context.Background(), nil); err != nil {
-		log.Errorf(context.Background(), "MongoDB ping error: %v", err)
+		logger.Errorf(context.Background(), "MongoDB ping error: %v", err)
 		return nil, err
 	}
 
-	log.Infof(context.Background(), "MongoDB connected")
+	logger.Infof(context.Background(), "MongoDB connected")
 
 	return client, nil
 }

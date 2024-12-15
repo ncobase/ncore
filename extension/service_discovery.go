@@ -3,7 +3,7 @@ package extension
 import (
 	"context"
 	"fmt"
-	"ncobase/common/log"
+	"ncobase/common/logger"
 	"ncobase/common/uuid"
 	"sync"
 	"time"
@@ -106,7 +106,7 @@ func (m *Manager) RegisterConsulService(name string, info *ServiceInfo) error {
 	// clear cache
 	m.serviceCache.clear()
 
-	log.Infof(context.Background(),
+	logger.Infof(context.Background(),
 		"service registered successfully: %s, address: %s",
 		name,
 		info.Address)
@@ -127,7 +127,7 @@ func (m *Manager) DeregisterConsulService(name string) error {
 	// clear cache
 	m.serviceCache.clear()
 
-	log.Infof(context.Background(),
+	logger.Infof(context.Background(),
 		"service deregistered successfully: %s",
 		name)
 
@@ -166,7 +166,7 @@ func (m *Manager) CheckServiceHealth(name string) string {
 
 	checks, _, err := m.consul.Health().Checks(name, &api.QueryOptions{})
 	if err != nil {
-		log.Errorf(context.Background(),
+		logger.Errorf(context.Background(),
 			"failed to get health checks for service %s: %v",
 			name,
 			err)
@@ -175,7 +175,7 @@ func (m *Manager) CheckServiceHealth(name string) string {
 
 	for _, check := range checks {
 		if check.Status != "passing" {
-			log.Warnf(context.Background(),
+			logger.Warnf(context.Background(),
 				"service %s health check failed: %s",
 				name,
 				check.Output)

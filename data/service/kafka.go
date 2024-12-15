@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
-	"ncobase/common/log"
+	"ncobase/common/logger"
 	"time"
 
 	"github.com/segmentio/kafka-go"
@@ -64,7 +64,7 @@ func (s *KafkaService) ConsumeMessages(ctx context.Context, topic string, groupI
 		}
 
 		if err := handler(m.Value); err != nil {
-			log.Errorf(context.Background(), "Failed to process a message: %v", err)
+			logger.Errorf(context.Background(), "Failed to process a message: %v", err)
 			fmt.Println(err)
 		}
 

@@ -3,7 +3,7 @@ package extension
 import (
 	"context"
 	"fmt"
-	"ncobase/common/log"
+	"ncobase/common/logger"
 	"plugin"
 	"sync"
 )
@@ -69,13 +69,13 @@ func LoadPlugin(path string, m *Manager) error {
 
 	name := sc.Name()
 	if _, exists := registry.plugins[name]; exists {
-		log.Infof(context.Background(), "Warning: Plugin %s is being overwritten", name)
+		logger.Infof(context.Background(), "Warning: Plugin %s is being overwritten", name)
 	}
 	registry.plugins[name] = &Wrapper{
 		Metadata: metadata,
 		Instance: sc,
 	}
-	log.Infof(context.Background(), "Plugin %s loaded and initialized successfully", name)
+	logger.Infof(context.Background(), "Plugin %s loaded and initialized successfully", name)
 
 	return nil
 }
@@ -91,7 +91,7 @@ func UnloadPlugin(name string) error {
 	}
 
 	if err := c.Instance.PreCleanup(); err != nil {
-		log.Infof(context.Background(), "Warning: Failed pre-cleanup of plugin %s: %v", name, err)
+		logger.Infof(context.Background(), "Warning: Failed pre-cleanup of plugin %s: %v", name, err)
 	}
 
 	if err := c.Instance.Cleanup(); err != nil {
@@ -99,7 +99,7 @@ func UnloadPlugin(name string) error {
 	}
 
 	delete(registry.plugins, name)
-	log.Infof(context.Background(), "plugin %s unloaded successfully", name)
+	logger.Infof(context.Background(), "plugin %s unloaded successfully", name)
 	return nil
 }
 

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"math/rand"
 	"ncobase/common/config"
-	"ncobase/common/log"
+	"ncobase/common/logger"
 	"sync"
 	"sync/atomic"
 
@@ -135,7 +135,7 @@ func NewDBManager(conf *config.Database) (*DBManager, error) {
 	for _, slaveCfg := range conf.Slaves {
 		slave, err := newDBClient(slaveCfg)
 		if err != nil {
-			log.Warnf(context.Background(), "Failed to connect to slave DB: %v", err)
+			logger.Warnf(context.Background(), "Failed to connect to slave DB: %v", err)
 			continue
 		}
 		slaves = append(slaves, slave)
@@ -143,7 +143,7 @@ func NewDBManager(conf *config.Database) (*DBManager, error) {
 
 	// if no slave database is available, use master for reads
 	if len(slaves) == 0 {
-		log.Warnf(context.Background(), "No slave databases available, using master for reads")
+		logger.Warnf(context.Background(), "No slave databases available, using master for reads")
 		slaves = append(slaves, master)
 	}
 
@@ -181,12 +181,12 @@ func newDBClient(conf *config.DBNode) (*sql.DB, error) {
 	case "sqlite3":
 		db, err = sql.Open("sqlite3", conf.Source)
 	default:
-		log.Fatalf(context.Background(), "Dialect %v not supported", conf.Driver)
+		logger.Fatalf(context.Background(), "Dialect %v not supported", conf.Driver)
 		return nil, err
 	}
 
 	if err != nil {
-		log.Fatalf(context.Background(), "Failed to open database: %v", err)
+		logger.Fatalf(context.Background(), "Failed to open database: %v", err)
 		return nil, err
 	}
 
@@ -194,7 +194,7 @@ func newDBClient(conf *config.DBNode) (*sql.DB, error) {
 	db.SetMaxOpenConns(conf.MaxOpenConn)
 	db.SetConnMaxLifetime(conf.ConnMaxLifeTime)
 
-	log.Infof(context.Background(), "Database %v connected", conf.Driver)
+	logger.Infof(context.Background(), "Database %v connected", conf.Driver)
 
 	return db, nil
 }
@@ -268,7 +268,7 @@ func (dm *DBManager) Health(ctx context.Context) error {
 	var healthySlaves []*sql.DB
 	for _, slave := range dm.slaves {
 		if err := slave.PingContext(ctx); err != nil {
-			log.Warnf(ctx, "Slave database health check failed: %v", err)
+			logger.Warnf(ctx, "Slave database health check failed: %v", err)
 			continue
 		}
 		healthySlaves = append(healthySlaves, slave)
@@ -279,7 +279,7 @@ func (dm *DBManager) Health(ctx context.Context) error {
 
 	// if no slave database is available, use master for reads
 	if len(dm.slaves) == 0 {
-		log.Warnf(ctx, "No healthy slave databases available, using master for reads")
+		logger.Warnf(ctx, "No healthy slave databases available, using master for reads")
 		dm.slaves = append(dm.slaves, dm.master)
 	}
 

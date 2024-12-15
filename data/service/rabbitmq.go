@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
-	"ncobase/common/log"
+	"ncobase/common/logger"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -66,7 +66,7 @@ func (s *RabbitMQService) ConsumeMessages(queue string, handler func([]byte) err
 	go func() {
 		for d := range msgs {
 			if err := handler(d.Body); err != nil {
-				log.Errorf(context.Background(), "Failed to process a message: %v", err)
+				logger.Errorf(context.Background(), "Failed to process a message: %v", err)
 				fmt.Println(err)
 			}
 		}

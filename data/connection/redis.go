@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"ncobase/common/config"
-	"ncobase/common/log"
+	"ncobase/common/logger"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -12,7 +12,7 @@ import (
 // newRedisClient creates a new Redis client
 func newRedisClient(conf *config.Redis) (*redis.Client, error) {
 	if conf == nil || conf.Addr == "" {
-		log.Infof(context.Background(), "Redis configuration is nil or empty")
+		logger.Infof(context.Background(), "Redis configuration is nil or empty")
 		return nil, errors.New("redis configuration is nil or empty")
 	}
 
@@ -30,11 +30,11 @@ func newRedisClient(conf *config.Redis) (*redis.Client, error) {
 	timeout, cancelFunc := context.WithTimeout(context.Background(), conf.DialTimeout)
 	defer cancelFunc()
 	if err := rc.Ping(timeout).Err(); err != nil {
-		log.Errorf(context.Background(), "Redis connect error: %v", err)
+		logger.Errorf(context.Background(), "Redis connect error: %v", err)
 		return nil, err
 	}
 
-	log.Infof(context.Background(), "Redis connected")
+	logger.Infof(context.Background(), "Redis connected")
 
 	return rc, nil
 }
