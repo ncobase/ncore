@@ -83,5 +83,5 @@ func (s *RabbitMQ) Close() error {
 	if err := s.conn.Close(); err != nil {
 		return fmt.Errorf("failed to close RabbitMQ connection: %w", err)
 	}
-	return s.conn.Close()
+	return nil
 }

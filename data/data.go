@@ -3,6 +3,7 @@ package data
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"ncobase/common/data/config"
 	"ncobase/common/data/connection"
@@ -80,7 +81,7 @@ func New(cfg *config.Config, createNewInstance ...bool) (*Data, func(name ...str
 func GetTx(ctx context.Context) (*sql.Tx, error) {
 	tx, ok := ctx.Value(ContextKeyTransaction).(*sql.Tx)
 	if !ok {
-		return nil, fmt.Errorf("transaction not found in context")
+		return nil, errors.New("transaction not found in context")
 	}
 	return tx, nil
 }
@@ -89,7 +90,7 @@ func GetTx(ctx context.Context) (*sql.Tx, error) {
 func (d *Data) WithTx(ctx context.Context, fn func(ctx context.Context) error) error {
 	db := d.DB()
 	if db == nil {
-		return fmt.Errorf("database connection is nil")
+		return errors.New("database connection is nil")
 	}
 
 	tx, err := db.BeginTx(ctx, nil)
@@ -153,7 +154,7 @@ func (d *Data) DBRead() (*sql.DB, error) {
 	if d.Conn != nil {
 		return d.Conn.DBRead()
 	}
-	return nil, fmt.Errorf("no database connection available")
+	return nil, errors.New("no database connection available")
 }
 
 // GetRedis get redis
@@ -181,24 +182,18 @@ func (d *Data) Ping(ctx context.Context) error {
 	if d.Conn != nil {
 		return d.Conn.Ping(ctx)
 	}
-	return fmt.Errorf("no connection manager available")
+	return errors.New("no connection manager available")
 }
 
 // Close closes all data connections
-func (d *Data) Close() (errs []error) {
+func (d *Data) Close() []error {
+	var errs []error
+
 	// Close connections
-	if connErrs := d.Conn.Close(); len(connErrs) > 0 {
-		errs = append(errs, connErrs...)
-	}
-
-	// Close RabbitMQ connection
-	if rabbitMQErr := d.RabbitMQ.Close(); rabbitMQErr != nil {
-		errs = append(errs, rabbitMQErr)
-	}
-
-	// Close Kafka connection
-	if kafkaErr := d.Kafka.Close(); kafkaErr != nil {
-		errs = append(errs, kafkaErr)
+	if d.Conn != nil {
+		if connErrs := d.Conn.Close(); len(connErrs) > 0 {
+			errs = append(errs, connErrs...)
+		}
 	}
 
 	return errs

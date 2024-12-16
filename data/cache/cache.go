@@ -50,8 +50,7 @@ func NewCache[T any](rc *redis.Client, key string, useHash ...bool) *Cache[T] {
 // Get retrieves a single item from cache
 func (c *Cache[T]) Get(ctx context.Context, field string) (*T, error) {
 	if c.rc == nil {
-		log.Printf("redis client is nil, skipping Get operation")
-		return nil, nil
+		return nil, errors.New("redis client is nil, cannot get cache")
 	}
 
 	var result string
@@ -80,13 +79,11 @@ func (c *Cache[T]) Get(ctx context.Context, field string) (*T, error) {
 // Set saves a single item into cache
 func (c *Cache[T]) Set(ctx context.Context, field string, data *T, expire ...time.Duration) error {
 	if c.rc == nil {
-		log.Printf("redis client is nil, skipping Set operation")
-		return nil
+		return errors.New("redis client is nil, cannot set cache")
 	}
 
 	bytes, err := json.Marshal(data)
 	if err != nil {
-		log.Printf("failed to marshal data for cache set: %v, error: %v", data, err)
 		return fmt.Errorf("failed to marshal data: %w", err)
 	}
 
@@ -109,8 +106,7 @@ func (c *Cache[T]) Set(ctx context.Context, field string, data *T, expire ...tim
 // GetArray retrieves an array of items from cache
 func (c *Cache[T]) GetArray(ctx context.Context, field string, dest any) error {
 	if c.rc == nil {
-		log.Printf("redis client is nil, skipping GetArray operation")
-		return nil
+		return errors.New("redis client is nil, cannot get array cache")
 	}
 
 	var result string
@@ -139,8 +135,7 @@ func (c *Cache[T]) GetArray(ctx context.Context, field string, dest any) error {
 // SetArray saves an array of items into cache
 func (c *Cache[T]) SetArray(ctx context.Context, field string, data any, expire ...time.Duration) error {
 	if c.rc == nil {
-		log.Printf("redis client is nil, skipping SetArray operation")
-		return nil
+		return errors.New("redis client is nil, cannot set array cache")
 	}
 
 	bytes, err := json.Marshal(data)
@@ -169,8 +164,7 @@ func (c *Cache[T]) SetArray(ctx context.Context, field string, data any, expire 
 // Delete removes data from cache
 func (c *Cache[T]) Delete(ctx context.Context, field string) error {
 	if c.rc == nil {
-		log.Printf("redis client is nil, skipping Delete operation")
-		return nil
+		return errors.New("redis client is nil, cannot delete cache")
 	}
 
 	var err error

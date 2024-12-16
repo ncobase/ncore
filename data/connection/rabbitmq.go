@@ -1,10 +1,9 @@
 package connection
 
 import (
-	"context"
+	"errors"
 	"fmt"
 	"ncobase/common/data/config"
-	"ncobase/common/logger"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -12,8 +11,7 @@ import (
 // newRabbitMQConnection creates a new RabbitMQ connection
 func newRabbitMQConnection(conf *config.RabbitMQ) (*amqp.Connection, error) {
 	if conf == nil || conf.URL == "" {
-		logger.Infof(context.Background(), "RabbitMQ configuration is nil or empty")
-		return nil, nil
+		return nil, errors.New("RabbitMQ configuration is nil or empty")
 	}
 
 	url := fmt.Sprintf("amqp://%s:%s@%s/%s", conf.Username, conf.Password, conf.URL, conf.Vhost)
@@ -22,10 +20,8 @@ func newRabbitMQConnection(conf *config.RabbitMQ) (*amqp.Connection, error) {
 		Vhost:     conf.Vhost,
 	})
 	if err != nil {
-		logger.Errorf(context.Background(), "Failed to connect to RabbitMQ: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)
 	}
 
-	logger.Infof(context.Background(), "Connected to RabbitMQ")
 	return conn, nil
 }

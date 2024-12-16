@@ -2,8 +2,9 @@ package connection
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"ncobase/common/data/config"
-	"ncobase/common/logger"
 
 	"github.com/segmentio/kafka-go"
 )
@@ -11,16 +12,13 @@ import (
 // newKafkaConnection creates a new Kafka connection
 func newKafkaConnection(conf *config.Kafka) (*kafka.Conn, error) {
 	if conf == nil || len(conf.Brokers) == 0 {
-		logger.Infof(context.Background(), "Kafka configuration is nil or empty")
-		return nil, nil
+		return nil, errors.New("kafka configuration is nil or empty")
 	}
 
 	conn, err := kafka.DialContext(context.Background(), "tcp", conf.Brokers[0])
 	if err != nil {
-		logger.Errorf(context.Background(), "Failed to connect to Kafka: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to connect to Kafka: %w", err)
 	}
 
-	logger.Infof(context.Background(), "Connected to Kafka")
 	return conn, nil
 }

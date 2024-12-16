@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"strings"
 
@@ -31,8 +32,7 @@ func NewClient(addresses []string, username, password string) (*Client, error) {
 
 	es, err := elasticsearch.NewClient(cfg)
 	if err != nil {
-		log.Printf("Elasticsearch client creation error: %s", err)
-		return nil, err
+		return nil, fmt.Errorf("elasticsearch client creation error: %s", err)
 	}
 
 	return &Client{client: es}, nil
@@ -41,8 +41,7 @@ func NewClient(addresses []string, username, password string) (*Client, error) {
 // Search search from Elasticsearch
 func (c *Client) Search(ctx context.Context, indexName, query string) (*esapi.Response, error) {
 	if c == nil || c.client == nil {
-		log.Printf("Elasticsearch client is nil, cannot perform search")
-		return nil, errors.New("elasticsearch client is nil")
+		return nil, errors.New("elasticsearch client is nil, cannot perform search")
 	}
 
 	res, err := c.client.Search(
@@ -56,12 +55,14 @@ func (c *Client) Search(ctx context.Context, indexName, query string) (*esapi.Re
 		log.Printf("Elasticsearch search error: %s", err)
 		return nil, err
 	}
-	defer res.Body.Close()
+
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(res.Body)
 
 	var sr esapi.Response
 	if err := json.NewDecoder(res.Body).Decode(&sr); err != nil {
-		log.Printf("Error parsing the response body: %s", err)
-		return nil, err
+		return nil, fmt.Errorf("elasticsearch parsing error: %s", err)
 	}
 
 	return &sr, nil
@@ -70,15 +71,13 @@ func (c *Client) Search(ctx context.Context, indexName, query string) (*esapi.Re
 // IndexDocument index document to Elasticsearch
 func (c *Client) IndexDocument(ctx context.Context, indexName string, documentID string, document any) error {
 	if c == nil || c.client == nil {
-		log.Printf("Elasticsearch client is nil, cannot index documents")
-		return errors.New("elasticsearch client is nil")
+		return errors.New("elasticsearch client is nil, cannot index documents")
 	}
 
 	var b strings.Builder
 	enc := json.NewEncoder(&b)
 	if err := enc.Encode(document); err != nil {
-		log.Printf("Error encoding document: %s", err)
-		return err
+		return fmt.Errorf("error encoding document: %s", err)
 	}
 
 	req := esapi.IndexRequest{
@@ -90,10 +89,12 @@ func (c *Client) IndexDocument(ctx context.Context, indexName string, documentID
 
 	res, err := req.Do(ctx, c.client)
 	if err != nil {
-		log.Printf("Error indexing document: %s", err)
-		return err
+		return fmt.Errorf("elasticsearch indexing error: %s", err)
 	}
-	defer res.Body.Close()
+
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(res.Body)
 
 	if res.IsError() {
 		var respBody map[string]any
@@ -111,8 +112,7 @@ func (c *Client) IndexDocument(ctx context.Context, indexName string, documentID
 // DeleteDocument delete document from Elasticsearch
 func (c *Client) DeleteDocument(ctx context.Context, indexName, documentID string) error {
 	if c == nil || c.client == nil {
-		log.Printf("Elasticsearch client is nil, cannot delete documents")
-		return errors.New("elasticsearch client is nil")
+		return errors.New("elasticsearch client is nil, cannot delete documents")
 	}
 
 	req := esapi.DeleteRequest{
@@ -126,7 +126,10 @@ func (c *Client) DeleteDocument(ctx context.Context, indexName, documentID strin
 		log.Printf("Error deleting document: %s", err)
 		return err
 	}
-	defer res.Body.Close()
+
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(res.Body)
 
 	if res.IsError() {
 		var respBody map[string]any
