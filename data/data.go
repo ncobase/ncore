@@ -4,33 +4,40 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"ncobase/common/config"
+	"ncobase/common/data/config"
 	"ncobase/common/data/connection"
 	"ncobase/common/data/elastic"
+	"ncobase/common/data/kafka"
 	"ncobase/common/data/meili"
-	"ncobase/common/data/service"
-	"ncobase/common/logger"
+	"ncobase/common/data/rabbitmq"
 
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
-	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/redis/go-redis/v9"
-	"github.com/segmentio/kafka-go"
+)
+
+type ContextKey string
+
+const (
+	// ContextKeyTransaction is context key
+	ContextKeyTransaction ContextKey = "tx"
 )
 
 var (
-	sharedInstance    *Data
-	errExecuteCleanup = "execute %s data cleanup."
+	// sharedInstance is shared instance
+	sharedInstance *Data
 )
 
+// Data represents the data layer implementation
 type Data struct {
-	Conn *connection.Connections
-	Svc  *service.Services
+	Conn     *connection.Connections
+	RabbitMQ *rabbitmq.RabbitMQ
+	Kafka    *kafka.Kafka
 }
 
 // Option function type for configuring Connections
 type Option func(*Data)
 
-func New(conf *config.Data, createNewInstance ...bool) (*Data, func(name ...string), error) {
+// New creates new data layer
+func New(cfg *config.Config, createNewInstance ...bool) (*Data, func(name ...string), error) {
 	var createNew bool
 	if len(createNewInstance) > 0 {
 		createNew = createNewInstance[0]
@@ -38,22 +45,22 @@ func New(conf *config.Data, createNewInstance ...bool) (*Data, func(name ...stri
 
 	if !createNew && sharedInstance != nil {
 		cleanup := func(name ...string) {
-			// log.Infof(context.Background(), errExecuteCleanup, name[0])
 			if errs := sharedInstance.Close(); len(errs) > 0 {
-				logger.Fatalf(context.Background(), "cleanup errors: %v", errs)
+				fmt.Printf("cleanup errors: %v\n", errs)
 			}
 		}
 		return sharedInstance, cleanup, nil
 	}
 
-	conn, err := connection.New(conf)
+	conn, err := connection.New(cfg)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	d := &Data{
-		Conn: conn,
-		Svc:  service.New(conn),
+		Conn:     conn,
+		RabbitMQ: rabbitmq.NewRabbitMQ(conn.RMQ),
+		Kafka:    kafka.New(conn.KFK),
 	}
 
 	if !createNew {
@@ -61,9 +68,8 @@ func New(conf *config.Data, createNewInstance ...bool) (*Data, func(name ...stri
 	}
 
 	cleanup := func(name ...string) {
-		// log.Infof(context.Background(), errExecuteCleanup, name[0])
 		if errs := d.Close(); len(errs) > 0 {
-			logger.Fatalf(context.Background(), "cleanup errors: %v", errs)
+			fmt.Printf("cleanup errors: %v\n", errs)
 		}
 	}
 
@@ -72,14 +78,14 @@ func New(conf *config.Data, createNewInstance ...bool) (*Data, func(name ...stri
 
 // GetTx retrieves transaction from context
 func GetTx(ctx context.Context) (*sql.Tx, error) {
-	tx, ok := ctx.Value("tx").(*sql.Tx)
+	tx, ok := ctx.Value(ContextKeyTransaction).(*sql.Tx)
 	if !ok {
 		return nil, fmt.Errorf("transaction not found in context")
 	}
 	return tx, nil
 }
 
-// WithTx wraps a function within a transaction
+// WithTx wraps function within transaction
 func (d *Data) WithTx(ctx context.Context, fn func(ctx context.Context) error) error {
 	db := d.DB()
 	if db == nil {
@@ -91,10 +97,10 @@ func (d *Data) WithTx(ctx context.Context, fn func(ctx context.Context) error) e
 		return err
 	}
 
-	err = fn(context.WithValue(ctx, "tx", tx))
+	err = fn(context.WithValue(ctx, ContextKeyTransaction, tx))
 	if err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
-			return fmt.Errorf("tx err: %v, rb err: %v", err, rbErr)
+			return fmt.Errorf("tx err: %v, rollback err: %v", err, rbErr)
 		}
 		return err
 	}
@@ -102,7 +108,7 @@ func (d *Data) WithTx(ctx context.Context, fn func(ctx context.Context) error) e
 	return tx.Commit()
 }
 
-// WithTxRead wraps a function within a read-only transaction
+// WithTxRead wraps function within read-only transaction
 func (d *Data) WithTxRead(ctx context.Context, fn func(ctx context.Context) error) error {
 	dbRead, err := d.DBRead()
 	if err != nil {
@@ -116,10 +122,9 @@ func (d *Data) WithTxRead(ctx context.Context, fn func(ctx context.Context) erro
 		return err
 	}
 
-	err = fn(context.WithValue(ctx, "tx", tx))
-	if err != nil {
+	if err = fn(context.WithValue(ctx, ContextKeyTransaction, tx)); err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
-			return fmt.Errorf("tx err: %v, rb err: %v", err, rbErr)
+			return fmt.Errorf("tx err: %v, rollback err: %v", err, rbErr)
 		}
 		return err
 	}
@@ -143,12 +148,12 @@ func (d *Data) DB() *sql.DB {
 	return nil
 }
 
-// DBRead returns a slave database connection for read operations
+// DBRead returns slave database connection for read operations
 func (d *Data) DBRead() (*sql.DB, error) {
 	if d.Conn != nil {
 		return d.Conn.DBRead()
 	}
-	return nil, nil
+	return nil, fmt.Errorf("no database connection available")
 }
 
 // GetRedis get redis
@@ -161,7 +166,7 @@ func (d *Data) GetMeilisearch() *meili.Client {
 	return d.Conn.MS
 }
 
-// GetElasticsearch get meilisearch
+// GetElasticsearch get elasticsearch
 func (d *Data) GetElasticsearch() *elastic.Client {
 	return d.Conn.ES
 }
@@ -171,38 +176,29 @@ func (d *Data) GetMongoManager() *connection.MongoManager {
 	return d.Conn.MGM
 }
 
-// GetNeo4j get neo4j
-func (d *Data) GetNeo4j() neo4j.DriverWithContext {
-	return d.Conn.Neo
-}
-
-// GetRabbitMQ get rabbitMQ
-func (d *Data) GetRabbitMQ() *amqp.Connection {
-	return d.Conn.RMQ
-}
-
-// GetKafka get kafka
-func (d *Data) GetKafka() *kafka.Conn {
-	return d.Conn.KFK
-}
-
 // Ping checks all database connections
 func (d *Data) Ping(ctx context.Context) error {
 	if d.Conn != nil {
 		return d.Conn.Ping(ctx)
 	}
-	return nil
+	return fmt.Errorf("no connection manager available")
 }
 
+// Close closes all data connections
 func (d *Data) Close() (errs []error) {
 	// Close connections
 	if connErrs := d.Conn.Close(); len(connErrs) > 0 {
 		errs = append(errs, connErrs...)
 	}
 
-	// Close services
-	if svcEerrs := d.Svc.Close(); len(svcEerrs) > 0 {
-		errs = append(errs, svcEerrs...)
+	// Close RabbitMQ connection
+	if rabbitMQErr := d.RabbitMQ.Close(); rabbitMQErr != nil {
+		errs = append(errs, rabbitMQErr)
+	}
+
+	// Close Kafka connection
+	if kafkaErr := d.Kafka.Close(); kafkaErr != nil {
+		errs = append(errs, kafkaErr)
 	}
 
 	return errs

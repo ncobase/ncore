@@ -3,7 +3,7 @@ package connection
 import (
 	"context"
 	"errors"
-	"ncobase/common/config"
+	"ncobase/common/data/config"
 	"ncobase/common/logger"
 
 	"github.com/redis/go-redis/v9"

@@ -6,9 +6,12 @@ import (
 	"github.com/spf13/viper"
 )
 
+// Email represents the email configuration
+type Email = email.Email
+
 // getEmailConfig returns the email configuration
-func getEmailConfig(v *viper.Viper) *email.Email {
-	return &email.Email{
+func getEmailConfig(v *viper.Viper) *Email {
+	return &Email{
 		Provider:     v.GetString("email.provider"),
 		Mailgun:      getMailgunConfig(v),
 		Aliyun:       getAliyunConfig(v),

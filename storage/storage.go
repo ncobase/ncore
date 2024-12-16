@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/casdoor/oss"
+	"github.com/spf13/viper"
 )
 
 // Config config
@@ -33,5 +34,17 @@ func NewStorage(c *Config) (oss.StorageInterface, error) {
 		return NewTencentCloud(c), nil
 	default:
 		return nil, errors.New("unsupported storage type")
+	}
+}
+
+// GetConfig get storage config
+func GetConfig(v *viper.Viper) *Config {
+	return &Config{
+		Provider: v.GetString("storage.provider"),
+		ID:       v.GetString("storage.id"),
+		Secret:   v.GetString("storage.secret"),
+		Region:   v.GetString("storage.region"),
+		Bucket:   v.GetString("storage.bucket"),
+		Endpoint: v.GetString("storage.endpoint"),
 	}
 }

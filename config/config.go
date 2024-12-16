@@ -8,9 +8,6 @@ import (
 	"path/filepath"
 	"sync"
 
-	"ncobase/common/email"
-	"ncobase/common/storage"
-
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
 )
@@ -38,9 +35,9 @@ type Config struct {
 	Logger    *Logger
 	Data      *Data
 	Auth      *Auth
-	Storage   *storage.Config
+	Storage   *Storage
 	OAuth     *OAuth
-	Email     *email.Email
+	Email     *Email
 }
 
 func init() {

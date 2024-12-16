@@ -1,30 +1,31 @@
-package service
+package rabbitmq
 
 import (
-	"context"
 	"fmt"
-	"ncobase/common/logger"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-// RabbitMQService represents a RabbitMQ service
-type RabbitMQService struct {
+// RabbitMQ represents RabbitMQ implementation
+type RabbitMQ struct {
 	conn *amqp.Connection
 }
 
-// NewRabbitMQService creates a new RabbitMQ service
-func NewRabbitMQService(conn *amqp.Connection) *RabbitMQService {
-	return &RabbitMQService{conn: conn}
+// NewRabbitMQ creates new RabbitMQ connection
+func NewRabbitMQ(conn *amqp.Connection) *RabbitMQ {
+	return &RabbitMQ{conn: conn}
 }
 
-// PublishMessage publishes a message to RabbitMQ
-func (s *RabbitMQService) PublishMessage(exchange, routingKey string, body []byte) error {
+// PublishMessage publishes message to RabbitMQ
+func (s *RabbitMQ) PublishMessage(exchange, routingKey string, body []byte) error {
 	ch, err := s.conn.Channel()
 	if err != nil {
-		return fmt.Errorf("failed to open a channel: %w", err)
+		return fmt.Errorf("failed to open channel: %w", err)
 	}
-	defer ch.Close()
+
+	defer func(ch *amqp.Channel) {
+		_ = ch.Close()
+	}(ch)
 
 	err = ch.Publish(
 		exchange,   // exchange
@@ -36,19 +37,22 @@ func (s *RabbitMQService) PublishMessage(exchange, routingKey string, body []byt
 			Body:        body,
 		})
 	if err != nil {
-		return fmt.Errorf("failed to publish a message: %w", err)
+		return fmt.Errorf("failed to publish message: %w", err)
 	}
 
 	return nil
 }
 
 // ConsumeMessages consumes messages from RabbitMQ
-func (s *RabbitMQService) ConsumeMessages(queue string, handler func([]byte) error) error {
+func (s *RabbitMQ) ConsumeMessages(queue string, handler func([]byte) error) error {
 	ch, err := s.conn.Channel()
 	if err != nil {
-		return fmt.Errorf("failed to open a channel: %w", err)
+		return fmt.Errorf("failed to open channel: %w", err)
 	}
-	defer ch.Close()
+
+	defer func(ch *amqp.Channel) {
+		_ = ch.Close()
+	}(ch)
 
 	msgs, err := ch.Consume(
 		queue, // queue
@@ -60,14 +64,13 @@ func (s *RabbitMQService) ConsumeMessages(queue string, handler func([]byte) err
 		nil,   // args
 	)
 	if err != nil {
-		return fmt.Errorf("failed to register a consumer: %w", err)
+		return fmt.Errorf("failed to register consumer: %w", err)
 	}
 
 	go func() {
 		for d := range msgs {
 			if err := handler(d.Body); err != nil {
-				logger.Errorf(context.Background(), "Failed to process a message: %v", err)
-				fmt.Println(err)
+				fmt.Printf("Failed to process message: %v\n", err)
 			}
 		}
 	}()
@@ -76,7 +79,7 @@ func (s *RabbitMQService) ConsumeMessages(queue string, handler func([]byte) err
 }
 
 // Close closes the RabbitMQ service
-func (s *RabbitMQService) Close() error {
+func (s *RabbitMQ) Close() error {
 	if err := s.conn.Close(); err != nil {
 		return fmt.Errorf("failed to close RabbitMQ connection: %w", err)
 	}

@@ -1,27 +1,26 @@
-package service
+package kafka
 
 import (
 	"context"
 	"fmt"
-	"ncobase/common/logger"
 	"time"
 
 	"github.com/segmentio/kafka-go"
 )
 
-// KafkaService represents a Kafka service
-type KafkaService struct {
+// Kafka represents Kafka implementation
+type Kafka struct {
 	conn   *kafka.Conn
 	writer *kafka.Writer
 	reader *kafka.Reader
 }
 
-// NewKafkaService creates a new Kafka service
-func NewKafkaService(conn *kafka.Conn) *KafkaService {
+// New creates new Kafka service
+func New(conn *kafka.Conn) *Kafka {
 	if conn == nil {
 		return nil
 	}
-	return &KafkaService{
+	return &Kafka{
 		conn: conn,
 		writer: &kafka.Writer{
 			Addr:         kafka.TCP(conn.RemoteAddr().String()),
@@ -31,8 +30,8 @@ func NewKafkaService(conn *kafka.Conn) *KafkaService {
 	}
 }
 
-// PublishMessage publishes a message to Kafka
-func (s *KafkaService) PublishMessage(ctx context.Context, topic string, key, value []byte) error {
+// PublishMessage publishes message to Kafka
+func (s *Kafka) PublishMessage(ctx context.Context, topic string, key, value []byte) error {
 	err := s.writer.WriteMessages(ctx, kafka.Message{
 		Topic: topic,
 		Key:   key,
@@ -46,7 +45,7 @@ func (s *KafkaService) PublishMessage(ctx context.Context, topic string, key, va
 }
 
 // ConsumeMessages consumes messages from Kafka
-func (s *KafkaService) ConsumeMessages(ctx context.Context, topic string, groupID string, handler func([]byte) error) error {
+func (s *Kafka) ConsumeMessages(ctx context.Context, topic string, groupID string, handler func([]byte) error) error {
 	if s.reader == nil {
 		s.reader = kafka.NewReader(kafka.ReaderConfig{
 			Brokers:  []string{s.conn.RemoteAddr().String()},
@@ -64,8 +63,7 @@ func (s *KafkaService) ConsumeMessages(ctx context.Context, topic string, groupI
 		}
 
 		if err := handler(m.Value); err != nil {
-			logger.Errorf(context.Background(), "Failed to process a message: %v", err)
-			fmt.Println(err)
+			fmt.Printf("Failed to process message: %v\n", err)
 		}
 
 		select {
@@ -79,7 +77,7 @@ func (s *KafkaService) ConsumeMessages(ctx context.Context, topic string, groupI
 }
 
 // Close closes the Kafka service
-func (s *KafkaService) Close() error {
+func (s *Kafka) Close() error {
 	var errs []error
 
 	if s.writer != nil {

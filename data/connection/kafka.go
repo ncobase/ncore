@@ -2,7 +2,7 @@ package connection
 
 import (
 	"context"
-	"ncobase/common/config"
+	"ncobase/common/data/config"
 	"ncobase/common/logger"
 
 	"github.com/segmentio/kafka-go"

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"ncobase/common/config"
+	"ncobase/common/data/config"
 	"ncobase/common/logger"
 	"sync"
 	"sync/atomic"

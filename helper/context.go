@@ -69,7 +69,11 @@ func GetConfig(ctx context.Context) *config.Config {
 		return conf
 	}
 	// Context does not contain config, load it from config.
-	return config.GetConfig()
+	conf, err := config.GetConfig()
+	if err != nil {
+		return nil
+	}
+	return conf
 }
 
 // SetUserID sets user id to context.Context.

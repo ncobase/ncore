@@ -3,7 +3,7 @@ package connection
 import (
 	"context"
 	"fmt"
-	"ncobase/common/config"
+	"ncobase/common/data/config"
 	"ncobase/common/logger"
 
 	amqp "github.com/rabbitmq/amqp091-go"

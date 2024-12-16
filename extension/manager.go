@@ -313,9 +313,9 @@ func (m *Manager) ExecuteWithCircuitBreaker(extensionName string, fn func() (any
 
 // PublishMessage publishes a message using RabbitMQ or Kafka
 func (m *Manager) PublishMessage(exchange, routingKey string, body []byte) error {
-	if m.data.Svc.RabbitMQ != nil {
+	if m.data.RabbitMQ != nil {
 		return m.data.PublishToRabbitMQ(exchange, routingKey, body)
-	} else if m.data.Svc.Kafka != nil {
+	} else if m.data.Kafka != nil {
 		return m.data.PublishToKafka(context.Background(), routingKey, nil, body)
 	}
 	return fmt.Errorf("no message queue service available")
@@ -323,9 +323,9 @@ func (m *Manager) PublishMessage(exchange, routingKey string, body []byte) error
 
 // SubscribeToMessages subscribes to messages from RabbitMQ or Kafka
 func (m *Manager) SubscribeToMessages(queue string, handler func([]byte) error) error {
-	if m.data.Svc.RabbitMQ != nil {
+	if m.data.RabbitMQ != nil {
 		return m.data.ConsumeFromRabbitMQ(queue, handler)
-	} else if m.data.Svc.Kafka != nil {
+	} else if m.data.Kafka != nil {
 		return m.data.ConsumeFromKafka(context.Background(), queue, "group", handler)
 	}
 	return fmt.Errorf("no message queue service available")

@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"ncobase/common/config"
+	"ncobase/common/data/config"
 	"ncobase/common/data/elastic"
 	"ncobase/common/data/meili"
 	"sync"
@@ -30,7 +30,7 @@ type Connections struct {
 }
 
 // New creates a new Connections
-func New(conf *config.Data) (*Connections, error) {
+func New(conf *config.Config) (*Connections, error) {
 	c := &Connections{}
 	var err error
 

@@ -10,30 +10,34 @@ var (
 	ErrKafkaNotInitialized    = errors.New("kafka service not initialized")
 )
 
+// PublishToRabbitMQ publishes message to RabbitMQ
 func (d *Data) PublishToRabbitMQ(exchange, routingKey string, body []byte) error {
-	if d.Svc.RabbitMQ == nil {
+	if d.RabbitMQ == nil {
 		return ErrRabbitMQNotInitialized
 	}
-	return d.Svc.RabbitMQ.PublishMessage(exchange, routingKey, body)
+	return d.RabbitMQ.PublishMessage(exchange, routingKey, body)
 }
 
+// ConsumeFromRabbitMQ consumes messages from RabbitMQ
 func (d *Data) ConsumeFromRabbitMQ(queue string, handler func([]byte) error) error {
-	if d.Svc.RabbitMQ == nil {
+	if d.RabbitMQ == nil {
 		return ErrRabbitMQNotInitialized
 	}
-	return d.Svc.RabbitMQ.ConsumeMessages(queue, handler)
+	return d.RabbitMQ.ConsumeMessages(queue, handler)
 }
 
+// PublishToKafka publishes message to Kafka
 func (d *Data) PublishToKafka(ctx context.Context, topic string, key, value []byte) error {
-	if d.Svc.Kafka == nil {
+	if d.Kafka == nil {
 		return ErrKafkaNotInitialized
 	}
-	return d.Svc.Kafka.PublishMessage(ctx, topic, key, value)
+	return d.Kafka.PublishMessage(ctx, topic, key, value)
 }
 
+// ConsumeFromKafka consumes messages from Kafka
 func (d *Data) ConsumeFromKafka(ctx context.Context, topic, groupID string, handler func([]byte) error) error {
-	if d.Svc.Kafka == nil {
+	if d.Kafka == nil {
 		return ErrKafkaNotInitialized
 	}
-	return d.Svc.Kafka.ConsumeMessages(ctx, topic, groupID, handler)
+	return d.Kafka.ConsumeMessages(ctx, topic, groupID, handler)
 }
