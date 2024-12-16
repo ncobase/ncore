@@ -3,7 +3,7 @@ package config
 import (
 	"context"
 	"flag"
-	"log"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -16,14 +16,14 @@ import (
 )
 
 var (
-	globalConfig *Config
-	confPath     string
-	once         sync.Once
-	mu           sync.Mutex
-	v            *viper.Viper
+	config *Config
+	path   string
+	once   sync.Once
+	mu     sync.Mutex
+	v      *viper.Viper
 )
 
-// Config is a struct representing the application's configuration.
+// Config represents the configuration implementation.
 type Config struct {
 	AppName   string
 	RunMode   string
@@ -44,63 +44,68 @@ type Config struct {
 }
 
 func init() {
-	flag.StringVar(&confPath, "conf", "", "e.g: bin ./config.yaml")
+	flag.StringVar(&path, "conf", "", "e.g: bin ./config.yaml")
 	v = viper.New()
 }
 
-// Init initializes and loads the application configuration.
-func Init() (*Config, error) {
-	var err error
+// Init initializes and loads the configuration.
+func Init() (cfg *Config, err error) {
 	once.Do(func() {
-		flag.Parse()
-		globalConfig, err = loadConfig(confPath)
-		if err != nil {
-			log.Fatalf("Error loading config: %v", err)
-		}
+		cfg, err = loadConfiguration()
 	})
-	return globalConfig, err
+	return cfg, err
 }
 
-// GetConfig returns the application configuration.
-func GetConfig() *Config {
-	if globalConfig == nil {
-		if _, err := Init(); err != nil {
-			log.Fatalf("Error initializing config: %v", err)
+// GetConfig returns the configuration.
+// It does not handle errors internally; instead, it returns the error for the caller to handle.
+func GetConfig() (*Config, error) {
+	if config == nil {
+		var err error
+		config, err = Init()
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize config: %w", err)
 		}
 	}
-	return globalConfig
+	return config, nil
 }
 
-// BindConfigToContext binds the application configuration to the context.
+// BindConfigToContext binds the configuration to the context.
 func BindConfigToContext(ctx context.Context) context.Context {
-	return context.WithValue(ctx, "config", globalConfig)
+	return context.WithValue(ctx, "config", config)
 }
 
-func loadConfig(configPath string) (*Config, error) {
+// loadConfiguration loads the configuration from the file and sets it globally.
+func loadConfiguration() (*Config, error) {
+	flag.Parse()
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		return nil, fmt.Errorf("error loading config: %w", err)
+	}
+	config = cfg
+	return cfg, nil
+}
+
+// LoadConfig loads the configuration from the file.
+func LoadConfig(configPath string) (*Config, error) {
 	if configPath != "" {
 		v.SetConfigFile(configPath)
 	} else {
-		// Add the directory of the executable
 		ex, err := os.Executable()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get executable path: %w", err)
 		}
-
-		// Set default config file name
 		v.SetConfigName("config")
-		// Add default config paths
 		v.AddConfigPath("/etc/ncobase")
 		v.AddConfigPath("$HOME/.ncobase")
 		v.AddConfigPath(".")
 		v.AddConfigPath(filepath.Dir(ex))
 	}
 
-	// Attempt to read the config file
 	if err := v.ReadInConfig(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	config := &Config{
+	cfg := &Config{
 		AppName:   v.GetString("app_name"),
 		RunMode:   v.GetString("run_mode"),
 		Protocol:  v.GetString("server.protocol"),
@@ -119,32 +124,31 @@ func loadConfig(configPath string) (*Config, error) {
 		Email:     getEmailConfig(v),
 	}
 
-	return config, nil
+	return cfg, nil
 }
 
-// Reload reloads the configuration from the file
+// Reload reloads the configuration from the file.
 func Reload() error {
 	mu.Lock()
 	defer mu.Unlock()
 
-	newConfig, err := loadConfig(confPath)
+	newConfig, err := LoadConfig(path)
 	if err != nil {
-		log.Printf("Error reloading config: %v", err)
-		return err
+		return fmt.Errorf("failed to reload config: %w", err)
 	}
 
-	globalConfig = newConfig
+	config = newConfig
 	return nil
 }
 
-// Watch watches the configuration file and reloads it when it changes
+// Watch watches the configuration file and reloads it when it changes.
 func Watch(callback func(*Config)) {
 	v.WatchConfig()
 	v.OnConfigChange(func(e fsnotify.Event) {
 		if err := Reload(); err != nil {
-			log.Printf("Error reloading config: %v", err)
+			fmt.Printf("Error reloading config: %v\n", err)
 			return
 		}
-		callback(globalConfig)
+		callback(config)
 	})
 }
