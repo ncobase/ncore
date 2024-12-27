@@ -80,7 +80,7 @@ func (m *Manager) loadPluginsInBuilt() error {
 			continue
 		}
 		m.extensions[c.Metadata.Name] = c
-		logger.Infof(context.Background(), "Plugin %s loaded and initialized successfully", c.Metadata.Name)
+		logger.Debugf(context.Background(), "Plugin %s loaded and initialized successfully", c.Metadata.Name)
 	}
 
 	return nil

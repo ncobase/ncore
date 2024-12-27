@@ -69,13 +69,13 @@ func LoadPlugin(path string, m *Manager) error {
 
 	name := sc.Name()
 	if _, exists := registry.plugins[name]; exists {
-		logger.Infof(context.Background(), "Warning: Plugin %s is being overwritten", name)
+		logger.Warnf(context.Background(), "Plugin %s is being overwritten", name)
 	}
 	registry.plugins[name] = &Wrapper{
 		Metadata: metadata,
 		Instance: sc,
 	}
-	logger.Infof(context.Background(), "Plugin %s loaded and initialized successfully", name)
+	logger.Debugf(context.Background(), "Plugin %s loaded and initialized successfully", name)
 
 	return nil
 }
@@ -91,7 +91,7 @@ func UnloadPlugin(name string) error {
 	}
 
 	if err := c.Instance.PreCleanup(); err != nil {
-		logger.Infof(context.Background(), "Warning: Failed pre-cleanup of plugin %s: %v", name, err)
+		logger.Warnf(context.Background(), "Failed pre-cleanup of plugin %s: %v", name, err)
 	}
 
 	if err := c.Instance.Cleanup(); err != nil {
