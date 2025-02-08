@@ -74,3 +74,7 @@ go get github.com/ncobase/common
 ## Support
 
 - Issue Tracker: [https://github.com/ncobase/common/issues](https://github.com/ncobase/common/issues)
+
+## License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
