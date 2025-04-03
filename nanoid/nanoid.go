@@ -3,8 +3,8 @@ package nanoid
 import (
 	"strings"
 
-	"ncobase/common/consts"
-	"ncobase/common/validator"
+	"ncobase/ncore/consts"
+	"ncobase/ncore/validator"
 
 	gonanoid "github.com/matoous/go-nanoid/v2"
 )

@@ -1,6 +1,6 @@
-# Common Library
+# NCore Library
 
-> Common library provides a set of reusable components and utilities for building modern Go applications.
+> NCore library provides a set of reusable components and utilities for building modern Go applications.
 
 ## Features
 
@@ -22,7 +22,7 @@
 ## Installation
 
 ```bash
-go get github.com/ncobase/common
+go get github.com/ncobase/ncore
 ```
 
 ## Structure
@@ -73,7 +73,7 @@ go get github.com/ncobase/common
 
 ## Support
 
-- Issue Tracker: [https://github.com/ncobase/common/issues](https://github.com/ncobase/common/issues)
+- Issue Tracker: [https://github.com/ncobase/ncore/issues](https://github.com/ncobase/ncore/issues)
 
 ## License
 

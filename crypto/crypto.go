@@ -10,7 +10,7 @@ import (
 	"errors"
 	"io"
 
-	"ncobase/common/logger"
+	"ncobase/ncore/logger"
 
 	"golang.org/x/crypto/bcrypt"
 )

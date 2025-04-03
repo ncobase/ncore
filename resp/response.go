@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"ncobase/common/ecode"
+	"ncobase/ncore/ecode"
 )
 
 // Exception represents the response structure.

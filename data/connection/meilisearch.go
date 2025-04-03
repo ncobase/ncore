@@ -2,8 +2,8 @@ package connection
 
 import (
 	"fmt"
-	"ncobase/common/data/config"
-	"ncobase/common/data/meili"
+	"ncobase/ncore/data/config"
+	"ncobase/ncore/data/meili"
 )
 
 // newMeilisearchClient creates a new Meilisearch client

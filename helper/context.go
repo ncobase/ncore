@@ -2,9 +2,9 @@ package helper
 
 import (
 	"context"
-	"ncobase/common/config"
-	"ncobase/common/consts"
-	"ncobase/common/uuid"
+	"ncobase/ncore/config"
+	"ncobase/ncore/consts"
+	"ncobase/ncore/uuid"
 
 	"github.com/gin-gonic/gin"
 )

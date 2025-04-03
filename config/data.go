@@ -1,7 +1,7 @@
 package config
 
 import (
-	dc "ncobase/common/data/config"
+	dc "ncobase/ncore/data/config"
 
 	"github.com/spf13/viper"
 )

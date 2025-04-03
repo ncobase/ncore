@@ -2,7 +2,7 @@ package logger
 
 import (
 	"context"
-	"ncobase/common/helper"
+	"ncobase/ncore/helper"
 )
 
 var traceKey = helper.TraceIDKey

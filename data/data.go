@@ -5,12 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"ncobase/common/data/config"
-	"ncobase/common/data/connection"
-	"ncobase/common/data/elastic"
-	"ncobase/common/data/kafka"
-	"ncobase/common/data/meili"
-	"ncobase/common/data/rabbitmq"
+	"ncobase/ncore/data/config"
+	"ncobase/ncore/data/connection"
+	"ncobase/ncore/data/elastic"
+	"ncobase/ncore/data/kafka"
+	"ncobase/ncore/data/meili"
+	"ncobase/ncore/data/rabbitmq"
 
 	"github.com/redis/go-redis/v9"
 )

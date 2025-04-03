@@ -1,4 +1,4 @@
-module ncobase/common
+module ncobase/ncore
 
 go 1.23.0
 

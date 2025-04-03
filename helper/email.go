@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"ncobase/common/email"
+	"ncobase/ncore/email"
 )
 
 // SetEmailSender sets email sender to context.Context

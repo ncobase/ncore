@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"ncobase/common/data/config"
+	"ncobase/ncore/data/config"
 
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )

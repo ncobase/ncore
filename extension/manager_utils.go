@@ -2,7 +2,7 @@ package extension
 
 import (
 	"fmt"
-	"ncobase/common/config"
+	"ncobase/ncore/config"
 	"sort"
 )
 

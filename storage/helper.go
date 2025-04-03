@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"ncobase/common/nanoid"
+	"ncobase/ncore/nanoid"
 )
 
 // FileType file type

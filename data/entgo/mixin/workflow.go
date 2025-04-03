@@ -1,7 +1,7 @@
 package mixin
 
 import (
-	"ncobase/common/types"
+	"ncobase/ncore/types"
 	"time"
 
 	"entgo.io/ent"

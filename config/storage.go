@@ -1,7 +1,7 @@
 package config
 
 import (
-	"ncobase/common/storage"
+	"ncobase/ncore/storage"
 
 	"github.com/spf13/viper"
 )

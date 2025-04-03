@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"ncobase/common/data/config"
+	"ncobase/ncore/data/config"
 
 	"github.com/segmentio/kafka-go"
 )

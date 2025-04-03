@@ -1,7 +1,7 @@
 package helper
 
 import (
-	"ncobase/common/validator"
+	"ncobase/ncore/validator"
 
 	"github.com/gin-gonic/gin"
 )

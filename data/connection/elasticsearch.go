@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"ncobase/common/data/config"
-	"ncobase/common/data/elastic"
+	"ncobase/ncore/data/config"
+	"ncobase/ncore/data/elastic"
 )
 
 // newElasticsearchClient creates a new Elasticsearch client

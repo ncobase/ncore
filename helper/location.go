@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"ncobase/common/config"
+	"ncobase/ncore/config"
 )
 
 // GetHost constructs the URL based on the given tenant and config, with an optional port.

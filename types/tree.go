@@ -1,7 +1,7 @@
 package types
 
 import (
-	"ncobase/common/validator"
+	"ncobase/ncore/validator"
 	"sort"
 )
 

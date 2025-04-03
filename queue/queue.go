@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"ncobase/common/worker"
+	"ncobase/ncore/worker"
 	"net"
 	"strings"
 	"sync"

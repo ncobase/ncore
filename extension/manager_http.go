@@ -2,8 +2,8 @@ package extension
 
 import (
 	"fmt"
-	"ncobase/common/ecode"
-	"ncobase/common/resp"
+	"ncobase/ncore/ecode"
+	"ncobase/ncore/resp"
 	"path/filepath"
 	"time"
 
