@@ -1,6 +1,6 @@
-# NCore Library
+# NCore
 
-> NCore library provides a set of reusable components and utilities for building modern Go applications.
+> A set of reusable components for Go applications.
 
 ## Features
 
@@ -28,43 +28,35 @@ go get github.com/ncobase/ncore
 ## Structure
 
 ```plaintext
-├── biz                 # Business logic, helper functions
-├── config              # Configuration helpers and management
-├── consts              # Constants and predefined values
-├── cookie              # Cookie handling and management
-├── crypto              # Encryption/decryption utilities and security tools
-├── data                # Data handling and persistence
-│   ├── cache           # Cache management and operations
-│   ├── connection      # Database connections and connection pool management
-│   ├── elastic         # Elasticsearch integration and operations
-│   ├── entgo           # Entgo ORM support and schema management
-│   │   └── mixin       # Entgo mixins for common fields and behaviors
-│   ├── meili           # Meilisearch integration and search operations
-│   └── service         # Direct service support and implementations
-├── ecode               # Error codes and error handling utilities
-├── email               # Email templates, sending and management
-├── expression          # Expression evaluation and parsing
-├── extension           # Extension system for module and plugin development, event management
-├── helper              # Common helper functions and utilities
-├── jwt                 # JWT generation, validation and management
-├── log                 # Logging infrastructure and formatters
-├── metrics             # Metrics collection and reporting
-├── nanoid              # NanoID generation for unique identifiers
-├── oauth               # OAuth2 authentication and authorization
-├── observes            # Observers, monitoring and metrics collection
-├── paging              # Pagination utilities and cursor implementation
-├── proxy               # Universal proxy system for platform and third-party service integration
-├── queue               # Queue management and operations
-├── resp                # HTTP response handling and formatting
-├── router              # Router configuration and middleware management
-├── slug                # URL-friendly slug generation and validation
-├── storage             # File storage and management (local/cloud)
-├── time                # Time formatting, parsing and timezone utilities
-├── types               # Common type definitions and interfaces
-├── util                # General utility functions and tools
-├── uuid                # UUID generation and validation
-├── validator           # Data validation and sanitization
-└── worker              # Background worker support
+├── pkg/               # Public packages that can be imported by other projects
+│   ├── concurrency/   # Concurrency management
+│   ├── config/        # Configuration
+│   ├── consts/        # Constants
+│   ├── cookie/        # Cookie handling
+│   ├── crypto/        # Encryption utilities
+│   ├── data/          # Data access
+│   ├── ecode/         # Error codes
+│   ├── email/         # Email functionality
+│   ├── expression/    # Expression evaluation and parsing
+│   ├── helper/        # Helper functions
+│   ├── jwt/           # JWT handling
+│   ├── logger/        # Logging
+│   ├── monitor/       # Monitoring
+│   ├── nanoid/        # ID generation
+│   ├── oauth/         # OAuth utilities
+│   ├── observes/      # Observability
+│   ├── paging/        # Pagination
+│   ├── queue/         # Queue management
+│   ├── resp/          # HTTP responses
+│   ├── types/         # Common types
+│   ├── slug/          # URL slugs
+│   ├── storage/       # Storage utilities
+│   ├── uuid/          # UUID utilities
+│   └── validator/     # Validation utilities
+│   └── worker/        # Worker pool
+├── extension/           # Extension system
+└── cmd/               # Application entry points
+    └── commands/      # Command-line tools
 ```
 
 ## Dependencies

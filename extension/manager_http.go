@@ -2,8 +2,9 @@ package extension
 
 import (
 	"fmt"
-	"ncobase/ncore/ecode"
-	"ncobase/ncore/resp"
+	"ncore/pkg/ecode"
+	resp2 "ncore/pkg/resp"
+	"ncore/pkg/utils"
 	"path/filepath"
 	"time"
 
@@ -28,48 +29,48 @@ func (m *Manager) ManageRoutes(r *gin.RouterGroup) {
 			result[group][extension.Metadata.Type] = append(result[group][extension.Metadata.Type], extension.Metadata)
 		}
 
-		resp.Success(c.Writer, result)
+		resp2.Success(c.Writer, result)
 	})
 
 	r.POST("/exts/load", func(c *gin.Context) {
 		name := c.Query("name")
 		if name == "" {
-			resp.Fail(c.Writer, resp.BadRequest(ecode.FieldIsRequired("name")))
+			resp2.Fail(c.Writer, resp2.BadRequest(ecode.FieldIsRequired("name")))
 			return
 		}
 		fc := m.conf.Extension
-		fp := filepath.Join(fc.Path, name+GetPlatformExt())
+		fp := filepath.Join(fc.Path, name+utils.GetPlatformExt())
 		if err := m.loadPlugin(fp); err != nil {
-			resp.Fail(c.Writer, resp.InternalServer(fmt.Sprintf("Failed to load extension %s: %v", name, err)))
+			resp2.Fail(c.Writer, resp2.InternalServer(fmt.Sprintf("Failed to load extension %s: %v", name, err)))
 			return
 		}
-		resp.Success(c.Writer, fmt.Sprintf("%s loaded successfully", name))
+		resp2.Success(c.Writer, fmt.Sprintf("%s loaded successfully", name))
 	})
 
 	r.POST("/exts/unload", func(c *gin.Context) {
 		name := c.Query("name")
 		if name == "" {
-			resp.Fail(c.Writer, resp.BadRequest(ecode.FieldIsRequired("name")))
+			resp2.Fail(c.Writer, resp2.BadRequest(ecode.FieldIsRequired("name")))
 			return
 		}
 		if err := m.UnloadPlugin(name); err != nil {
-			resp.Fail(c.Writer, resp.InternalServer(fmt.Sprintf("Failed to unload extension %s: %v", name, err)))
+			resp2.Fail(c.Writer, resp2.InternalServer(fmt.Sprintf("Failed to unload extension %s: %v", name, err)))
 			return
 		}
-		resp.Success(c.Writer, fmt.Sprintf("%s unloaded successfully", name))
+		resp2.Success(c.Writer, fmt.Sprintf("%s unloaded successfully", name))
 	})
 
 	r.POST("/exts/reload", func(c *gin.Context) {
 		name := c.Query("name")
 		if name == "" {
-			resp.Fail(c.Writer, resp.BadRequest(ecode.FieldIsRequired("name")))
+			resp2.Fail(c.Writer, resp2.BadRequest(ecode.FieldIsRequired("name")))
 			return
 		}
 		if err := m.ReloadPlugin(name); err != nil {
-			resp.Fail(c.Writer, resp.InternalServer(fmt.Sprintf("Failed to reload extension %s: %v", name, err)))
+			resp2.Fail(c.Writer, resp2.InternalServer(fmt.Sprintf("Failed to reload extension %s: %v", name, err)))
 			return
 		}
-		resp.Success(c.Writer, fmt.Sprintf("%s reloaded successfully", name))
+		resp2.Success(c.Writer, fmt.Sprintf("%s reloaded successfully", name))
 	})
 }
 

@@ -3,7 +3,7 @@ package extension
 import (
 	"context"
 	"fmt"
-	"ncobase/ncore/logger"
+	"ncore/pkg/logger"
 	"sync"
 	"sync/atomic"
 	"time"

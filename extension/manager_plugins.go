@@ -3,30 +3,11 @@ package extension
 import (
 	"context"
 	"fmt"
-	"ncobase/ncore/logger"
+	"ncore/pkg/logger"
+	"ncore/pkg/utils"
 	"path/filepath"
-	"runtime"
 	"strings"
 )
-
-// Platform-specific extensions
-const (
-	ExtWindows = ".dll"
-	ExtDarwin  = ".dylib"
-	ExtLinux   = ".so"
-)
-
-// GetPlatformExt returns the platform-specific extension
-func GetPlatformExt() string {
-	switch runtime.GOOS {
-	case "windows":
-		return ExtWindows
-	case "darwin":
-		return ExtDarwin
-	default:
-		return ExtLinux
-	}
-}
 
 // LoadPlugins loads all plugins based on the current configuration
 func (m *Manager) LoadPlugins() error {
@@ -43,8 +24,8 @@ func (m *Manager) loadPluginsInFile() error {
 
 	// multiple paths
 	pluginPaths := []string{
-		filepath.Join(basePath, "*"+GetPlatformExt()),            // extension/*
-		filepath.Join(basePath, "plugins", "*"+GetPlatformExt()), // extension/plugins/*
+		filepath.Join(basePath, "*"+utils.GetPlatformExt()),            // extension/*
+		filepath.Join(basePath, "plugins", "*"+utils.GetPlatformExt()), // extension/plugins/*
 	}
 
 	for _, pattern := range pluginPaths {
@@ -55,7 +36,7 @@ func (m *Manager) loadPluginsInFile() error {
 		}
 
 		for _, pp := range pds {
-			pluginName := strings.TrimSuffix(filepath.Base(pp), GetPlatformExt())
+			pluginName := strings.TrimSuffix(filepath.Base(pp), utils.GetPlatformExt())
 			if !m.shouldLoadPlugin(pluginName) {
 				logger.Infof(context.Background(), "🚧 Skipping plugin %s based on configuration", pluginName)
 				continue
@@ -88,7 +69,7 @@ func (m *Manager) loadPluginsInBuilt() error {
 
 // loadPlugin loads a single plugin
 func (m *Manager) loadPlugin(path string) error {
-	name := strings.TrimSuffix(filepath.Base(path), GetPlatformExt())
+	name := strings.TrimSuffix(filepath.Base(path), utils.GetPlatformExt())
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -114,7 +95,7 @@ func (m *Manager) loadPlugin(path string) error {
 func (m *Manager) ReloadPlugin(name string) error {
 	fc := m.conf.Extension
 	fd := fc.Path
-	fp := filepath.Join(fd, name+GetPlatformExt())
+	fp := filepath.Join(fd, name+utils.GetPlatformExt())
 
 	if err := m.UnloadPlugin(name); err != nil {
 		return err
@@ -156,13 +137,13 @@ func (m *Manager) UnloadPlugin(name string) error {
 func (m *Manager) ReloadPlugins() error {
 	fc := m.conf.Extension
 	fd := fc.Path
-	pds, err := filepath.Glob(filepath.Join(fd, "*"+GetPlatformExt()))
+	pds, err := filepath.Glob(filepath.Join(fd, "*"+utils.GetPlatformExt()))
 	if err != nil {
 		logger.Errorf(context.Background(), "failed to list plugin files: %v", err)
 		return err
 	}
 	for _, fp := range pds {
-		if err := m.ReloadPlugin(strings.TrimSuffix(filepath.Base(fp), GetPlatformExt())); err != nil {
+		if err := m.ReloadPlugin(strings.TrimSuffix(filepath.Base(fp), utils.GetPlatformExt())); err != nil {
 			return err
 		}
 	}

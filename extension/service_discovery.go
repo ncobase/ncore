@@ -3,8 +3,8 @@ package extension
 import (
 	"context"
 	"fmt"
-	"ncobase/ncore/logger"
-	"ncobase/ncore/uuid"
+	"ncore/pkg/logger"
+	"ncore/pkg/uuid"
 	"sync"
 	"time"
 

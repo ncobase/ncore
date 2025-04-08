@@ -3,9 +3,9 @@ package extension
 import (
 	"context"
 	"fmt"
-	"ncobase/ncore/config"
-	"ncobase/ncore/data"
-	"ncobase/ncore/logger"
+	"ncore/pkg/config"
+	"ncore/pkg/data"
+	"ncore/pkg/logger"
 	"sync"
 	"time"
 

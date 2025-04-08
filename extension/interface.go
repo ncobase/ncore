@@ -1,7 +1,7 @@
 package extension
 
 import (
-	"ncobase/ncore/config"
+	"ncore/pkg/config"
 
 	"github.com/gin-gonic/gin"
 )
