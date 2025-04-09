@@ -7,7 +7,7 @@ func ServiceTemplate(name, extType, moduleName string) string {
 
 import (
 	"ncore/pkg/config"
-	"{{ .ModuleName }}/{{ if eq .Type "custom" }}{{ .CustomDir }}{{ else }}{{ .ExtType }}{{ end }}/%s/data"
+	"{{ .PackagePath }}/data"
 )
 
 // Service represents the %s service.
@@ -25,5 +25,5 @@ func New(conf *config.Config, d *data.Data) *Service {
 }
 
 // Add your service methods here
-`, name, name)
+`, name)
 }

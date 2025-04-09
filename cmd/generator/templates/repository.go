@@ -5,7 +5,7 @@ import "fmt"
 func RepositoryTemplate(name, extType, moduleName string) string {
 	return fmt.Sprintf(`package repository
 
-import "{{ .ModuleName }}/{{ if eq .Type "custom" }}{{ .CustomDir }}{{ else }}{{ .ExtType }}{{ end }}/%s/data"
+import "{{ .PackagePath }}/data"
 
 // Repository represents the %s repository.
 type Repository struct {
@@ -20,5 +20,5 @@ func New(d *data.Data) *Repository {
 }
 
 // Add your repository methods here
-`, name, name)
+`, name)
 }

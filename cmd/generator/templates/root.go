@@ -7,7 +7,7 @@ func GeneraterTemplate(name, extType, moduleName string) string {
 
 // Generate ent schema with versioned migrations
 // To generate, remove the leading slashes on the following line:
-// //go:generate go run entgo.io/ent/cmd/ent generate --feature sql/versioned-migration --target data/ent {{ .ModuleName }}/{{ if eq .Type "custom" }}{{ .CustomDir }}{{ else }}{{ .ExtType }}{{ end }}/%s/data/schema
+// //go:generate go run entgo.io/ent/cmd/ent generate --feature sql/versioned-migration --target data/ent {{ .PackagePath }}/data/schema
 
-`, name, name)
+`, name)
 }

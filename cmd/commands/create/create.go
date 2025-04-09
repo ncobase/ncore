@@ -35,9 +35,23 @@ func NewCommand() *cobra.Command {
 					return nil
 				}
 
-				// Not a known type, assume it's a custom directory
-				cmd.Help()
-				return nil
+				// Not a known type, assume it's the name and create directly in current directory
+				name = args[0]
+
+				// Set options
+				opts.Name = name
+				opts.Type = "direct" // New type for direct creation
+
+				// Get flags
+				opts.ModuleName, _ = cmd.Flags().GetString("module")
+				opts.OutputPath, _ = cmd.Flags().GetString("path")
+				opts.UseMongo, _ = cmd.Flags().GetBool("use-mongo")
+				opts.UseEnt, _ = cmd.Flags().GetBool("use-ent")
+				opts.UseGorm, _ = cmd.Flags().GetBool("use-gorm")
+				opts.WithTest, _ = cmd.Flags().GetBool("with-test")
+				opts.Group, _ = cmd.Flags().GetString("group")
+
+				return generator.Generate(opts)
 			}
 
 			// If two arguments, use the first as the directory and the second as the name

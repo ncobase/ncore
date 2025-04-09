@@ -81,8 +81,8 @@ import (
 	"ncore/pkg/config"
 	"ncore/pkg/data"
 	"ncore/pkg/logger"
-  "{{ .ModuleName }}/{{ if eq .Type "custom" }}{{ .CustomDir }}{{ else }}{{ .ExtType }}{{ end }}/%s/data/ent"
-  "{{ .ModuleName }}/{{ if eq .Type "custom" }}{{ .CustomDir }}{{ else }}{{ .ExtType }}{{ end }}/%s/data/ent/migrate"
+  "{{ .PackagePath }}/data/ent"
+  "{{ .PackagePath }}/data/ent/migrate"
 
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
@@ -297,7 +297,7 @@ err := d.WithEntTx(ctx, func(ctx context.Context, tx *ent.Tx) error {
     return err
 })
 */
-`, name, name, name)
+`)
 }
 
 func DataTemplateWithGorm(name, extType string) string {

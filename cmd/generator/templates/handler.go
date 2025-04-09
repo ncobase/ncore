@@ -5,7 +5,7 @@ import "fmt"
 func HandlerTemplate(name, extType, moduleName string) string {
 	return fmt.Sprintf(`package handler
 
-import "{{ .ModuleName }}/{{ if eq .Type "custom" }}{{ .CustomDir }}{{ else }}{{ .ExtType }}{{ end }}/%s/service"
+import "{{ .PackagePath }}/service"
 
 // Handler represents the %s handler.
 type Handler struct {
@@ -20,5 +20,5 @@ func New(s *service.Service) *Handler {
 }
 
 // Add your handler methods here
-`, name, name)
+`, name)
 }

@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"ncore/pkg/config"
 	"ncore/extension"
-	"{{ .ModuleName }}/{{ if eq .Type "custom" }}{{ .CustomDir }}{{ else }}{{ .ExtType }}{{ end }}/%s/data"
-	"{{ .ModuleName }}/{{ if eq .Type "custom" }}{{ .CustomDir }}{{ else }}{{ .ExtType }}{{ end }}/%s/handler"
-	"{{ .ModuleName }}/{{ if eq .Type "custom" }}{{ .CustomDir }}{{ else }}{{ .ExtType }}{{ end }}/%s/service"
+	"{{ .PackagePath }}/data"
+	"{{ .PackagePath }}/handler"
+	"{{ .PackagePath }}/service"
 	"sync"
 
 	"github.com/gin-gonic/gin"

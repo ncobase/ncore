@@ -103,10 +103,15 @@ func Generate(opts *Options) error {
 		basePath = filepath.Join(opts.OutputPath, "plugin", opts.Name)
 		extType = "plugin"
 		mainTemplate = templates.PluginTemplate
+	case "direct":
+		basePath = filepath.Join(opts.OutputPath, opts.Name)
+		extType = "direct"
+		// Use business template
+		mainTemplate = templates.BusinessTemplate
 	case "custom":
 		basePath = filepath.Join(opts.OutputPath, opts.CustomDir, opts.Name)
 		extType = "custom"
-		// Use business template or custom template
+		// Use business template
 		mainTemplate = templates.BusinessTemplate
 	default:
 		return fmt.Errorf("unknown type: %s", opts.Type)
@@ -139,10 +144,17 @@ func Generate(opts *Options) error {
 
 // getPackagePath returns the package path based on options
 func getPackagePath(opts *Options) string {
-	if opts.Type == "custom" {
+	switch opts.Type {
+	case "custom":
+		if opts.CustomDir == "" {
+			return fmt.Sprintf("%s/%s", opts.ModuleName, opts.Name)
+		}
 		return fmt.Sprintf("%s/%s/%s", opts.ModuleName, opts.CustomDir, opts.Name)
+	case "direct":
+		return fmt.Sprintf("%s/%s", opts.ModuleName, opts.Name)
+	default:
+		return fmt.Sprintf("%s/%s/%s", opts.ModuleName, opts.Type, opts.Name)
 	}
-	return fmt.Sprintf("%s/%s/%s", opts.ModuleName, opts.Type, opts.Name)
 }
 
 func createStructure(basePath string, data *templates.Data, mainTemplate func(string) string) error {

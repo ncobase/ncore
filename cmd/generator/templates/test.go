@@ -10,7 +10,7 @@ import (
 	"testing"
 	"ncore/pkg/config"
 	"ncore/extension"
-	"{{ .ModuleName }}/{{ if eq .Type "custom" }}{{ .CustomDir }}{{ else }}{{ .ExtType }}{{ end }}/%s"
+	"{{ .PackagePath }}"
 )
 
 func TestModuleLifecycle(t *testing.T) {
@@ -47,7 +47,7 @@ func TestModuleLifecycle(t *testing.T) {
 			t.Errorf("Cleanup failed: %%v", err)
 		}
 	})
-}`, name, name, name, name)
+}`, name, name, name)
 }
 
 // HandlerTestTemplate generates handler test template
@@ -59,8 +59,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"github.com/gin-gonic/gin"
-	"{{ .ModuleName }}/{{ if eq .Type "custom" }}{{ .CustomDir }}{{ else }}{{ .ExtType }}{{ end }}/%s/handler"
-	"{{ .ModuleName }}/{{ if eq .Type "custom" }}{{ .CustomDir }}{{ else }}{{ .ExtType }}{{ end }}/%s/service"
+	"{{ .PackagePath }}/handler"
+	"{{ .PackagePath }}/service"
 )
 
 func TestHandler(t *testing.T) {
@@ -84,7 +84,7 @@ func TestHandler(t *testing.T) {
 			t.Errorf("want status 200, got %%d", w.Code)
 		}
 	})
-}`, name, name)
+}`)
 }
 
 // ServiceTestTemplate generates service test template
@@ -94,7 +94,7 @@ func ServiceTestTemplate(name, extType, moduleName string) string {
 import (
 	"testing"
 	"context"
-	"{{ .ModuleName }}/{{ if eq .Type "custom" }}{{ .CustomDir }}{{ else }}{{ .ExtType }}{{ end }}/%s/service"
+	"{{ .PackagePath }}/service"
 )
 
 func TestService(t *testing.T) {
@@ -107,5 +107,5 @@ func TestService(t *testing.T) {
 			t.Error("service should not be nil")
 		}
 	})
-}`, name)
+}`)
 }
