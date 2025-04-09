@@ -25,6 +25,27 @@
 go get github.com/ncobase/ncore
 ```
 
+## Code Generation
+
+Provides a powerful code generation tool to scaffold extensions and applications:
+
+```bash
+# Create a core extension
+ncore create core auth-service
+
+# Create with cmd directory (extension + executable)
+ncore create core auth-service --with-cmd
+
+# Create standalone application
+ncore create core auth-service --standalone
+
+# Additional options
+ncore create business payment --use-mongo --with-test
+
+# More options
+ncore --help
+```
+
 ## Structure
 
 ```plaintext
@@ -52,11 +73,17 @@ go get github.com/ncobase/ncore
 │   ├── slug/          # URL slugs
 │   ├── storage/       # Storage utilities
 │   ├── uuid/          # UUID utilities
-│   └── validator/     # Validation utilities
+│   ├── validator/     # Validation utilities
 │   └── worker/        # Worker pool
-├── extension/           # Extension system
+├── ext/               # Extension system
+│   ├── core/          # Interfaces and types
+│   ├── discovery/     # Service discovery
+│   ├── event/         # Event
+│   ├── manager/       # Extension manager
+│   └── plugin/        # Plugin
 └── cmd/               # Application entry points
-    └── commands/      # Command-line tools
+    ├── commands/      # Command-line tools
+    └── generator/     # Code generation utilities
 ```
 
 ## Dependencies
