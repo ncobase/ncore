@@ -1,41 +1,42 @@
-package extension
+package plugin
 
 import (
 	"context"
 	"fmt"
+	"ncore/ext/core"
 	"ncore/pkg/logger"
-	"plugin"
+	plg "plugin"
 	"sync"
 )
 
 // PluginRegistry manages the loaded plugins
 type PluginRegistry struct {
 	mu      sync.RWMutex
-	plugins map[string]*Wrapper
+	plugins map[string]*core.Wrapper
 }
 
 var registry = &PluginRegistry{
-	plugins: make(map[string]*Wrapper),
+	plugins: make(map[string]*core.Wrapper),
 }
 
-var plugins []*Wrapper
+var plugins []*core.Wrapper
 
 // RegisterPlugin registers a new plugin
-func RegisterPlugin(c Interface, metadata Metadata) {
-	plugins = append(plugins, &Wrapper{
+func RegisterPlugin(c core.Interface, metadata core.Metadata) {
+	plugins = append(plugins, &core.Wrapper{
 		Metadata: metadata,
 		Instance: c,
 	})
 }
 
 // GetRegisteredPlugins returns the registered plugins
-func GetRegisteredPlugins() []*Wrapper {
+func GetRegisteredPlugins() []*core.Wrapper {
 	return plugins
 }
 
 // LoadPlugin loads a single plugin
-func LoadPlugin(path string, m *Manager) error {
-	p, err := plugin.Open(path)
+func LoadPlugin(path string, m core.ManagerInterface) error {
+	p, err := plg.Open(path)
 	if err != nil {
 		return fmt.Errorf("failed to open plugin %s: %v", path, err)
 	}
@@ -45,7 +46,7 @@ func LoadPlugin(path string, m *Manager) error {
 		return fmt.Errorf("plugin %s does not export 'Instance' symbol: %v", path, err)
 	}
 
-	sc, ok := symPlugin.(Interface)
+	sc, ok := symPlugin.(core.Interface)
 	if !ok {
 		return fmt.Errorf("plugin %s does not implement interface, got %T", path, sc)
 	}
@@ -54,7 +55,7 @@ func LoadPlugin(path string, m *Manager) error {
 		return fmt.Errorf("failed pre-initialization of plugin %s: %v", path, err)
 	}
 
-	if err := sc.Init(m.conf, m); err != nil {
+	if err := sc.Init(m.GetConfig(), m); err != nil {
 		return fmt.Errorf("failed to initialize plugin %s: %v", path, err)
 	}
 
@@ -71,7 +72,7 @@ func LoadPlugin(path string, m *Manager) error {
 	if _, exists := registry.plugins[name]; exists {
 		logger.Warnf(context.Background(), "Plugin %s is being overwritten", name)
 	}
-	registry.plugins[name] = &Wrapper{
+	registry.plugins[name] = &core.Wrapper{
 		Metadata: metadata,
 		Instance: sc,
 	}
@@ -104,7 +105,7 @@ func UnloadPlugin(name string) error {
 }
 
 // GetPlugin returns a single plugin
-func GetPlugin(name string) *Wrapper {
+func GetPlugin(name string) *core.Wrapper {
 	registry.mu.RLock()
 	defer registry.mu.RUnlock()
 
@@ -112,11 +113,11 @@ func GetPlugin(name string) *Wrapper {
 }
 
 // GetPlugins returns all loaded plugins
-func GetPlugins() map[string]*Wrapper {
+func GetPlugins() map[string]*core.Wrapper {
 	registry.mu.RLock()
 	defer registry.mu.RUnlock()
 
-	plugins := make(map[string]*Wrapper)
+	plugins := make(map[string]*core.Wrapper)
 	for name, c := range registry.plugins {
 		plugins[name] = c
 	}

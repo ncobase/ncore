@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"ncore/cmd/commands/create"
 	"ncore/cmd/commands/migrate"
-	"ncore/extension"
+	nec "ncore/ext/core"
 	"ncore/pkg/config"
 	"ncore/pkg/utils"
 	"ncore/pkg/version"
@@ -27,7 +27,7 @@ func NewStartCommand() *cobra.Command {
 				return fmt.Errorf("failed to load config: %v", err)
 			}
 
-			m, err := extension.NewManager(cfg)
+			m, err := nec.NewManager(cfg)
 			if err != nil {
 				return fmt.Errorf("failed to create manager: %v", err)
 			}
@@ -70,7 +70,7 @@ func newPluginListCommand() *cobra.Command {
 				return err
 			}
 
-			m, err := extension.NewManager(cfg)
+			m, err := nec.NewManager(cfg)
 			if err != nil {
 				return err
 			}

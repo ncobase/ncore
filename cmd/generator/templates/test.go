@@ -9,7 +9,7 @@ func ExtTestTemplate(name, extType, moduleName string) string {
 import (
 	"testing"
 	"ncore/pkg/config"
-	"ncore/extension"
+	nec "ncore/ext/core"
 	"{{ .PackagePath }}"
 )
 
@@ -24,7 +24,7 @@ func TestModuleLifecycle(t *testing.T) {
 
 		// Test Init
 		conf := &config.Config{}
-		em := &extension.Manager{}
+		em := &nec.ManagerInterface{}
 		if err := m.Init(conf, em); err != nil {
 			t.Errorf("Init failed: %%v", err)
 		}

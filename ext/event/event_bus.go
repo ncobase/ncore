@@ -1,21 +1,14 @@
-package extension
+package event
 
 import (
 	"context"
 	"fmt"
+	"ncore/ext/core"
 	"ncore/pkg/logger"
 	"sync"
 	"sync/atomic"
 	"time"
 )
-
-// EventData basic event data
-type EventData struct {
-	Time      time.Time
-	Source    string
-	EventType string
-	Data      any
-}
 
 // EventBus represents a simple event bus for inter-extension communication
 type EventBus struct {
@@ -77,7 +70,7 @@ func (eb *EventBus) Publish(eventName string, data any) {
 		return
 	}
 
-	eventData := EventData{
+	eventData := core.EventData{
 		Time:      time.Now(),
 		Source:    "extension",
 		EventType: eventName,
@@ -113,7 +106,7 @@ func (eb *EventBus) PublishWithRetry(eventName string, data any, maxRetries int)
 	eb.metrics.failed.Add(1)
 }
 
-// PublishWithError publish with error
+// publishWithError publish with error
 func (eb *EventBus) publishWithError(eventName string, data any) error {
 	eb.mu.RLock()
 	handlers, exists := eb.subscribers[eventName]
@@ -123,7 +116,7 @@ func (eb *EventBus) publishWithError(eventName string, data any) error {
 		return fmt.Errorf("no handlers for event: %s", eventName)
 	}
 
-	eventData := EventData{
+	eventData := core.EventData{
 		Time:      time.Now(),
 		Source:    "extension",
 		EventType: eventName,

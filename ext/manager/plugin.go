@@ -1,8 +1,11 @@
-package extension
+package manager
 
 import (
 	"context"
 	"fmt"
+	"ncore/ext/core"
+	"ncore/ext/plugin"
+	"ncore/pkg/config"
 	"ncore/pkg/logger"
 	"ncore/pkg/utils"
 	"path/filepath"
@@ -41,7 +44,7 @@ func (m *Manager) loadPluginsInFile() error {
 				logger.Infof(context.Background(), "🚧 Skipping plugin %s based on configuration", pluginName)
 				continue
 			}
-			if err := m.loadPlugin(pp); err != nil {
+			if err := m.LoadPlugin(pp); err != nil {
 				logger.Errorf(context.Background(), "Failed to load plugin %s: %v", pluginName, err)
 				return err
 			}
@@ -53,7 +56,7 @@ func (m *Manager) loadPluginsInFile() error {
 
 // loadPluginsInBuilt built-in all plugins.
 func (m *Manager) loadPluginsInBuilt() error {
-	plugins := GetRegisteredPlugins()
+	plugins := plugin.GetRegisteredPlugins()
 
 	for _, c := range plugins {
 		if err := m.initializePlugin(c); err != nil {
@@ -67,8 +70,8 @@ func (m *Manager) loadPluginsInBuilt() error {
 	return nil
 }
 
-// loadPlugin loads a single plugin
-func (m *Manager) loadPlugin(path string) error {
+// LoadPlugin loads a single plugin
+func (m *Manager) LoadPlugin(path string) error {
 	name := strings.TrimSuffix(filepath.Base(path), utils.GetPlatformExt())
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -77,12 +80,12 @@ func (m *Manager) loadPlugin(path string) error {
 		return nil // plugin already loaded
 	}
 
-	if err := LoadPlugin(path, m); err != nil {
+	if err := plugin.LoadPlugin(path, m); err != nil {
 		logger.Errorf(context.Background(), "failed to load plugin %s: %v", name, err)
 		return err
 	}
 
-	loadedPlugin := GetPlugin(name)
+	loadedPlugin := plugin.GetPlugin(name)
 	if loadedPlugin != nil {
 		m.extensions[name] = loadedPlugin
 		logger.Infof(context.Background(), "Plugin %s loaded successfully", name)
@@ -101,7 +104,7 @@ func (m *Manager) ReloadPlugin(name string) error {
 		return err
 	}
 
-	return m.loadPlugin(fp)
+	return m.LoadPlugin(fp)
 }
 
 // UnloadPlugin unloads a single extension
@@ -109,16 +112,16 @@ func (m *Manager) UnloadPlugin(name string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	extension, exists := m.extensions[name]
+	ext, exists := m.extensions[name]
 	if !exists {
 		return fmt.Errorf("extension %s not found", name)
 	}
 
-	if err := extension.Instance.PreCleanup(); err != nil {
+	if err := ext.Instance.PreCleanup(); err != nil {
 		logger.Errorf(context.Background(), "failed pre-cleanup of extension %s: %v", name, err)
 	}
 
-	if err := extension.Instance.Cleanup(); err != nil {
+	if err := ext.Instance.Cleanup(); err != nil {
 		logger.Errorf(context.Background(), "failed to cleanup extension %s: %v", name, err)
 		return err
 	}
@@ -126,8 +129,10 @@ func (m *Manager) UnloadPlugin(name string) error {
 	delete(m.extensions, name)
 	delete(m.circuitBreakers, name)
 
-	if err := m.DeregisterConsulService(name); err != nil {
-		logger.Errorf(context.Background(), "failed to deregister service %s from Consul: %v", name, err)
+	if m.serviceDiscovery != nil {
+		if err := m.serviceDiscovery.DeregisterService(name); err != nil {
+			logger.Errorf(context.Background(), "failed to deregister service %s from Consul: %v", name, err)
+		}
 	}
 
 	return nil
@@ -148,4 +153,47 @@ func (m *Manager) ReloadPlugins() error {
 		}
 	}
 	return nil
+}
+
+// initializePlugin initializes a single plugin
+func (m *Manager) initializePlugin(c *core.Wrapper) error {
+	if err := c.Instance.PreInit(); err != nil {
+		return fmt.Errorf("failed pre-initialization: %v", err)
+	}
+	if err := c.Instance.Init(m.conf, m); err != nil {
+		return fmt.Errorf("failed initialization: %v", err)
+	}
+	if err := c.Instance.PostInit(); err != nil {
+		return fmt.Errorf("failed post-initialization: %v", err)
+	}
+	return nil
+}
+
+// shouldLoadPlugin returns true if the plugin should be loaded
+func (m *Manager) shouldLoadPlugin(name string) bool {
+	fc := m.conf.Extension
+
+	if len(fc.Includes) > 0 {
+		for _, include := range fc.Includes {
+			if include == name {
+				return true
+			}
+		}
+		return false
+	}
+
+	if len(fc.Excludes) > 0 {
+		for _, exclude := range fc.Excludes {
+			if exclude == name {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+// isIncludePluginMode returns true if the mode is "c2hlbgo"
+func isIncludePluginMode(conf *config.Config) bool {
+	return conf.Extension.Mode == "c2hlbgo"
 }

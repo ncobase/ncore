@@ -1,6 +1,6 @@
-# Extension System
+# NCore Extension System
 
-> A flexible and robust extension system that provides dynamic loading, lifecycle management, and inter-module
+> A flexible and robust extension that provides dynamic loading, lifecycle management, and inter-module
 > communication capabilities.
 
 ## Overview
@@ -16,22 +16,41 @@ The Extension System is designed to provide a plugin architecture that allows fo
 ## Architecture
 
 ```plaintext
-├── event_bus.go          # Event system implementation
-├── interface.go          # Core interfaces
-├── manager.go            # Extension manager
-├── manager_http.go       # HTTP routing
-├── manager_plugins.go    # Plugin management
-├── manager_utils.go      # Utilities
-├── plugin.go             # Plugin system
-├── README.md             # This file
-└── service_discovery.go  # Service discovery
+├── core/               # Core interfaces and types
+│   ├── interface.go    # Interface definitions
+│   ├── optional_impl.go# Default implementation of optional methods
+│   └── types.go        # Common type definitions
+├── discovery/          # Service discovery
+│   └── service.go      # Service discovery implementation
+├── event/              # Event
+│   └── event_bus.go    # Event bus implementation
+├── manager/            # Extension manager
+│   ├── discovery.go    # Service discovery methods
+│   ├── http.go         # HTTP routing
+│   ├── manager.go      # Main manager implementation
+│   ├── message.go      # Messaging functionality
+│   ├── methods.go      # Additional manager methods
+│   ├── plugin.go       # Plugin management
+│   └── utils.go        # Utility functions
+├── plugin/             # Plugin
+│   └── plugin.go       # Plugin loading/management
+└── README.md           # This file
 ```
 
 ## Core Components
 
-### 1. Event System
+### 1. Core Interfaces
 
-The event system provides asynchronous communication between extensions.
+The core package defines the essential interfaces and types for the extension:
+
+- `Interface`: The main extension interface
+- `OptionalMethods`: Optional methods extensions can implement
+- `ManagerInterface`: Manager functionality for extensions to use
+- Common types like `ServiceInfo`, `Metadata`, `EventData`
+
+### 2. Event System
+
+The event package provides asynchronous communication between extensions.
 
 Features:
 
@@ -46,20 +65,20 @@ Example:
 ```go
 // Subscribe to events
 manager.SubscribeEvent("user.created", func(data any) {
-    eventData := data.(EventData)
+    eventData := data.(core.EventData)
     // Handle event
 })
 
 // Publish events with retry
-manager.eventBus.PublishWithRetry("user.created", userData, 3)
+manager.PublishEvent("user.created", userData)
 
 // Get event metrics
-metrics := manager.eventBus.GetMetrics()
+metrics := manager.GetEventBusMetrics()
 ```
 
-### 2. Service Discovery
+### 3. Service Discovery
 
-Built-in service discovery mechanism using Consul.
+The discovery package provides service discovery mechanisms using Consul.
 
 Features:
 
@@ -73,7 +92,7 @@ Example:
 
 ```go
 // Register a service
-info := &ServiceInfo{
+info := &core.ServiceInfo{
     Address: "localhost:8080",
     Tags:    []string{"api", "v1"},
     Meta:    map[string]string{"version": "1.0"},
@@ -87,9 +106,9 @@ service, err := manager.GetConsulService("user-service")
 status := manager.CheckServiceHealth("user-service")
 ```
 
-### 3. Plugin Management
+### 4. Plugin Management
 
-Supports dynamic loading and unloading of plugins across platforms.
+The plugin package supports dynamic loading and unloading of plugins across platforms.
 
 Features:
 
@@ -106,11 +125,24 @@ Example:
 err := manager.LoadPlugins()
 
 // Load specific plugin
-err := manager.loadPlugin("./plugins/my-plugin.so")
+err := manager.LoadPlugin("./plugins/my-plugin.so")
 
 // Reload plugin
 err := manager.ReloadPlugin("my-plugin")
 ```
+
+### 5. Manager
+
+The manager package coordinates all extension functionality through a unified API.
+
+Features:
+
+- Extension lifecycle management
+- Plugin registration and management
+- Event coordination
+- Service discovery integration
+- Circuit breaking
+- HTTP API endpoints
 
 ## Extension Lifecycle
 
@@ -133,7 +165,7 @@ An extension goes through the following phases:
 3. **Initialization**
 
  ```go
- func (e *Extension) Init(conf *config.Config, m *Manager) error {
+ func (e *Extension) Init(conf *config.Config, m nec.ManagerInterface) error {
      // Initialize extension
  }
  ```
@@ -156,13 +188,13 @@ An extension goes through the following phases:
 
 ## HTTP API Endpoints
 
-The system provides RESTful APIs for extension management:
+The manager provides RESTful APIs for extension management:
 
 ```
 GET  /exts              # List all extensions
-POST /exts/load        # Load an extension
-POST /exts/unload      # Unload an extension
-POST /exts/reload      # Reload an extension
+POST /exts/load         # Load an extension
+POST /exts/unload       # Unload an extension
+POST /exts/reload       # Reload an extension
 ```
 
 ## Circuit Breaking
@@ -237,7 +269,7 @@ type Config struct {
 
 ## Monitoring
 
-### Metrics Available:
+### Metrics Available
 
 - Event processing stats
 - Service health status
@@ -249,7 +281,7 @@ Example:
 
 ```go
 // Get event metrics
-eventMetrics := manager.eventBus.GetMetrics()
+eventMetrics := manager.GetEventBusMetrics()
 
 // Get cache stats
 cacheStats := manager.GetServiceCacheStats()
@@ -261,7 +293,7 @@ Recommended testing approaches:
 
 1. Unit tests for individual components
 2. Integration tests for plugin loading
-3. Event system testing
+3. Event testing
 4. Service discovery testing
 5. Cache behavior testing
 
@@ -272,4 +304,3 @@ Recommended testing approaches:
 3. Commit your changes
 4. Create tests for new functionality
 5. Create pull request
-
