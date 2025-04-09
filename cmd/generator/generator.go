@@ -19,7 +19,9 @@ type Options struct {
 	UseMongo   bool
 	UseEnt     bool
 	UseGorm    bool
+	WithCmd    bool
 	WithTest   bool
+	Standalone bool
 	Group      string
 }
 
@@ -32,7 +34,9 @@ func DefaultOptions() *Options {
 		UseMongo:   false,
 		UseEnt:     false,
 		UseGorm:    false,
+		WithCmd:    false,
 		WithTest:   false,
+		Standalone: false,
 		Group:      "",
 	}
 }
@@ -89,6 +93,51 @@ func Generate(opts *Options) error {
 	var extType string
 	var mainTemplate func(string) string
 
+	// Handle standalone mode differently
+	if opts.Standalone {
+		// In standalone mode, generate only the cmd directory
+		if opts.Type == "direct" {
+			basePath = filepath.Join(opts.OutputPath, opts.Name)
+		} else if opts.Type == "custom" {
+			basePath = filepath.Join(opts.OutputPath, opts.CustomDir, opts.Name)
+		} else {
+			basePath = filepath.Join(opts.OutputPath, opts.Type, opts.Name)
+		}
+
+		extType = opts.Type
+
+		// Create base directory
+		if err := utils.EnsureDir(basePath); err != nil {
+			return fmt.Errorf("failed to create base directory: %v", err)
+		}
+
+		// Prepare template data
+		data := &templates.Data{
+			Name:        opts.Name,
+			Type:        opts.Type,
+			UseMongo:    opts.UseMongo,
+			UseEnt:      opts.UseEnt,
+			UseGorm:     opts.UseGorm,
+			WithTest:    opts.WithTest,
+			WithCmd:     true, // Standalone always includes cmd
+			Standalone:  opts.Standalone,
+			Group:       opts.Group,
+			ExtType:     extType,
+			ModuleName:  opts.ModuleName,
+			CustomDir:   opts.CustomDir,
+			PackagePath: getPackagePath(opts),
+		}
+
+		// Create standalone structure
+		if err := createStandaloneStructure(basePath, data); err != nil {
+			return err
+		}
+
+		fmt.Printf("Successfully generated standalone application '%s' in %s\n", data.Name, getDesc(data))
+		return nil
+	}
+
+	// Regular extension generation (not standalone)
 	// Determine base paths and templates based on type
 	switch opts.Type {
 	case "core":
@@ -132,6 +181,8 @@ func Generate(opts *Options) error {
 		UseEnt:      opts.UseEnt,
 		UseGorm:     opts.UseGorm,
 		WithTest:    opts.WithTest,
+		WithCmd:     opts.WithCmd,
+		Standalone:  opts.Standalone,
 		Group:       opts.Group,
 		ExtType:     extType,
 		ModuleName:  opts.ModuleName,
@@ -139,7 +190,51 @@ func Generate(opts *Options) error {
 		PackagePath: getPackagePath(opts),
 	}
 
-	return createStructure(basePath, data, mainTemplate)
+	// Create the main extension structure
+	err := createStructure(basePath, data, mainTemplate)
+	if err != nil {
+		return err
+	}
+
+	// Generate cmd directory if WithCmd is true
+	if opts.WithCmd {
+		// Create cmd directory inside the extension directory
+		cmdPath := filepath.Join(basePath, "cmd")
+		if err := utils.EnsureDir(cmdPath); err != nil {
+			return fmt.Errorf("failed to create cmd directory: %v", err)
+		}
+
+		// Create files in cmd directory
+		files := map[string]string{
+			"main.go": templates.CmdMainTemplate(data.Name, data.ExtType, data.ModuleName),
+		}
+
+		// Create provider directory
+		providerPath := filepath.Join(cmdPath, "provider")
+		if err := utils.EnsureDir(providerPath); err != nil {
+			return fmt.Errorf("failed to create provider directory: %v", err)
+		}
+
+		// Add provider files
+		files[filepath.Join("provider", "server.go")] = templates.CmdServerTemplate(data.Name, data.ExtType, data.ModuleName)
+		files[filepath.Join("provider", "extension.go")] = templates.CmdExtensionTemplate(data.Name, data.ExtType, data.ModuleName)
+		files[filepath.Join("provider", "gin.go")] = templates.CmdGinTemplate(data.Name, data.ExtType, data.ModuleName)
+		files[filepath.Join("provider", "rest.go")] = templates.CmdRestTemplate(data.Name, data.ExtType, data.ModuleName)
+
+		// Write files
+		for filePath, tmpl := range files {
+			if err := utils.WriteTemplateFile(
+				filepath.Join(cmdPath, filePath),
+				tmpl,
+				data,
+			); err != nil {
+				return fmt.Errorf("failed to create file %s: %v", filePath, err)
+			}
+		}
+	}
+
+	fmt.Printf("Successfully generated '%s' in %s\n", data.Name, getDesc(data))
+	return nil
 }
 
 // getPackagePath returns the package path based on options
@@ -230,7 +325,82 @@ func createStructure(basePath string, data *templates.Data, mainTemplate func(st
 		}
 	}
 
-	fmt.Printf("Successfully generated '%s' in %s\n", data.Name, getDesc(data))
+	return nil
+}
+
+// createStandaloneStructure creates the structure for a standalone application
+func createStandaloneStructure(basePath string, data *templates.Data) error {
+	// Create essential directories
+	directories := []string{
+		"cmd",
+		"cmd/provider",
+		"config",
+		"handler",
+		"model",
+		"service",
+	}
+
+	if data.WithTest {
+		directories = append(directories, "tests")
+	}
+
+	for _, dir := range directories {
+		if err := utils.EnsureDir(filepath.Join(basePath, dir)); err != nil {
+			return fmt.Errorf("failed to create directory %s: %v", dir, err)
+		}
+	}
+
+	// Create cmd files
+	cmdFiles := map[string]string{
+		"cmd/main.go":            templates.StandaloneMainTemplate(data.Name, data.ModuleName),
+		"cmd/provider/server.go": templates.StandaloneServerTemplate(data.Name, data.ModuleName),
+		"cmd/provider/gin.go":    templates.StandaloneGinTemplate(data.Name, data.ModuleName),
+		"cmd/provider/rest.go":   templates.StandaloneRestTemplate(data.Name, data.ModuleName),
+	}
+
+	// Create files
+	projectFiles := map[string]string{
+		"config/config.go":   templates.StandaloneConfigTemplate(data.Name, data.ModuleName),
+		"handler/handler.go": templates.StandaloneHandlerTemplate(data.Name, data.ModuleName),
+		"model/model.go":     templates.StandaloneModelTemplate(data.Name, data.ModuleName),
+		"service/service.go": templates.StandaloneServiceTemplate(data.Name, data.ModuleName),
+	}
+
+	// Merge the maps
+	files := make(map[string]string)
+	for k, v := range cmdFiles {
+		files[k] = v
+	}
+	for k, v := range projectFiles {
+		files[k] = v
+	}
+
+	// Add test files if required
+	if data.WithTest {
+		files["tests/handler_test.go"] = templates.StandaloneHandlerTestTemplate(data.Name, data.ModuleName)
+		files["tests/service_test.go"] = templates.StandaloneServiceTestTemplate(data.Name, data.ModuleName)
+	}
+
+	// Add database related files if required
+	if data.UseMongo || data.UseEnt || data.UseGorm {
+		files["repository/repository.go"] = templates.StandaloneRepositoryTemplate(data.Name, data.ModuleName, data.UseMongo, data.UseEnt, data.UseGorm)
+
+		if err := utils.EnsureDir(filepath.Join(basePath, "repository")); err != nil {
+			return fmt.Errorf("failed to create directory %s: %v", "repository", err)
+		}
+	}
+
+	// Write all files
+	for filePath, tmpl := range files {
+		if err := utils.WriteTemplateFile(
+			filepath.Join(basePath, filePath),
+			tmpl,
+			data,
+		); err != nil {
+			return fmt.Errorf("failed to create file %s: %v", filePath, err)
+		}
+	}
+
 	return nil
 }
 

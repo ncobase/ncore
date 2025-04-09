@@ -149,8 +149,8 @@ func (tc *TracingContext) End() {
 }
 
 type TracingDecoratorOption struct {
-	Layer                   Layer
-	CreateSpanForEachMethod bool
+	Layer                    Layer
+	CreateSpanForEachMethod  bool
 	RecordMethodParams       bool
 	RecordMethodReturnValues bool
 }

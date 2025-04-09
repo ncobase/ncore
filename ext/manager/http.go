@@ -15,7 +15,7 @@ import (
 func (m *Manager) ManageRoutes(r *gin.RouterGroup) {
 	r.GET("/exts", func(c *gin.Context) {
 		extensions := m.GetExtensions()
-		result := make(map[string]map[string][]interface{})
+		result := make(map[string]map[string][]any)
 
 		for _, ext := range extensions {
 			group := ext.Metadata.Group
@@ -23,7 +23,7 @@ func (m *Manager) ManageRoutes(r *gin.RouterGroup) {
 				group = ext.Metadata.Name
 			}
 			if _, ok := result[group]; !ok {
-				result[group] = make(map[string][]interface{})
+				result[group] = make(map[string][]any)
 			}
 			result[group][ext.Metadata.Type] = append(result[group][ext.Metadata.Type], ext.Metadata)
 		}
