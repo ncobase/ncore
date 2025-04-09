@@ -5,6 +5,7 @@ import (
 	"ncore/cmd/generator/templates"
 	"ncore/pkg/utils"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -133,6 +134,12 @@ func Generate(opts *Options) error {
 			return err
 		}
 
+		// Initialize Go module for standalone mode
+		if err := initializeGoModule(basePath, data, opts); err != nil {
+			fmt.Printf("Warning: failed to initialize Go module: %v\n", err)
+			// Don't interrupt the flow, just warn
+		}
+
 		fmt.Printf("Successfully generated standalone application '%s' in %s\n", data.Name, getDesc(data))
 		return nil
 	}
@@ -230,6 +237,12 @@ func Generate(opts *Options) error {
 			); err != nil {
 				return fmt.Errorf("failed to create file %s: %v", filePath, err)
 			}
+		}
+
+		// Initialize Go module for WithCmd mode
+		if err := initializeGoModule(basePath, data, opts); err != nil {
+			fmt.Printf("Warning: failed to initialize Go module: %v\n", err)
+			// Don't interrupt the flow, just warn
 		}
 	}
 
@@ -410,4 +423,200 @@ func getDesc(data *templates.Data) string {
 		return fmt.Sprintf("'%s' directory", data.CustomDir)
 	}
 	return extDescriptions[data.ExtType]
+}
+
+// initializeGoModule initializes a Go module for the generated code
+// This is used for both standalone and with-cmd modes
+func initializeGoModule(basePath string, data *templates.Data, opts *Options) error {
+	// Create go.mod file
+	goModPath := filepath.Join(basePath, "go.mod")
+
+	// Create initial go.mod content
+	goModContent := fmt.Sprintf(`module %s
+
+go 1.21
+
+require (
+	github.com/gin-gonic/gin v1.9.0
+	github.com/spf13/cobra v1.7.0
+	github.com/google/uuid v1.3.0
+)
+`, data.PackagePath)
+
+	// Add database-specific dependencies
+	if opts.UseMongo {
+		goModContent += `
+require (
+	go.mongodb.org/mongo-driver v1.12.1
+)
+`
+	}
+
+	if opts.UseEnt {
+		goModContent += `
+require (
+	entgo.io/ent v0.12.4
+)
+`
+	}
+
+	if opts.UseGorm {
+		goModContent += `
+require (
+	gorm.io/gorm v1.25.2
+	gorm.io/driver/mysql v1.5.1
+	gorm.io/driver/postgres v1.5.2
+	gorm.io/driver/sqlite v1.5.2
+)
+`
+	}
+
+	// Write go.mod file
+	if err := utils.WriteTemplateFile(goModPath, goModContent, nil); err != nil {
+		return fmt.Errorf("failed to create go.mod file: %v", err)
+	}
+
+	// Create .gitignore file
+	gitignorePath := filepath.Join(basePath, ".gitignore")
+	gitignoreContent := `# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with 'go test -c'
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Dependency directories
+vendor/
+
+# IDE files
+.idea/
+.vscode/
+*.sublime-workspace
+
+# OS specific files
+.DS_Store
+Thumbs.db
+`
+
+	if err := utils.WriteTemplateFile(gitignorePath, gitignoreContent, nil); err != nil {
+		fmt.Printf("Warning: failed to create .gitignore file: %v\n", err)
+		// Just warn, don't stop the process
+	}
+
+	// Execute go mod tidy to resolve dependencies
+	tidyCmd := exec.Command("go", "mod", "tidy")
+	tidyCmd.Dir = basePath
+	if err := tidyCmd.Run(); err != nil {
+		fmt.Printf("Warning: failed to run 'go mod tidy': %v\n", err)
+		// Just warn, don't stop the process
+	}
+
+	// Initialize additional tools based on options
+	if opts.UseEnt {
+		// Ensure schema directory exists
+		schemaDir := filepath.Join(basePath, "data/schema")
+		if err := utils.EnsureDir(schemaDir); err != nil {
+			fmt.Printf("Warning: failed to create ent schema directory: %v\n", err)
+			return nil
+		}
+
+		// Initialize ent schema
+		entCmd := exec.Command("go", "run", "entgo.io/ent/cmd/ent", "init", "User")
+		entCmd.Dir = schemaDir
+		if err := entCmd.Run(); err != nil {
+			fmt.Printf("Warning: failed to initialize ent schema: %v\n", err)
+			// Just warn, don't stop the process
+		}
+	}
+
+	// Create a basic README.md
+	readmePath := filepath.Join(basePath, "README.md")
+	readmeContent := fmt.Sprintf(`# %s
+
+## Overview
+
+This module was generated using NCore's code generator.
+
+## Development
+
+### Prerequisites
+
+- Go 1.21 or higher
+
+### Building
+
+`+"```bash"+`
+go build -o %s ./cmd
+`+"```"+`
+
+### Running
+
+`+"```bash"+`
+./%s
+`+"```"+`
+
+`, data.Name, data.Name, strings.ToLower(data.Name))
+
+	if err := utils.WriteTemplateFile(readmePath, readmeContent, nil); err != nil {
+		fmt.Printf("Warning: failed to create README.md file: %v\n", err)
+		// Just warn, don't stop the process
+	}
+
+	// Create sample config.yaml file
+	configPath := filepath.Join(basePath, "config.yaml")
+	configContent := fmt.Sprintf(`# Application configuration
+app_name: %s
+run_mode: debug  # debug, release
+
+# Server configuration
+server:
+  protocol: http
+  domain: localhost
+  host: 127.0.0.1
+  port: 8080
+
+# Data sources configuration
+data:
+  # Environment, support development / staging / production
+  environment:
+  database:
+    master:
+      driver: sqlite3  # postgres, mysql, sqlite3
+      source: ./data.db
+      maxOpenConns: 10
+      maxIdleConns: 5
+      connMaxLifetime: 3600 # seconds
+      logging: true
+  redis:
+    addr: 127.0.0.1:6378
+    password:
+    read_timeout: 0.4s
+    write_timeout: 0.6s
+    dial_timeout: 1s
+
+# Logger configuration
+logger:
+  # Log level (1:fatal, 2:error, 3:warn, 4:info, 5:debug)
+  level: 4
+  # Log format (supported output formats: text/json)
+  format: text
+  # Log output (supported: stdout/stderr/file)
+  output: stdout
+  # Specify the file path for log output
+  output_file: logs/access.log
+`, data.Name)
+
+	if err := utils.WriteTemplateFile(configPath, configContent, nil); err != nil {
+		fmt.Printf("Warning: failed to create config.yaml file: %v\n", err)
+		// Just warn, don't stop the process
+	}
+
+	return nil
+
 }
