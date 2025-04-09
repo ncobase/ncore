@@ -18,6 +18,8 @@ func NewRootCmd() *cobra.Command {
 		NewPluginCommand(),
 		NewDocsCommand(),
 		NewVersionCommand(),
+		NewCreateCommand(),
+		NewMigrateCommand(),
 	)
 
 	return rootCmd

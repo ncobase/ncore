@@ -9,7 +9,7 @@ const (
 
 // Platform-specific names
 const (
-	NameWindows = "windows"
-	NameDarwin  = "darwin"
-	NameLinux   = "linux"
+	PlatformWindows = "windows"
+	PlatformDarwin  = "darwin"
+	PlatformLinux   = "linux"
 )

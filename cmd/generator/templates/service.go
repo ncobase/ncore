@@ -1,0 +1,29 @@
+package templates
+
+import "fmt"
+
+func ServiceTemplate(name, extType, moduleName string) string {
+	return fmt.Sprintf(`package service
+
+import (
+	"ncore/pkg/config"
+	"{{ .ModuleName }}/{{ if eq .Type "custom" }}{{ .CustomDir }}{{ else }}{{ .ExtType }}{{ end }}/%s/data"
+)
+
+// Service represents the %s service.
+type Service struct {
+	conf *config.Config
+	d    *data.Data
+}
+
+// New creates a new service.
+func New(conf *config.Config, d *data.Data) *Service {
+	return &Service{
+		conf: conf,
+		d:    d,
+	}
+}
+
+// Add your service methods here
+`, name, name)
+}

@@ -2,6 +2,8 @@ package commands
 
 import (
 	"fmt"
+	"ncore/cmd/commands/create"
+	"ncore/cmd/commands/migrate"
 	"ncore/extension"
 	"ncore/pkg/config"
 	"ncore/pkg/utils"
@@ -125,11 +127,6 @@ func NewDocsCommand() *cobra.Command {
 		Use:   "docs",
 		Short: "Generate documentation",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// cfg, err := config.LoadConfig("config.yaml")
-			// if err != nil {
-			// 	return err
-			// }
-			//
 			var content string
 			switch format {
 			case "markdown":
@@ -166,4 +163,14 @@ func NewVersionCommand() *cobra.Command {
 			fmt.Println("Git Commit:", info.GitCommit)
 		},
 	}
+}
+
+// NewCreateCommand creates the extension generation command
+func NewCreateCommand() *cobra.Command {
+	return create.NewCommand()
+}
+
+// NewMigrateCommand creates the migrate command
+func NewMigrateCommand() *cobra.Command {
+	return migrate.NewCommand()
 }

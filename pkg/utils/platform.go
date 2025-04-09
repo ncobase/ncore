@@ -17,3 +17,14 @@ func GetPlatformExt() string {
 		return types.ExtLinux
 	}
 }
+
+func GetPlatform() string {
+	switch runtime.GOOS {
+	case "windows":
+		return types.PlatformWindows
+	case "darwin":
+		return types.PlatformDarwin
+	default:
+		return types.PlatformLinux
+	}
+}
