@@ -129,31 +129,47 @@ func (m *Manager) InitExtensions() error {
 	}
 	m.mu.Unlock() // Unlock after dependencies check and order determination
 
+	var initErrors []error
+
 	// Pre-initialization
 	for _, name := range initOrder {
 		ext := m.extensions[name]
 		if err := ext.Instance.PreInit(); err != nil {
 			logger.Errorf(context.Background(), "failed pre-initialization of extension %s: %v", name, err)
-			continue // Skip current extension and move to the next one
+			initErrors = append(initErrors, fmt.Errorf("pre-initialization of extension %s failed: %w", name, err))
 		}
 	}
 
 	// Initialization
 	for _, name := range initOrder {
 		ext := m.extensions[name]
-		if err := ext.Instance.Init(m.conf, m); err != nil {
+		err := ext.Instance.Init(m.conf, m)
+		if err != nil {
 			logger.Errorf(context.Background(), "failed to initialize extension %s: %v", name, err)
-			continue // Skip current extension and move to the next one
+			initErrors = append(initErrors, fmt.Errorf("initialization of extension %s failed: %w", name, err))
 		}
 	}
 
 	// Post-initialization
 	for _, name := range initOrder {
 		ext := m.extensions[name]
-		if err := ext.Instance.PostInit(); err != nil {
+		err := ext.Instance.PostInit()
+		if err != nil {
 			logger.Errorf(context.Background(), "failed post-initialization of extension %s: %v", name, err)
-			continue // Skip current extension and move to the next one
+			initErrors = append(initErrors, fmt.Errorf("post-initialization of extension %s failed: %w", name, err))
 		}
+	}
+
+	if len(initErrors) > 0 {
+		m.mu.Lock()
+		m.initialized = false
+		m.mu.Unlock()
+		// Skip returning error since initialized is false
+		// return fmt.Errorf("one or more extensions failed to initialize: %v", initErrors)
+	} else {
+		m.mu.Lock()
+		m.initialized = true
+		m.mu.Unlock()
 	}
 
 	// Ensure all services are initialized
@@ -161,13 +177,8 @@ func (m *Manager) InitExtensions() error {
 		_ = ext.Instance.GetServices()
 	}
 
-	// Lock again to safely update the initialized flag
-	m.mu.Lock()
-	m.initialized = true
-	m.mu.Unlock()
-
 	// Log successful initialization
-	logger.Infof(context.Background(), "All extensions initialized successfully")
+	logger.Info(context.Background(), "All extensions initialized successfully")
 	return nil
 }
 
