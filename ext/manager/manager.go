@@ -100,7 +100,7 @@ func (m *Manager) Register(f core2.Interface) error {
 		svcInfo := f.GetServiceInfo()
 		if svcInfo != nil {
 			if err := m.serviceDiscovery.RegisterService(name, svcInfo); err != nil {
-				logger.Warnf(context.Background(), "Failed to register extension %s with Consul: %v", name, err)
+				return fmt.Errorf("failed to register extension %s with Consul: %w", name, err)
 			}
 		}
 	}
