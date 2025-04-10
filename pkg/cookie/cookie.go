@@ -2,9 +2,10 @@ package cookie
 
 import (
 	"fmt"
-	"github.com/ncobase/ncore/pkg/types"
 	"net/http"
 	"strings"
+
+	"github.com/ncobase/ncore/pkg/types"
 )
 
 // formatDomain formats the domain.

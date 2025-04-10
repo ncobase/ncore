@@ -24,7 +24,7 @@ func TestModuleLifecycle(t *testing.T) {
 
 		// Test Init
 		conf := &config.Config{}
-		em := &nec.ManagerInterface{}
+		em := &ext.ManagerInterface{}
 		if err := m.Init(conf, em); err != nil {
 			t.Errorf("Init failed: %%v", err)
 		}

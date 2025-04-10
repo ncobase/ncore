@@ -2,13 +2,14 @@ package manager
 
 import (
 	"fmt"
-	"github.com/ncobase/ncore/ext/core"
+
+	"github.com/ncobase/ncore/ext/types"
 
 	"github.com/hashicorp/consul/api"
 )
 
 // RegisterConsulService registers a service with Consul
-func (m *Manager) RegisterConsulService(name string, info *core.ServiceInfo) error {
+func (m *Manager) RegisterConsulService(name string, info *types.ServiceInfo) error {
 	if m.serviceDiscovery == nil {
 		return nil
 	}
@@ -34,7 +35,7 @@ func (m *Manager) GetConsulService(name string) (*api.AgentService, error) {
 // CheckServiceHealth checks service health
 func (m *Manager) CheckServiceHealth(name string) string {
 	if m.serviceDiscovery == nil {
-		return core.ServiceStatusUnknown
+		return types.ServiceStatusUnknown
 	}
 	return m.serviceDiscovery.CheckServiceHealth(name)
 }

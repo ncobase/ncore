@@ -2,10 +2,11 @@ package manager
 
 import (
 	"fmt"
-	"github.com/ncobase/ncore/ext/core"
-	"github.com/ncobase/ncore/pkg/utils"
 	"path/filepath"
 	"time"
+
+	"github.com/ncobase/ncore/ext/types"
+	"github.com/ncobase/ncore/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sony/gobreaker"
@@ -97,7 +98,7 @@ func (m *Manager) RegisterRoutes(router *gin.Engine) {
 }
 
 // registerExtensionRoutes registers routes for a single extension
-func (m *Manager) registerExtensionRoutes(router *gin.Engine, f *core.Wrapper) {
+func (m *Manager) registerExtensionRoutes(router *gin.Engine, f *types.Wrapper) {
 	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{
 		Name:        f.Metadata.Name,
 		MaxRequests: 100,

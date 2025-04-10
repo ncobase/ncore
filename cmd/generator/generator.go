@@ -2,12 +2,13 @@ package generator
 
 import (
 	"fmt"
-	"github.com/ncobase/ncore/cmd/generator/templates"
-	"github.com/ncobase/ncore/pkg/utils"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/ncobase/ncore/cmd/generator/templates"
+	"github.com/ncobase/ncore/pkg/utils"
 )
 
 // Options defines generation options

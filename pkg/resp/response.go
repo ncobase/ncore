@@ -2,8 +2,9 @@ package resp
 
 import (
 	"encoding/json"
-	"github.com/ncobase/ncore/pkg/ecode"
 	"net/http"
+
+	"github.com/ncobase/ncore/pkg/ecode"
 )
 
 // Exception represents the response structure.

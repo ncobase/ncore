@@ -64,9 +64,9 @@ Example:
 
 ```go
 // Subscribe to events
-manager.SubscribeEvent("user.created", func(data any) {
-    eventData := data.(core.EventData)
-    // Handle event
+manager.SubscribeEvent("user.created", func (data any) {
+eventData := data.(core.EventData)
+// Handle event
 })
 
 // Publish events with retry
@@ -93,9 +93,9 @@ Example:
 ```go
 // Register a service
 info := &core.ServiceInfo{
-    Address: "localhost:8080",
-    Tags:    []string{"api", "v1"},
-    Meta:    map[string]string{"version": "1.0"},
+Address: "localhost:8080",
+Tags:    []string{"api", "v1"},
+Meta:    map[string]string{"version": "1.0"},
 }
 err := manager.RegisterConsulService("user-service", info)
 
@@ -165,7 +165,7 @@ An extension goes through the following phases:
 3. **Initialization**
 
  ```go
- func (e *Extension) Init(conf *config.Config, m nec.ManagerInterface) error {
+ func (e *Extension) Init(conf *config.Config, m ext.ManagerInterface) error {
      // Initialize extension
  }
  ```

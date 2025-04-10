@@ -4,15 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/ncobase/ncore/pkg/config"
-	"github.com/ncobase/ncore/pkg/data/elastic"
-	"github.com/ncobase/ncore/pkg/data/meili"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/ncobase/ncore/pkg/config"
+	"github.com/ncobase/ncore/pkg/data/elastic"
+	"github.com/ncobase/ncore/pkg/data/meili"
 
 	"github.com/sirupsen/logrus"
 )

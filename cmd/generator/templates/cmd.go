@@ -167,7 +167,7 @@ func CmdServerTemplate(name, extType, moduleName string) string {
 
 import (
 	"context"
-	nem "github.com/ncobase/ncore/ext/manager"
+	extm "github.com/ncobase/ncore/ext/manager"
 	"github.com/ncobase/ncore/pkg/config"
 	"github.com/ncobase/ncore/pkg/logger"
 	"net/http"
@@ -176,7 +176,7 @@ import (
 // NewServer creates a new server.
 func NewServer(conf *config.Config) (http.Handler, func(), error) {
 	// Initialize Extension Manager
-	em, err := nem.NewManager(conf)
+	em, err := extm.NewManager(conf)
 	if err != nil {
 		logger.Fatalf(context.Background(), "Failed initializing extension manager: %%+v", err)
 		return nil, nil, err
@@ -215,15 +215,15 @@ import (
 )
 
 // registerExtensions registers all extensions
-func registerExtensions(em nec.ManagerInterface) {
+func registerExtensions(em ext.ManagerInterface) {
 	// All components
-	fs := make([]nec.Interface, 0)
+	fs := make([]ext.Interface, 0)
 
 	// Add your extensions here
 	fs = append(fs, %s.New()) // Register the current extension
 
 	// Registered extensions
-	registered := make([]nec.Interface, 0, len(fs))
+	registered := make([]ext.Interface, 0, len(fs))
 	// Get extension names
 	extensionNames := make([]string, 0, len(registered))
 
@@ -268,7 +268,7 @@ import (
 )
 
 // ginServer creates and initializes the server.
-func ginServer(conf *config.Config, em nec.ManagerInterface) (*gin.Engine, error) {
+func ginServer(conf *config.Config, em ext.ManagerInterface) (*gin.Engine, error) {
 	// Set gin mode
 	if conf.RunMode == "" {
 		conf.RunMode = gin.ReleaseMode

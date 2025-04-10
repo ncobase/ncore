@@ -3,11 +3,12 @@ package event
 import (
 	"context"
 	"fmt"
-	"github.com/ncobase/ncore/ext/core"
-	"github.com/ncobase/ncore/pkg/logger"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/ncobase/ncore/ext/types"
+	"github.com/ncobase/ncore/pkg/logger"
 )
 
 // EventBus represents a simple event bus for inter-extension communication
@@ -70,7 +71,7 @@ func (eb *EventBus) Publish(eventName string, data any) {
 		return
 	}
 
-	eventData := core.EventData{
+	eventData := types.EventData{
 		Time:      time.Now(),
 		Source:    "extension",
 		EventType: eventName,
@@ -116,7 +117,7 @@ func (eb *EventBus) publishWithError(eventName string, data any) error {
 		return fmt.Errorf("no handlers for event: %s", eventName)
 	}
 
-	eventData := core.EventData{
+	eventData := types.EventData{
 		Time:      time.Now(),
 		Source:    "extension",
 		EventType: eventName,

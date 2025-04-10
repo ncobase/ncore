@@ -3,39 +3,40 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"github.com/ncobase/ncore/ext/core"
-	"github.com/ncobase/ncore/pkg/logger"
 	plg "plugin"
 	"sync"
+
+	"github.com/ncobase/ncore/ext/types"
+	"github.com/ncobase/ncore/pkg/logger"
 )
 
 // PluginRegistry manages the loaded plugins
 type PluginRegistry struct {
 	mu      sync.RWMutex
-	plugins map[string]*core.Wrapper
+	plugins map[string]*types.Wrapper
 }
 
 var registry = &PluginRegistry{
-	plugins: make(map[string]*core.Wrapper),
+	plugins: make(map[string]*types.Wrapper),
 }
 
-var plugins []*core.Wrapper
+var plugins []*types.Wrapper
 
 // RegisterPlugin registers a new plugin
-func RegisterPlugin(c core.Interface, metadata core.Metadata) {
-	plugins = append(plugins, &core.Wrapper{
+func RegisterPlugin(c types.Interface, metadata types.Metadata) {
+	plugins = append(plugins, &types.Wrapper{
 		Metadata: metadata,
 		Instance: c,
 	})
 }
 
 // GetRegisteredPlugins returns the registered plugins
-func GetRegisteredPlugins() []*core.Wrapper {
+func GetRegisteredPlugins() []*types.Wrapper {
 	return plugins
 }
 
 // LoadPlugin loads a single plugin
-func LoadPlugin(path string, m core.ManagerInterface) error {
+func LoadPlugin(path string, m types.ManagerInterface) error {
 	p, err := plg.Open(path)
 	if err != nil {
 		return fmt.Errorf("failed to open plugin %s: %v", path, err)
@@ -46,7 +47,7 @@ func LoadPlugin(path string, m core.ManagerInterface) error {
 		return fmt.Errorf("plugin %s does not export 'Instance' symbol: %v", path, err)
 	}
 
-	sc, ok := symPlugin.(core.Interface)
+	sc, ok := symPlugin.(types.Interface)
 	if !ok {
 		return fmt.Errorf("plugin %s does not implement interface, got %T", path, sc)
 	}
@@ -72,7 +73,7 @@ func LoadPlugin(path string, m core.ManagerInterface) error {
 	if _, exists := registry.plugins[name]; exists {
 		logger.Warnf(context.Background(), "Plugin %s is being overwritten", name)
 	}
-	registry.plugins[name] = &core.Wrapper{
+	registry.plugins[name] = &types.Wrapper{
 		Metadata: metadata,
 		Instance: sc,
 	}
@@ -105,7 +106,7 @@ func UnloadPlugin(name string) error {
 }
 
 // GetPlugin returns a single plugin
-func GetPlugin(name string) *core.Wrapper {
+func GetPlugin(name string) *types.Wrapper {
 	registry.mu.RLock()
 	defer registry.mu.RUnlock()
 
@@ -113,11 +114,11 @@ func GetPlugin(name string) *core.Wrapper {
 }
 
 // GetPlugins returns all loaded plugins
-func GetPlugins() map[string]*core.Wrapper {
+func GetPlugins() map[string]*types.Wrapper {
 	registry.mu.RLock()
 	defer registry.mu.RUnlock()
 
-	plugins := make(map[string]*core.Wrapper)
+	plugins := make(map[string]*types.Wrapper)
 	for name, c := range registry.plugins {
 		plugins[name] = c
 	}

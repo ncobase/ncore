@@ -2,9 +2,10 @@ package migrate
 
 import (
 	"fmt"
-	"github.com/ncobase/ncore/pkg/utils"
 	"path/filepath"
 	"time"
+
+	"github.com/ncobase/ncore/pkg/utils"
 
 	"github.com/spf13/cobra"
 )

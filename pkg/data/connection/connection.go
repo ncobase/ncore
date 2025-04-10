@@ -4,10 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"sync"
+
 	"github.com/ncobase/ncore/pkg/data/config"
 	"github.com/ncobase/ncore/pkg/data/elastic"
 	"github.com/ncobase/ncore/pkg/data/meili"
-	"sync"
 
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	amqp "github.com/rabbitmq/amqp091-go"

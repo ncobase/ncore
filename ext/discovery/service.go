@@ -3,11 +3,12 @@ package discovery
 import (
 	"context"
 	"fmt"
-	"github.com/ncobase/ncore/ext/core"
-	"github.com/ncobase/ncore/pkg/logger"
-	"github.com/ncobase/ncore/pkg/uuid"
 	"sync"
 	"time"
+
+	"github.com/ncobase/ncore/ext/types"
+	"github.com/ncobase/ncore/pkg/logger"
+	"github.com/ncobase/ncore/pkg/uuid"
 
 	"github.com/hashicorp/consul/api"
 )
@@ -111,7 +112,7 @@ func NewServiceDiscovery(config *ConsulConfig) (*ServiceDiscovery, error) {
 }
 
 // RegisterService registers a service with Consul
-func (sd *ServiceDiscovery) RegisterService(name string, info *core.ServiceInfo) error {
+func (sd *ServiceDiscovery) RegisterService(name string, info *types.ServiceInfo) error {
 	if sd.consul == nil {
 		// Consul is not configured
 		return nil
@@ -210,7 +211,7 @@ func (sd *ServiceDiscovery) GetService(name string) (*api.AgentService, error) {
 // CheckServiceHealth checks service health
 func (sd *ServiceDiscovery) CheckServiceHealth(name string) string {
 	if sd.consul == nil {
-		return core.ServiceStatusUnknown
+		return types.ServiceStatusUnknown
 	}
 
 	checks, _, err := sd.consul.Health().Checks(name, &api.QueryOptions{})
@@ -219,7 +220,7 @@ func (sd *ServiceDiscovery) CheckServiceHealth(name string) string {
 			"failed to get health checks for service %s: %v",
 			name,
 			err)
-		return core.ServiceStatusUnknown
+		return types.ServiceStatusUnknown
 	}
 
 	for _, check := range checks {
@@ -228,11 +229,11 @@ func (sd *ServiceDiscovery) CheckServiceHealth(name string) string {
 				"service %s health check failed: %s",
 				name,
 				check.Output)
-			return core.ServiceStatusUnhealthy
+			return types.ServiceStatusUnhealthy
 		}
 	}
 
-	return core.ServiceStatusHealthy
+	return types.ServiceStatusHealthy
 }
 
 // GetHealthyServices gets healthy services

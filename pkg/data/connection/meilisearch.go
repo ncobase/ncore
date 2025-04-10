@@ -2,6 +2,7 @@ package connection
 
 import (
 	"fmt"
+
 	"github.com/ncobase/ncore/pkg/data/config"
 	"github.com/ncobase/ncore/pkg/data/meili"
 )

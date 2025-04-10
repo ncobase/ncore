@@ -3,9 +3,10 @@ package connection
 import (
 	"errors"
 	"fmt"
+	"io"
+
 	"github.com/ncobase/ncore/pkg/data/config"
 	"github.com/ncobase/ncore/pkg/data/elastic"
-	"io"
 )
 
 // newElasticsearchClient creates a new Elasticsearch client

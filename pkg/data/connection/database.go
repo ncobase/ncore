@@ -5,10 +5,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/ncobase/ncore/pkg/data/config"
 	"math/rand"
 	"sync"
 	"sync/atomic"
+
+	"github.com/ncobase/ncore/pkg/data/config"
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"

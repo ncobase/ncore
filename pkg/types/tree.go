@@ -1,8 +1,9 @@
 package types
 
 import (
-	"github.com/ncobase/ncore/pkg/validator"
 	"sort"
+
+	"github.com/ncobase/ncore/pkg/validator"
 )
 
 // TreeNode represents a tree node.

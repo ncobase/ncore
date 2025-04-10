@@ -2,14 +2,15 @@ package commands
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+
 	"github.com/ncobase/ncore/cmd/commands/create"
 	"github.com/ncobase/ncore/cmd/commands/migrate"
-	nem "github.com/ncobase/ncore/ext/manager"
+	extm "github.com/ncobase/ncore/ext/manager"
 	"github.com/ncobase/ncore/pkg/config"
 	"github.com/ncobase/ncore/pkg/utils"
 	"github.com/ncobase/ncore/pkg/version"
-	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -27,7 +28,7 @@ func NewStartCommand() *cobra.Command {
 				return fmt.Errorf("failed to load config: %v", err)
 			}
 
-			m, err := nem.NewManager(cfg)
+			m, err := extm.NewManager(cfg)
 			if err != nil {
 				return fmt.Errorf("failed to create manager: %v", err)
 			}
@@ -70,7 +71,7 @@ func newPluginListCommand() *cobra.Command {
 				return err
 			}
 
-			m, err := nem.NewManager(cfg)
+			m, err := extm.NewManager(cfg)
 			if err != nil {
 				return err
 			}

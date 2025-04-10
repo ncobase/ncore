@@ -2,8 +2,9 @@ package manager
 
 import (
 	"fmt"
-	"github.com/ncobase/ncore/ext/core"
 	"sort"
+
+	"github.com/ncobase/ncore/ext/types"
 )
 
 // getInitOrder returns the initialization order based on dependencies
@@ -11,7 +12,7 @@ import (
 // noDeps - modules with no dependencies, first to initialize
 // withDeps - modules with dependencies
 // special - special modules that should be ordered last
-func getInitOrder(extensions map[string]*core.Wrapper) ([]string, error) {
+func getInitOrder(extensions map[string]*types.Wrapper) ([]string, error) {
 	var noDeps, withDeps, special []string
 	// Exclude these modules from dependency check, adjust as needed
 	var specialModules []string

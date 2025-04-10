@@ -3,13 +3,14 @@ package manager
 import (
 	"context"
 	"fmt"
-	"github.com/ncobase/ncore/ext/core"
+	"path/filepath"
+	"strings"
+
 	"github.com/ncobase/ncore/ext/plugin"
+	"github.com/ncobase/ncore/ext/types"
 	"github.com/ncobase/ncore/pkg/config"
 	"github.com/ncobase/ncore/pkg/logger"
 	"github.com/ncobase/ncore/pkg/utils"
-	"path/filepath"
-	"strings"
 )
 
 // LoadPlugins loads all plugins based on the current configuration
@@ -156,7 +157,7 @@ func (m *Manager) ReloadPlugins() error {
 }
 
 // initializePlugin initializes a single plugin
-func (m *Manager) initializePlugin(c *core.Wrapper) error {
+func (m *Manager) initializePlugin(c *types.Wrapper) error {
 	if err := c.Instance.PreInit(); err != nil {
 		return fmt.Errorf("failed pre-initialization: %v", err)
 	}

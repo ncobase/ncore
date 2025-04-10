@@ -1,8 +1,9 @@
-package core
+package types
 
 import (
-	"github.com/ncobase/ncore/pkg/config"
 	"time"
+
+	"github.com/ncobase/ncore/pkg/config"
 
 	"github.com/gin-gonic/gin"
 	"github.com/hashicorp/consul/api"

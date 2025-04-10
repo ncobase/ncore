@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/ncobase/ncore/pkg/data/config"
 	"math/rand"
 	"sync"
 	"sync/atomic"
+
+	"github.com/ncobase/ncore/pkg/data/config"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"

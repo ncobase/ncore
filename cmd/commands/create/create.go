@@ -1,8 +1,9 @@
 package create
 
 import (
-	"github.com/ncobase/ncore/cmd/generator"
 	"strings"
+
+	"github.com/ncobase/ncore/cmd/generator"
 
 	"github.com/spf13/cobra"
 )

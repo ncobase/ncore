@@ -1,8 +1,9 @@
 package nanoid
 
 import (
-	"github.com/ncobase/ncore/pkg/consts"
 	"strings"
+
+	"github.com/ncobase/ncore/pkg/consts"
 
 	"github.com/ncobase/ncore/pkg/validator"
 

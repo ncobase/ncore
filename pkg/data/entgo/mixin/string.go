@@ -1,8 +1,9 @@
 package mixin
 
 import (
-	"github.com/ncobase/ncore/pkg/consts"
 	"regexp"
+
+	"github.com/ncobase/ncore/pkg/consts"
 
 	"entgo.io/ent"
 	"entgo.io/ent/schema/field"
