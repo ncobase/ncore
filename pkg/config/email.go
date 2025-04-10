@@ -1,7 +1,7 @@
 package config
 
 import (
-	email2 "ncore/pkg/email"
+	email2 "github.com/ncobase/ncore/pkg/email"
 
 	"github.com/spf13/viper"
 )

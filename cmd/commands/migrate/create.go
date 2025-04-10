@@ -2,7 +2,7 @@ package migrate
 
 import (
 	"fmt"
-	"ncore/pkg/utils"
+	"github.com/ncobase/ncore/pkg/utils"
 	"path/filepath"
 	"time"
 

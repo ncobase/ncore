@@ -3,11 +3,11 @@ package manager
 import (
 	"context"
 	"fmt"
-	"ncore/ext/core"
-	"ncore/ext/plugin"
-	"ncore/pkg/config"
-	"ncore/pkg/logger"
-	"ncore/pkg/utils"
+	"github.com/ncobase/ncore/ext/core"
+	"github.com/ncobase/ncore/ext/plugin"
+	"github.com/ncobase/ncore/pkg/config"
+	"github.com/ncobase/ncore/pkg/logger"
+	"github.com/ncobase/ncore/pkg/utils"
 	"path/filepath"
 	"strings"
 )

@@ -1,7 +1,7 @@
 package config
 
 import (
-	config2 "ncore/pkg/data/config"
+	config2 "github.com/ncobase/ncore/pkg/data/config"
 
 	"github.com/spf13/viper"
 )

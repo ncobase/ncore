@@ -4,9 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"ncore/pkg/data/config"
-	"ncore/pkg/data/elastic"
-	"ncore/pkg/data/meili"
+	"github.com/ncobase/ncore/pkg/data/config"
+	"github.com/ncobase/ncore/pkg/data/elastic"
+	"github.com/ncobase/ncore/pkg/data/meili"
 	"sync"
 
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"

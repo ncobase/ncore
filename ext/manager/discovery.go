@@ -2,7 +2,7 @@ package manager
 
 import (
 	"fmt"
-	"ncore/ext/core"
+	"github.com/ncobase/ncore/ext/core"
 
 	"github.com/hashicorp/consul/api"
 )

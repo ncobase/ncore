@@ -22,7 +22,24 @@
 ## Installation
 
 ```bash
+# Install the latest version
 go get github.com/ncobase/ncore
+
+# Install a specific version
+go get github.com/ncobase/ncore@v1.0.0
+```
+
+## Quick Start
+
+```bash
+# Install the CLI tool
+go install github.com/ncobase/ncore/cmd/ncore@latest
+
+# View available commands and options
+ncore --help
+
+# Start with example project
+ncore create example --standalone
 ```
 
 ## Code Generation
@@ -41,9 +58,6 @@ ncore create core auth-service --standalone
 
 # Additional options
 ncore create business payment --use-mongo --with-test
-
-# More options
-ncore --help
 ```
 
 ## Structure

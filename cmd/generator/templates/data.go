@@ -6,8 +6,8 @@ func DataTemplate(name, extType string) string {
 	return fmt.Sprintf(`package data
 
 import (
-	"ncore/pkg/config"
-	"ncore/pkg/data"
+	"github.com/ncobase/ncore/pkg/config"
+	"github.com/ncobase/ncore/pkg/data"
 )
 
 // Data .
@@ -78,9 +78,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"ncore/pkg/config"
-	"ncore/pkg/data"
-	"ncore/pkg/logger"
+	"github.com/ncobase/ncore/pkg/config"
+	"github.com/ncobase/ncore/pkg/data"
+	"github.com/ncobase/ncore/pkg/logger"
   "{{ .PackagePath }}/data/ent"
   "{{ .PackagePath }}/data/ent/migrate"
 
@@ -307,9 +307,9 @@ import (
     "context"
     "database/sql"
     "fmt"
-    "ncore/pkg/config"
-    "ncore/pkg/data"
-    "ncore/pkg/logger"
+    "github.com/ncobase/ncore/pkg/config"
+    "github.com/ncobase/ncore/pkg/data"
+    "github.com/ncobase/ncore/pkg/logger"
 
     "gorm.io/driver/mysql"
     "gorm.io/driver/postgres"
@@ -536,9 +536,9 @@ func DataTemplateWithMongo(name, extType string) string {
 import (
     "context"
     "fmt"
-    "ncore/pkg/config"
-    "ncore/pkg/data"
-    "ncore/pkg/logger"
+    "github.com/ncobase/ncore/pkg/config"
+    "github.com/ncobase/ncore/pkg/data"
+    "github.com/ncobase/ncore/pkg/logger"
 
     "go.mongodb.org/mongo-driver/mongo"
 )

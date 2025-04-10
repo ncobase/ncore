@@ -1,7 +1,7 @@
 package resp
 
 import (
-	"ncore/pkg/ecode"
+	"github.com/ncobase/ncore/pkg/ecode"
 	"net/http"
 )
 

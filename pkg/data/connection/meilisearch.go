@@ -2,8 +2,8 @@ package connection
 
 import (
 	"fmt"
-	"ncore/pkg/data/config"
-	"ncore/pkg/data/meili"
+	"github.com/ncobase/ncore/pkg/data/config"
+	"github.com/ncobase/ncore/pkg/data/meili"
 )
 
 // newMeilisearchClient creates a new Meilisearch client

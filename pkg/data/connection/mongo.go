@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ncobase/ncore/pkg/data/config"
 	"math/rand"
-	"ncore/pkg/data/config"
 	"sync"
 	"sync/atomic"
 

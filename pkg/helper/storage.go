@@ -2,7 +2,7 @@ package helper
 
 import (
 	"context"
-	"ncore/pkg/storage"
+	"github.com/ncobase/ncore/pkg/storage"
 
 	"github.com/casdoor/oss"
 )

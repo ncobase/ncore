@@ -3,7 +3,7 @@ package helper
 import (
 	"context"
 	"errors"
-	"ncore/pkg/email"
+	"github.com/ncobase/ncore/pkg/email"
 )
 
 // SetEmailSender sets email sender to context.Context

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"ncore/cmd/commands"
+	"github.com/ncobase/ncore/cmd/commands"
 )
 
 func main() {

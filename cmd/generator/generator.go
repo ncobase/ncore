@@ -2,8 +2,8 @@ package generator
 
 import (
 	"fmt"
-	"ncore/cmd/generator/templates"
-	"ncore/pkg/utils"
+	"github.com/ncobase/ncore/cmd/generator/templates"
+	"github.com/ncobase/ncore/pkg/utils"
 	"os"
 	"os/exec"
 	"path/filepath"

@@ -2,7 +2,7 @@ package helper
 
 import (
 	"fmt"
-	"ncore/pkg/config"
+	"github.com/ncobase/ncore/pkg/config"
 	"strconv"
 )
 

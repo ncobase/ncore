@@ -2,8 +2,8 @@ package manager
 
 import (
 	"fmt"
-	"ncore/ext/core"
-	"ncore/pkg/utils"
+	"github.com/ncobase/ncore/ext/core"
+	"github.com/ncobase/ncore/pkg/utils"
 	"path/filepath"
 	"time"
 

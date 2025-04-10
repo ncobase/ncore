@@ -5,12 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"ncore/pkg/data/config"
-	connection2 "ncore/pkg/data/connection"
-	"ncore/pkg/data/elastic"
-	"ncore/pkg/data/kafka"
-	"ncore/pkg/data/meili"
-	"ncore/pkg/data/rabbitmq"
+	"github.com/ncobase/ncore/pkg/data/config"
+	connection2 "github.com/ncobase/ncore/pkg/data/connection"
+	"github.com/ncobase/ncore/pkg/data/elastic"
+	"github.com/ncobase/ncore/pkg/data/kafka"
+	"github.com/ncobase/ncore/pkg/data/meili"
+	"github.com/ncobase/ncore/pkg/data/rabbitmq"
 
 	"github.com/redis/go-redis/v9"
 )

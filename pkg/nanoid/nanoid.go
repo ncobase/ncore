@@ -1,10 +1,10 @@
 package nanoid
 
 import (
-	"ncore/pkg/consts"
+	"github.com/ncobase/ncore/pkg/consts"
 	"strings"
 
-	"ncore/pkg/validator"
+	"github.com/ncobase/ncore/pkg/validator"
 
 	gonanoid "github.com/matoous/go-nanoid/v2"
 )

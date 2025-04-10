@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"ncore/pkg/worker"
+	"github.com/ncobase/ncore/pkg/worker"
 	"net"
 	"strings"
 	"sync"

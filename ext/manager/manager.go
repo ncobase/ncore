@@ -3,20 +3,21 @@ package manager
 import (
 	"context"
 	"fmt"
-	core2 "ncore/ext/core"
-	"ncore/ext/discovery"
-	"ncore/ext/event"
-	"ncore/pkg/config"
-	"ncore/pkg/data"
-	"ncore/pkg/logger"
 	"sync"
+
+	"github.com/ncobase/ncore/ext/core"
+	"github.com/ncobase/ncore/ext/discovery"
+	"github.com/ncobase/ncore/ext/event"
+	"github.com/ncobase/ncore/pkg/config"
+	"github.com/ncobase/ncore/pkg/data"
+	"github.com/ncobase/ncore/pkg/logger"
 
 	"github.com/sony/gobreaker"
 )
 
 // Manager represents an extension / plugin manager
 type Manager struct {
-	extensions       map[string]*core2.Wrapper
+	extensions       map[string]*core.Wrapper
 	conf             *config.Config
 	mu               sync.RWMutex
 	initialized      bool
@@ -63,7 +64,7 @@ func NewManager(conf *config.Config) (*Manager, error) {
 	}
 
 	return &Manager{
-		extensions:       make(map[string]*core2.Wrapper),
+		extensions:       make(map[string]*core.Wrapper),
 		conf:             conf,
 		eventBus:         event.NewEventBus(),
 		serviceDiscovery: svcDiscovery,
@@ -78,7 +79,7 @@ func (m *Manager) GetConfig() *config.Config {
 }
 
 // Register registers an extension
-func (m *Manager) Register(f core2.Interface) error {
+func (m *Manager) Register(f core.Interface) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -91,7 +92,7 @@ func (m *Manager) Register(f core2.Interface) error {
 		return fmt.Errorf("extension %s already registered", name)
 	}
 
-	m.extensions[name] = &core2.Wrapper{
+	m.extensions[name] = &core.Wrapper{
 		Metadata: f.GetMetadata(),
 		Instance: f,
 	}
@@ -183,7 +184,7 @@ func (m *Manager) InitExtensions() error {
 }
 
 // GetExtension returns a specific extension
-func (m *Manager) GetExtension(name string) (core2.Interface, error) {
+func (m *Manager) GetExtension(name string) (core.Interface, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -196,11 +197,11 @@ func (m *Manager) GetExtension(name string) (core2.Interface, error) {
 }
 
 // GetExtensions returns the loaded extensions
-func (m *Manager) GetExtensions() map[string]*core2.Wrapper {
+func (m *Manager) GetExtensions() map[string]*core.Wrapper {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	extensions := make(map[string]*core2.Wrapper)
+	extensions := make(map[string]*core.Wrapper)
 	for name, extension := range m.extensions {
 		extensions[name] = extension
 	}
@@ -232,7 +233,7 @@ func (m *Manager) Cleanup() {
 		}
 	}
 
-	m.extensions = make(map[string]*core2.Wrapper)
+	m.extensions = make(map[string]*core.Wrapper)
 	m.circuitBreakers = make(map[string]*gobreaker.CircuitBreaker)
 	m.initialized = false
 
@@ -242,7 +243,7 @@ func (m *Manager) Cleanup() {
 }
 
 // GetHandler returns a specific handler from an extension
-func (m *Manager) GetHandler(f string) (core2.Handler, error) {
+func (m *Manager) GetHandler(f string) (core.Handler, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -260,10 +261,10 @@ func (m *Manager) GetHandler(f string) (core2.Handler, error) {
 }
 
 // GetHandlers returns all registered extension handlers
-func (m *Manager) GetHandlers() map[string]core2.Handler {
+func (m *Manager) GetHandlers() map[string]core.Handler {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	handlers := make(map[string]core2.Handler)
+	handlers := make(map[string]core.Handler)
 	for name, ext := range m.extensions {
 		handlers[name] = ext.Instance.GetHandlers()
 	}
@@ -271,7 +272,7 @@ func (m *Manager) GetHandlers() map[string]core2.Handler {
 }
 
 // GetService returns a specific service from an extension
-func (m *Manager) GetService(extensionName string) (core2.Service, error) {
+func (m *Manager) GetService(extensionName string) (core.Service, error) {
 	m.mu.RLock()
 	ext, exists := m.extensions[extensionName]
 	m.mu.RUnlock()
@@ -289,11 +290,11 @@ func (m *Manager) GetService(extensionName string) (core2.Service, error) {
 }
 
 // GetServices returns all registered extension services
-func (m *Manager) GetServices() map[string]core2.Service {
+func (m *Manager) GetServices() map[string]core.Service {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	services := make(map[string]core2.Service)
+	services := make(map[string]core.Service)
 	for name, ext := range m.extensions {
 		services[name] = ext.Instance.GetServices()
 	}
@@ -301,11 +302,11 @@ func (m *Manager) GetServices() map[string]core2.Service {
 }
 
 // GetMetadata returns the metadata of all registered extensions
-func (m *Manager) GetMetadata() map[string]core2.Metadata {
+func (m *Manager) GetMetadata() map[string]core.Metadata {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	metadata := make(map[string]core2.Metadata)
+	metadata := make(map[string]core.Metadata)
 	for name, ext := range m.extensions {
 		metadata[name] = ext.Metadata
 	}

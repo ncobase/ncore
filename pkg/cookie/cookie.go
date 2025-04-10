@@ -2,7 +2,7 @@ package cookie
 
 import (
 	"fmt"
-	"ncore/pkg/types"
+	"github.com/ncobase/ncore/pkg/types"
 	"net/http"
 	"strings"
 )

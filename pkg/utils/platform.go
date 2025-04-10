@@ -3,7 +3,7 @@ package utils
 import (
 	"runtime"
 
-	"ncore/pkg/types"
+	"github.com/ncobase/ncore/pkg/types"
 )
 
 // GetPlatformExt returns the platform-specific extension

@@ -2,12 +2,12 @@ package commands
 
 import (
 	"fmt"
-	"ncore/cmd/commands/create"
-	"ncore/cmd/commands/migrate"
-	nem "ncore/ext/manager"
-	"ncore/pkg/config"
-	"ncore/pkg/utils"
-	"ncore/pkg/version"
+	"github.com/ncobase/ncore/cmd/commands/create"
+	"github.com/ncobase/ncore/cmd/commands/migrate"
+	nem "github.com/ncobase/ncore/ext/manager"
+	"github.com/ncobase/ncore/pkg/config"
+	"github.com/ncobase/ncore/pkg/utils"
+	"github.com/ncobase/ncore/pkg/version"
 	"os"
 	"path/filepath"
 

@@ -6,7 +6,7 @@ package monitor_test
 // 	"encoding/json"
 // 	"fmt"
 // 	"log"
-// 	"ncore/monitor"
+// 	"github.com/ncobase/ncore/monitor"
 // 	"net/http"
 // 	"time"
 // )

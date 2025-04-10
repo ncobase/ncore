@@ -3,9 +3,9 @@ package discovery
 import (
 	"context"
 	"fmt"
-	"ncore/ext/core"
-	"ncore/pkg/logger"
-	"ncore/pkg/uuid"
+	"github.com/ncobase/ncore/ext/core"
+	"github.com/ncobase/ncore/pkg/logger"
+	"github.com/ncobase/ncore/pkg/uuid"
 	"sync"
 	"time"
 

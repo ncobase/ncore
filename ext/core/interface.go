@@ -1,7 +1,7 @@
 package core
 
 import (
-	"ncore/pkg/config"
+	"github.com/ncobase/ncore/pkg/config"
 	"time"
 
 	"github.com/gin-gonic/gin"
