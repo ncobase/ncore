@@ -21,6 +21,7 @@ import (
 	"github.com/ncobase/ncore/pkg/config"
 	"github.com/ncobase/ncore/pkg/helper"
 	"github.com/ncobase/ncore/pkg/logger"
+	"github.com/ncobase/ncore/pkg/version"
 )
 
 const (
@@ -28,7 +29,7 @@ const (
 )
 
 func main() {
-	logger.SetVersion(helper.Version)
+	logger.SetVersion(version.Version)
 	// load config
 	conf := loadConfig()
 
@@ -274,7 +275,7 @@ func registerRest(e *gin.Engine, conf *config.Config, h *handler.Handler) {
 		c.JSON(http.StatusOK, gin.H{
 			"status": "ok",
 			"name":   conf.AppName,
-			"version": helper.Version,
+			"version": version.Version,
 		})
 	})
 

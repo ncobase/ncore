@@ -159,9 +159,8 @@ func NewVersionCommand() *cobra.Command {
 		Short: "Print version information",
 		Run: func(cmd *cobra.Command, args []string) {
 			info := version.GetVersionInfo()
-			fmt.Println("NCore Version:", info.Version)
-			fmt.Println("Build Time:", info.BuildTime)
-			fmt.Println("Git Commit:", info.GitCommit)
+			fmt.Println("Version:", info.Version)
+			fmt.Println("Built At:", info.BuiltAt)
 		},
 	}
 }
