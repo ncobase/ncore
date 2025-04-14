@@ -18,10 +18,10 @@ import (
 	"time"
 
 	"{{ .PackagePath }}/cmd/provider"
-	"github.com/ncobase/ncore/pkg/config"
-	"github.com/ncobase/ncore/pkg/helper"
-	"github.com/ncobase/ncore/pkg/logger"
-	"github.com/ncobase/ncore/pkg/version"
+	"github.com/ncobase/ncore/config"
+	"github.com/ncobase/ncore/helper"
+	"github.com/ncobase/ncore/logging/logger"
+	"github.com/ncobase/ncore/version"
 )
 
 const (
@@ -169,8 +169,8 @@ func StandaloneServerTemplate(name, moduleName string) string {
 import (
 	"context"
 	"net/http"
-	"github.com/ncobase/ncore/pkg/config"
-	"github.com/ncobase/ncore/pkg/logger"
+	"github.com/ncobase/ncore/config"
+	"github.com/ncobase/ncore/logging/logger"
 	"{{ .PackagePath }}/handler"
 	"{{ .PackagePath }}/service"
 )
@@ -213,9 +213,9 @@ func StandaloneGinTemplate(name, moduleName string) string {
 	return fmt.Sprintf(`package provider
 
 import (
-	"github.com/ncobase/ncore/pkg/config"
-	"github.com/ncobase/ncore/pkg/ecode"
-	"github.com/ncobase/ncore/pkg/resp"
+	"github.com/ncobase/ncore/config"
+	"github.com/ncobase/ncore/ecode"
+	"github.com/ncobase/ncore/net/resp"
 	"net/http"
 	"{{ .PackagePath }}/handler"
 
@@ -255,9 +255,9 @@ func StandaloneRestTemplate(name, moduleName string) string {
 	return fmt.Sprintf(`package provider
 
 import (
-	"github.com/ncobase/ncore/pkg/helper"
+	"github.com/ncobase/ncore/helper"
 	"net/http"
-	"github.com/ncobase/ncore/pkg/config"
+	"github.com/ncobase/ncore/config"
 	"{{ .PackagePath }}/handler"
 
 	"github.com/gin-gonic/gin"
@@ -294,7 +294,7 @@ func StandaloneConfigTemplate(name, moduleName string) string {
 	return fmt.Sprintf(`package config
 
 import (
-	"github.com/ncobase/ncore/pkg/config"
+	"github.com/ncobase/ncore/config"
 )
 
 // GetAppConfig returns the application-specific configuration
@@ -314,7 +314,7 @@ func StandaloneHandlerTemplate(name, moduleName string) string {
 	return fmt.Sprintf(`package handler
 
 import (
-	"github.com/ncobase/ncore/pkg/resp"
+	"github.com/ncobase/ncore/net/resp"
 	"{{ .PackagePath }}/service"
 
 	"github.com/gin-gonic/gin"
@@ -376,7 +376,7 @@ func StandaloneServiceTemplate(name, moduleName string) string {
 
 import (
 	"context"
-	"github.com/ncobase/ncore/pkg/config"
+	"github.com/ncobase/ncore/config"
 	"{{ .PackagePath }}/model"
 	"time"
 
@@ -428,7 +428,7 @@ func StandaloneRepositoryTemplate(name, moduleName string, useMongo, useEnt, use
 	// Basic imports
 	imports = fmt.Sprintf(`import (
 	"context"
-	"github.com/ncobase/ncore/pkg/config"
+	"github.com/ncobase/ncore/config"
 	"{{ .PackagePath }}/model"
 `, moduleName)
 
@@ -620,7 +620,7 @@ func StandaloneServiceTestTemplate(name, moduleName string) string {
 
 import (
 	"context"
-	"github.com/ncobase/ncore/pkg/config"
+	"github.com/ncobase/ncore/config"
 	"testing"
 	"{{ .PackagePath }}/service"
 

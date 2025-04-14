@@ -7,10 +7,10 @@ import (
 
 	"github.com/ncobase/ncore/cmd/commands/create"
 	"github.com/ncobase/ncore/cmd/commands/migrate"
-	extm "github.com/ncobase/ncore/ext/manager"
-	"github.com/ncobase/ncore/pkg/config"
-	"github.com/ncobase/ncore/pkg/utils"
-	"github.com/ncobase/ncore/pkg/version"
+	"github.com/ncobase/ncore/config"
+	extm "github.com/ncobase/ncore/extension/manager"
+	"github.com/ncobase/ncore/utils"
+	"github.com/ncobase/ncore/version"
 
 	"github.com/spf13/cobra"
 )

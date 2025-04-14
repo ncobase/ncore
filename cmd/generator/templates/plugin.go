@@ -7,7 +7,7 @@ func PluginTemplate(name string) string {
 
 import (
 	"fmt"
-	"github.com/ncobase/ncore/pkg/config"
+	"github.com/ncobase/ncore/config"
 	nec "github.com/ncobase/ncore/ext/core"
 	"{{ .PackagePath }}/data"
 	"{{ .PackagePath }}/handler"

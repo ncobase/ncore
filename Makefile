@@ -9,7 +9,7 @@ BUILT_AT=$(shell date -u '+%Y-%m-%dT%H:%M:%S')
 GO_VERSION=$(shell go version | awk '{print $$3}')
 
 # Build flags
-BUILD_VARS=github.com/ncobase/ncore/pkg/version
+BUILD_VARS=github.com/ncobase/ncore/version
 LDFLAGS=-X $(BUILD_VARS).Version=$(VERSION) \
         -X $(BUILD_VARS).Branch=$(BRANCH) \
         -X $(BUILD_VARS).Revision=$(REVISION) \

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/ncobase/ncore/pkg/utils"
+	"github.com/ncobase/ncore/utils"
 
 	"github.com/spf13/cobra"
 )

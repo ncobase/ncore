@@ -18,10 +18,10 @@ import (
 	"time"
 
 	"{{ .PackagePath }}/cmd/provider"
-	"github.com/ncobase/ncore/pkg/config"
-	"github.com/ncobase/ncore/pkg/helper"
-	"github.com/ncobase/ncore/pkg/logger"
-	"github.com/ncobase/ncore/pkg/version"
+	"github.com/ncobase/ncore/config"
+	"github.com/ncobase/ncore/helper"
+	"github.com/ncobase/ncore/logging/logger"
+	"github.com/ncobase/ncore/version"
 )
 
 const (
@@ -169,8 +169,8 @@ func CmdServerTemplate(name, extType, moduleName string) string {
 import (
 	"context"
 	extm "github.com/ncobase/ncore/ext/manager"
-	"github.com/ncobase/ncore/pkg/config"
-	"github.com/ncobase/ncore/pkg/logger"
+	"github.com/ncobase/ncore/config"
+	"github.com/ncobase/ncore/logging/logger"
 	"net/http"
 )
 
@@ -211,7 +211,7 @@ import (
 	// Import your extensions here
 	"{{ .PackagePath }}" // Import the current extension
 	nec "github.com/ncobase/ncore/ext/core"
-	"github.com/ncobase/ncore/pkg/logger"
+	"github.com/ncobase/ncore/logging/logger"
 	"strings"
 )
 
@@ -260,9 +260,9 @@ func CmdGinTemplate(name, extType, moduleName string) string {
 
 import (
 	nec "github.com/ncobase/ncore/ext/core"
-	"github.com/ncobase/ncore/pkg/config"
-	"github.com/ncobase/ncore/pkg/ecode"
-	"github.com/ncobase/ncore/pkg/resp"
+	"github.com/ncobase/ncore/config"
+	"github.com/ncobase/ncore/ecode"
+	"github.com/ncobase/ncore/net/resp"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -310,10 +310,10 @@ func CmdRestTemplate(name, extType, moduleName string) string {
 	return fmt.Sprintf(`package provider
 
 import (
-	"github.com/ncobase/ncore/pkg/helper"
+	"github.com/ncobase/ncore/helper"
 	"net/http"
 
-	"github.com/ncobase/ncore/pkg/config"
+	"github.com/ncobase/ncore/config"
 
 	"github.com/gin-gonic/gin"
 )

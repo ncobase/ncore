@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/ncobase/ncore/cmd/generator/templates"
-	"github.com/ncobase/ncore/pkg/utils"
+	"github.com/ncobase/ncore/utils"
 )
 
 // Options defines generation options
