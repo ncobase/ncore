@@ -110,6 +110,7 @@ ncore create business payment --use-mongo --with-test
 │   ├── expression/    # Expression evaluation and parsing
 │   └── validator/     # Validation tools
 └── version/           # Version information
+```
 
 ## Dependencies
 
