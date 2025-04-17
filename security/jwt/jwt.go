@@ -108,3 +108,38 @@ func getSubject(subject []string, defaultSubject string) string {
 	}
 	return defaultSubject
 }
+
+// GenerateAccessTokenWithExpiry generates an access token with a custom expiration duration.
+func GenerateAccessTokenWithExpiry(key, jti string, payload map[string]any, expiry time.Duration, subject ...string) (string, error) {
+	return generateCustomToken(key, jti, payload, getSubject(subject, "access"), expiry)
+}
+
+// GenerateRefreshTokenWithExpiry generates a refresh token with a custom expiration duration.
+func GenerateRefreshTokenWithExpiry(key, jti string, payload map[string]any, expiry time.Duration, subject ...string) (string, error) {
+	return generateCustomToken(key, jti, payload, getSubject(subject, "refresh"), expiry)
+}
+
+// GetTokenExpiryTime extracts the expiration time from a token.
+func GetTokenExpiryTime(key, tokenString string) (time.Time, error) {
+	claims, err := DecodeToken(key, tokenString)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	exp, ok := claims["exp"].(float64)
+	if !ok {
+		return time.Time{}, ErrTokenParsing
+	}
+
+	return time.Unix(int64(exp), 0), nil
+}
+
+// IsTokenExpired checks if a token is expired.
+func IsTokenExpired(key, tokenString string) (bool, error) {
+	expiryTime, err := GetTokenExpiryTime(key, tokenString)
+	if err != nil {
+		return true, err
+	}
+
+	return expiryTime.Before(time.Now()), nil
+}
