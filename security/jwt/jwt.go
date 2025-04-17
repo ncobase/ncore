@@ -6,6 +6,7 @@ import (
 	jwtstd "github.com/golang-jwt/jwt/v5"
 )
 
+// TokenError represents JWT token related errors
 type TokenError string
 
 func (e TokenError) Error() string {
@@ -22,7 +23,16 @@ const (
 	ErrTokenParsing      = TokenError("token parsing error")
 )
 
-// Token represents the token body.
+// TokenPayload represents the standard payload structure
+type TokenPayload struct {
+	Roles       []string `json:"roles"`
+	Permissions []string `json:"permissions"`
+	TenantID    string   `json:"tenant_id"`
+	UserID      string   `json:"user_id"`
+	IsAdmin     bool     `json:"is_admin"`
+}
+
+// Token represents the token body
 type Token struct {
 	JTI     string         `json:"jti"`
 	Payload map[string]any `json:"payload"`
@@ -30,42 +40,103 @@ type Token struct {
 	Expire  int64          `json:"exp"`
 }
 
-// generateToken generates a JWT token.
-func generateToken(key string, token *Token) (string, error) {
-	if key == "" {
-		return "", ErrNeedTokenProvider
+// TokenManager handles JWT token operations
+type TokenManager struct {
+	key string
+}
+
+// NewTokenManager creates a new TokenManager instance
+func NewTokenManager(key string) *TokenManager {
+	return &TokenManager{key: key}
+}
+
+func (jtm *TokenManager) validateKey() error {
+	if jtm.key == "" {
+		return ErrNeedTokenProvider
 	}
+	return nil
+}
+
+func (jtm *TokenManager) generateToken(token *Token) (string, error) {
+	if err := jtm.validateKey(); err != nil {
+		return "", err
+	}
+
 	claims := jwtstd.MapClaims{
 		"jti":     token.JTI,
 		"sub":     token.Subject,
 		"payload": token.Payload,
 		"exp":     time.Now().Add(time.Millisecond * time.Duration(token.Expire)).Unix(),
 	}
+
 	t := jwtstd.NewWithClaims(jwtstd.SigningMethodHS256, claims)
-	tokenString, err := t.SignedString([]byte(key))
-	if err != nil {
-		return "", err
-	}
-	return tokenString, nil
+	return t.SignedString([]byte(jtm.key))
 }
 
-// ValidateToken validates a JWT token.
-func ValidateToken(key, tokenString string) (*jwtstd.Token, error) {
-	if key == "" {
-		return nil, ErrNeedTokenProvider
-	}
-	token, err := jwtstd.Parse(tokenString, func(token *jwtstd.Token) (any, error) {
-		return []byte(key), nil
+func (jtm *TokenManager) generateCustomToken(jti string, payload map[string]any, subject string, expireDuration time.Duration) (string, error) {
+	return jtm.generateToken(&Token{
+		JTI:     jti,
+		Payload: payload,
+		Subject: subject,
+		Expire:  expireDuration.Milliseconds(),
 	})
-	if err != nil {
+}
+
+func ensurePayloadDefaults(payload map[string]any) {
+	defaults := map[string]interface{}{
+		"roles":       []string{},
+		"permissions": []string{},
+		"tenant_id":   "",
+		"user_id":     "",
+	}
+
+	for key, defaultValue := range defaults {
+		if _, exists := payload[key]; !exists {
+			payload[key] = defaultValue
+		}
+	}
+}
+
+// GenerateAccessToken generates an access token with a default expiration of 24 hours
+func (jtm *TokenManager) GenerateAccessToken(jti string, payload map[string]any, subject ...string) (string, error) {
+	ensurePayloadDefaults(payload)
+	return jtm.generateCustomToken(jti, payload, getSubject(subject, "access"), DefaultAccessTokenExpire)
+}
+
+// GenerateRegisterToken generates a register token with a default expiration of 60 minutes
+func (jtm *TokenManager) GenerateRegisterToken(jti string, payload map[string]any, subject ...string) (string, error) {
+	return jtm.generateCustomToken(jti, payload, getSubject(subject, "register"), DefaultRegisterTokenExpire)
+}
+
+// GenerateRefreshToken generates a refresh token with a default expiration of 7 days
+func (jtm *TokenManager) GenerateRefreshToken(jti string, payload map[string]any, subject ...string) (string, error) {
+	return jtm.generateCustomToken(jti, payload, getSubject(subject, "refresh"), DefaultRefreshTokenExpire)
+}
+
+// GenerateAccessTokenWithExpiry generates an access token with a custom expiration duration.
+func (jtm *TokenManager) GenerateAccessTokenWithExpiry(jti string, payload map[string]any, expiry time.Duration, subject ...string) (string, error) {
+	return jtm.generateCustomToken(jti, payload, getSubject(subject, "access"), expiry)
+}
+
+// GenerateRefreshTokenWithExpiry generates a refresh token with a custom expiration duration.
+func (jtm *TokenManager) GenerateRefreshTokenWithExpiry(jti string, payload map[string]any, expiry time.Duration, subject ...string) (string, error) {
+	return jtm.generateCustomToken(jti, payload, getSubject(subject, "refresh"), expiry)
+}
+
+// ValidateToken validates a JWT token
+func (jtm *TokenManager) ValidateToken(tokenString string) (*jwtstd.Token, error) {
+	if err := jtm.validateKey(); err != nil {
 		return nil, err
 	}
-	return token, nil
+
+	return jwtstd.Parse(tokenString, func(token *jwtstd.Token) (any, error) {
+		return []byte(jtm.key), nil
+	})
 }
 
-// DecodeToken decodes a JWT token into its claims.
-func DecodeToken(key, tokenString string) (map[string]any, error) {
-	token, err := ValidateToken(key, tokenString)
+// DecodeToken decodes a JWT token into its claims
+func (jtm *TokenManager) DecodeToken(tokenString string) (map[string]any, error) {
+	token, err := jtm.ValidateToken(tokenString)
 	if err != nil {
 		return nil, err
 	}
@@ -75,53 +146,9 @@ func DecodeToken(key, tokenString string) (map[string]any, error) {
 	return token.Claims.(jwtstd.MapClaims), nil
 }
 
-// generateCustomToken generates a custom token with the provided subject and expiration.
-func generateCustomToken(key, jti string, payload map[string]any, defaultSubject string, expireDuration time.Duration) (string, error) {
-	subject := defaultSubject
-	return generateToken(key, &Token{
-		JTI:     jti,
-		Payload: payload,
-		Subject: subject,
-		Expire:  expireDuration.Milliseconds(),
-	})
-}
-
-// GenerateAccessToken generates an access token with a default expiration of 24 hours.
-func GenerateAccessToken(key, jti string, payload map[string]any, subject ...string) (string, error) {
-	return generateCustomToken(key, jti, payload, getSubject(subject, "access"), DefaultAccessTokenExpire)
-}
-
-// GenerateRegisterToken generates a register token with a default expiration of 60 minutes.
-func GenerateRegisterToken(key, jti string, payload map[string]any, subject ...string) (string, error) {
-	return generateCustomToken(key, jti, payload, getSubject(subject, "register"), DefaultRegisterTokenExpire)
-}
-
-// GenerateRefreshToken generates a refresh token with a default expiration of 7 days.
-func GenerateRefreshToken(key, jti string, payload map[string]any, subject ...string) (string, error) {
-	return generateCustomToken(key, jti, payload, getSubject(subject, "refresh"), DefaultRefreshTokenExpire)
-}
-
-// getSubject returns the subject if provided, otherwise returns the default subject.
-func getSubject(subject []string, defaultSubject string) string {
-	if len(subject) > 0 {
-		return subject[0]
-	}
-	return defaultSubject
-}
-
-// GenerateAccessTokenWithExpiry generates an access token with a custom expiration duration.
-func GenerateAccessTokenWithExpiry(key, jti string, payload map[string]any, expiry time.Duration, subject ...string) (string, error) {
-	return generateCustomToken(key, jti, payload, getSubject(subject, "access"), expiry)
-}
-
-// GenerateRefreshTokenWithExpiry generates a refresh token with a custom expiration duration.
-func GenerateRefreshTokenWithExpiry(key, jti string, payload map[string]any, expiry time.Duration, subject ...string) (string, error) {
-	return generateCustomToken(key, jti, payload, getSubject(subject, "refresh"), expiry)
-}
-
-// GetTokenExpiryTime extracts the expiration time from a token.
-func GetTokenExpiryTime(key, tokenString string) (time.Time, error) {
-	claims, err := DecodeToken(key, tokenString)
+// GetTokenExpiryTime extracts the expiration time from a token
+func (jtm *TokenManager) GetTokenExpiryTime(tokenString string) (time.Time, error) {
+	claims, err := jtm.DecodeToken(tokenString)
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -134,12 +161,90 @@ func GetTokenExpiryTime(key, tokenString string) (time.Time, error) {
 	return time.Unix(int64(exp), 0), nil
 }
 
-// IsTokenExpired checks if a token is expired.
-func IsTokenExpired(key, tokenString string) (bool, error) {
-	expiryTime, err := GetTokenExpiryTime(key, tokenString)
+// IsTokenExpired checks if a token is expired
+func (jtm *TokenManager) IsTokenExpired(tokenString string) (bool, error) {
+	expiryTime, err := jtm.GetTokenExpiryTime(tokenString)
 	if err != nil {
 		return true, err
 	}
-
 	return expiryTime.Before(time.Now()), nil
+}
+
+// Helper functions for extracting data from claims
+func getPayloadFromClaims(claims map[string]any) (map[string]any, bool) {
+	payloadAny, ok := claims["payload"]
+	if !ok {
+		return nil, false
+	}
+	payload, ok := payloadAny.(map[string]any)
+	return payload, ok
+}
+
+func extractStringSlice(payload map[string]any, key string) []string {
+	if valAny, ok := payload[key]; ok {
+		if slice, ok := valAny.([]any); ok {
+			result := make([]string, 0, len(slice))
+			for _, item := range slice {
+				if str, ok := item.(string); ok {
+					result = append(result, str)
+				}
+			}
+			return result
+		}
+	}
+	return []string{}
+}
+
+// GetRolesFromToken extracts roles from token claims
+func GetRolesFromToken(claims map[string]any) []string {
+	if payload, ok := getPayloadFromClaims(claims); ok {
+		return extractStringSlice(payload, "roles")
+	}
+	return []string{}
+}
+
+// GetPermissionsFromToken extracts permissions from token claims
+func GetPermissionsFromToken(claims map[string]any) []string {
+	if payload, ok := getPayloadFromClaims(claims); ok {
+		return extractStringSlice(payload, "permissions")
+	}
+	return []string{}
+}
+
+// IsAdminFromToken checks if the token indicates an admin user
+func IsAdminFromToken(claims map[string]any) bool {
+	if payload, ok := getPayloadFromClaims(claims); ok {
+		if isAdmin, ok := payload["is_admin"].(bool); ok {
+			return isAdmin
+		}
+	}
+	return false
+}
+
+// GetTenantIDFromToken gets the tenant ID from the token
+func GetTenantIDFromToken(claims map[string]any) string {
+	if payload, ok := getPayloadFromClaims(claims); ok {
+		if tenantID, ok := payload["tenant_id"].(string); ok {
+			return tenantID
+		}
+	}
+	return ""
+}
+
+// GetUserIDFromToken gets the user ID from the token
+func GetUserIDFromToken(claims map[string]any) string {
+	if payload, ok := getPayloadFromClaims(claims); ok {
+		if userID, ok := payload["user_id"].(string); ok {
+			return userID
+		}
+	}
+	return ""
+}
+
+// getSubject returns the subject if provided, otherwise returns the default subject
+func getSubject(subject []string, defaultSubject string) string {
+	if len(subject) > 0 {
+		return subject[0]
+	}
+	return defaultSubject
 }
