@@ -95,16 +95,6 @@ func (m *Manager) Register(f types.Interface) error {
 		Metadata: f.GetMetadata(),
 		Instance: f,
 	}
-
-	if m.serviceDiscovery != nil && f.NeedServiceDiscovery() {
-		svcInfo := f.GetServiceInfo()
-		if svcInfo != nil {
-			if err := m.serviceDiscovery.RegisterService(name, svcInfo); err != nil {
-				return fmt.Errorf("failed to register extension %s with Consul: %w", name, err)
-			}
-		}
-	}
-
 	return nil
 }
 
@@ -160,14 +150,14 @@ func (m *Manager) InitExtensions() error {
 		}
 	}
 
+	// Set initialization status
+	m.mu.Lock()
 	if len(initErrors) > 0 {
-		m.mu.Lock()
 		m.initialized = false
 		m.mu.Unlock()
 		// Skip returning error since initialized is false
 		// return fmt.Errorf("one or more extensions failed to initialize: %v", initErrors)
 	} else {
-		m.mu.Lock()
 		m.initialized = true
 		m.mu.Unlock()
 	}
@@ -175,6 +165,22 @@ func (m *Manager) InitExtensions() error {
 	// Ensure all services are initialized
 	for _, ext := range m.extensions {
 		_ = ext.Instance.GetServices()
+	}
+
+	// Register services with service discovery
+	if m.initialized && m.serviceDiscovery != nil {
+		for name, ext := range m.extensions {
+			if ext.Instance.NeedServiceDiscovery() {
+				svcInfo := ext.Instance.GetServiceInfo()
+				if svcInfo != nil {
+					if err := m.serviceDiscovery.RegisterService(name, svcInfo); err != nil {
+						logger.Warnf(context.Background(), "failed to register extension %s with Consul: %v", name, err)
+						// We use a warning log here instead of error to not fail the entire initialization
+						// process just because of service registration issues
+					}
+				}
+			}
+		}
 	}
 
 	// Log successful initialization
