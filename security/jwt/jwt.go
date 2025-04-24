@@ -83,7 +83,7 @@ func (jtm *TokenManager) generateCustomToken(jti string, payload map[string]any,
 }
 
 func ensurePayloadDefaults(payload map[string]any) {
-	defaults := map[string]interface{}{
+	defaults := map[string]any{
 		"roles":       []string{},
 		"permissions": []string{},
 		"tenant_id":   "",
