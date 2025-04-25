@@ -56,3 +56,19 @@ func StringToInt32(s string) (int32, error) {
 	}
 	return int32(n), nil
 }
+
+// Max returns the larger of two integers.
+func Max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// Min returns the smaller of two integers.
+func Min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}

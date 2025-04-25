@@ -51,7 +51,7 @@ func (ds *DynamicSorter) Sort(criteria MultiCriteria) error {
 			}
 
 			// Compare values based on the order
-			comparison := compareValues(val1, val2)
+			comparison := CompareValues(val1, val2)
 			if c.Order == Descending {
 				comparison = -comparison
 			}
@@ -66,25 +66,34 @@ func (ds *DynamicSorter) Sort(criteria MultiCriteria) error {
 	return nil
 }
 
-// compareValues compares two values and returns -1, 0, or 1.
-func compareValues(a, b any) int {
+// CompareValues compares two values and returns -1, 0, or 1.
+// Supports int and string types.
+// Returns -1 if a < b.
+// Returns 1 if a > b.
+// Returns 0 if a == b or types are not comparable.
+func CompareValues(a, b any) int {
 	switch aVal := a.(type) {
 	case int:
 		bVal, ok := b.(int)
 		if ok {
-			return compareInt(aVal, bVal)
+			return CompareInt(aVal, bVal)
 		}
 	case string:
 		bVal, ok := b.(string)
 		if ok {
-			return compareString(aVal, bVal)
+			return CompareString(aVal, bVal)
 		}
-		// Add more type comparisons as needed
+		// TODO: Add more type comparisons as needed
 	}
+	// Consider them equal if types don't match or are unsupported
 	return 0
 }
 
-func compareInt(a, b int) int {
+// CompareInt compares two integers.
+// Returns -1 if a < b.
+// Returns 1 if a > b.
+// Returns 0 if a == b.
+func CompareInt(a, b int) int {
 	if a < b {
 		return -1
 	} else if a > b {
@@ -93,7 +102,11 @@ func compareInt(a, b int) int {
 	return 0
 }
 
-func compareString(a, b string) int {
+// CompareString compares two strings lexicographically.
+// Returns -1 if a < b.
+// Returns 1 if a > b.
+// Returns 0 if a == b.
+func CompareString(a, b string) int {
 	if a < b {
 		return -1
 	} else if a > b {
