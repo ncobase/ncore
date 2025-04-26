@@ -1,5 +1,7 @@
 package utils
 
+import "strings"
+
 // Find returns the smallest index i at which x == a[i],
 // or len(a) if there is no such index.
 func Find(a []string, x string) int {
@@ -46,4 +48,20 @@ func RemoveDuplicates(a []string) []string {
 	result := make([]string, j)
 	copy(result, a[:j])
 	return result
+}
+
+// FirstUpper returns a copy of the string s with its first letter capitalized.
+func FirstUpper(s string) string {
+	if s == "" {
+		return ""
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
+}
+
+// FirstLower returns a copy of the string s with its first letter lowercased.
+func FirstLower(s string) string {
+	if s == "" {
+		return ""
+	}
+	return strings.ToLower(s[:1]) + s[1:]
 }
