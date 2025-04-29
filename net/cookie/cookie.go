@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/ncobase/ncore/types"
+	"github.com/ncobase/ncore/utils/convert"
 )
 
 // formatDomain formats the domain.
@@ -117,7 +117,7 @@ func GetRegister(r *http.Request, key string) (string, error) {
 
 // GetTokenFromResult retrieves a token from the result map.
 func GetTokenFromResult(result *map[string]any, key string) (string, error) {
-	value, ok := types.ToValue(result)[key]
+	value, ok := convert.ToValue(result)[key]
 	if !ok {
 		return "", fmt.Errorf("key %s not found in result", key)
 	}

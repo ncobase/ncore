@@ -1,4 +1,4 @@
-package types
+package convert
 
 import (
 	"encoding/json"
@@ -9,6 +9,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// Supported time formats for parsing
 var timeFormats = []string{
 	"2006-01",
 	"2006-01-02",
@@ -45,9 +46,11 @@ const (
 	DefaultLayout24h = "yyyy-MM-dd HH:mm:ss"
 	// DefaultLayout12h default 12h layout
 	DefaultLayout12h = "yyyy-MM-dd hh:mm:ss"
+	// Default time layout for formatting
+	timeLayout = "2006-01-02 15:04:05"
 )
 
-// ParseLocalTime parse to local time
+// ParseLocalTime parses string to local time by trying multiple formats
 func ParseLocalTime(str string) (t time.Time, err error) {
 	location := time.Now().Location()
 	for _, format := range timeFormats {
@@ -56,21 +59,21 @@ func ParseLocalTime(str string) (t time.Time, err error) {
 			return
 		}
 	}
-	err = errors.New("Can't parse string as time: " + str)
+	err = errors.New("cannot parse string as time: " + str)
 	return
 }
 
-// UnixSecToTime unix sec to time
+// UnixSecToTime converts unix seconds to time.Time
 func UnixSecToTime(sec int64) time.Time {
 	return time.Unix(sec, 0)
 }
 
-// ToPBTimestamp convert time.Time to pb.Timestamp
+// ToPBTimestamp converts time.Time to protobuf Timestamp
 func ToPBTimestamp(t time.Time) *timestamppb.Timestamp {
 	return timestamppb.New(t)
 }
 
-// PtrToPBTimestamp convert *time.Time to *timestamppb.Timestamp
+// PtrToPBTimestamp converts *time.Time to *timestamppb.Timestamp
 func PtrToPBTimestamp(t *time.Time) *timestamppb.Timestamp {
 	if t == nil {
 		return nil
@@ -78,7 +81,7 @@ func PtrToPBTimestamp(t *time.Time) *timestamppb.Timestamp {
 	return timestamppb.New(*t)
 }
 
-// AdjustToEndOfDay adjusts the given time to the end of the day (23:59:59).
+// AdjustToEndOfDay adjusts the given time to the end of the day (23:59:59)
 func AdjustToEndOfDay(value any) (int64, error) {
 	var adjustedTime time.Time
 
@@ -102,9 +105,7 @@ func AdjustToEndOfDay(value any) (int64, error) {
 	return adjustedTime.UnixMilli(), nil
 }
 
-const timeLayout = "2006-01-02 15:04:05"
-
-// FormatTime format time to string
+// FormatTime formats time to string with optional layout
 func FormatTime(t *time.Time, layout ...string) *string {
 	if t == nil {
 		return nil
@@ -117,7 +118,7 @@ func FormatTime(t *time.Time, layout ...string) *string {
 	return &s
 }
 
-// UnixMilliToString timestamp to string
+// UnixMilliToString converts unix milliseconds timestamp to string
 func UnixMilliToString(t *int64, layout ...string) *string {
 	if t == nil {
 		return nil
@@ -130,7 +131,7 @@ func UnixMilliToString(t *int64, layout ...string) *string {
 	return &s
 }
 
-// UnixMilliToTime timestamp to time.Time
+// UnixMilliToTime converts unix milliseconds timestamp to time.Time
 func UnixMilliToTime(i *int64) *time.Time {
 	if i == nil {
 		return nil
@@ -139,6 +140,7 @@ func UnixMilliToTime(i *int64) *time.Time {
 	return &t
 }
 
+// ToUnixMilli converts various types to unix milliseconds timestamp
 func ToUnixMilli(v any) int64 {
 	switch t := v.(type) {
 	case float64:

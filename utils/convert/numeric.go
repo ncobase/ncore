@@ -1,4 +1,4 @@
-package types
+package convert
 
 import (
 	"fmt"
@@ -22,12 +22,12 @@ func IntToInt64(n int) int64 {
 
 // IntToString converts an int to a string
 func IntToString(n int) string {
-	return fmt.Sprintf("%d", n)
+	return strconv.Itoa(n)
 }
 
 // Int64ToString converts an int64 to a string
 func Int64ToString(n int64) string {
-	return fmt.Sprintf("%d", n)
+	return strconv.FormatInt(n, 10)
 }
 
 // StringToInt converts a string to an int
@@ -57,7 +57,7 @@ func StringToInt32(s string) (int32, error) {
 	return int32(n), nil
 }
 
-// Max returns the larger of two integers.
+// Max returns the larger of two integers
 func Max(a, b int) int {
 	if a > b {
 		return a
@@ -65,7 +65,7 @@ func Max(a, b int) int {
 	return b
 }
 
-// Min returns the smaller of two integers.
+// Min returns the smaller of two integers
 func Min(a, b int) int {
 	if a < b {
 		return a
