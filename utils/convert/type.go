@@ -199,3 +199,188 @@ func IsValidType(typeStr string) bool {
 	}
 	return validTypes[typeStr]
 }
+
+// ToStringArray converts any type of array to a string array
+// Each element is converted to its string representation
+func ToStringArray(arr any) []string {
+	if arr == nil {
+		return nil
+	}
+
+	// Use reflection to handle different array types
+	switch v := arr.(type) {
+	case []string:
+		// Already a string array, return a copy
+		result := make([]string, len(v))
+		copy(result, v)
+		return result
+
+	case []int:
+		result := make([]string, len(v))
+		for i, val := range v {
+			result[i] = IntToString(val)
+		}
+		return result
+
+	case []int64:
+		result := make([]string, len(v))
+		for i, val := range v {
+			result[i] = Int64ToString(val)
+		}
+		return result
+
+	case []float64:
+		result := make([]string, len(v))
+		for i, val := range v {
+			result[i] = strconv.FormatFloat(val, 'f', -1, 64)
+		}
+		return result
+
+	case []bool:
+		result := make([]string, len(v))
+		for i, val := range v {
+			result[i] = strconv.FormatBool(val)
+		}
+		return result
+
+	case []any:
+		result := make([]string, len(v))
+		for i, val := range v {
+			result[i] = ToString(val)
+		}
+		return result
+
+	default:
+		// Try to handle it as a slice of interface{}
+		if data, err := json.Marshal(v); err == nil {
+			var anySlice []any
+			if json.Unmarshal(data, &anySlice) == nil {
+				return ToStringArray(anySlice)
+			}
+		}
+		return []string{}
+	}
+}
+
+// FromStringArray converts a string array to an array of a specific type
+// The conversion is based on the target type
+func FromStringArray(arr []string, targetType string) (any, error) {
+	if arr == nil {
+		return nil, nil
+	}
+
+	switch targetType {
+	case "string":
+		// Already a string array, return a copy
+		result := make([]string, len(arr))
+		copy(result, arr)
+		return result, nil
+
+	case "int":
+		result := make([]int, len(arr))
+		for i, val := range arr {
+			intVal, err := StringToInt(val)
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert element at index %d to int: %w", i, err)
+			}
+			result[i] = intVal
+		}
+		return result, nil
+
+	case "int64":
+		result := make([]int64, len(arr))
+		for i, val := range arr {
+			int64Val, err := StringToInt64(val)
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert element at index %d to int64: %w", i, err)
+			}
+			result[i] = int64Val
+		}
+		return result, nil
+
+	case "float64":
+		result := make([]float64, len(arr))
+		for i, val := range arr {
+			floatVal, err := strconv.ParseFloat(val, 64)
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert element at index %d to float64: %w", i, err)
+			}
+			result[i] = floatVal
+		}
+		return result, nil
+
+	case "bool":
+		result := make([]bool, len(arr))
+		for i, val := range arr {
+			boolVal, err := ToBool(val)
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert element at index %d to bool: %w", i, err)
+			}
+			result[i] = boolVal
+		}
+		return result, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported target type: %s", targetType)
+	}
+}
+
+// ToTypedArray is a generic function that converts a string array to an array of type T
+// It handles common types (string, int, int64, float64, bool)
+func ToTypedArray[T any](arr []string) ([]T, error) {
+	if arr == nil {
+		return nil, nil
+	}
+
+	result := make([]T, len(arr))
+
+	// Get the type of T
+	var zero T
+	switch any(zero).(type) {
+	case string:
+		for i, val := range arr {
+			result[i] = any(val).(T)
+		}
+
+	case int:
+		for i, val := range arr {
+			intVal, err := StringToInt(val)
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert element at index %d to int: %w", i, err)
+			}
+			result[i] = any(intVal).(T)
+		}
+
+	case int64:
+		for i, val := range arr {
+			int64Val, err := StringToInt64(val)
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert element at index %d to int64: %w", i, err)
+			}
+			result[i] = any(int64Val).(T)
+		}
+
+	case float64:
+		for i, val := range arr {
+			floatVal, err := strconv.ParseFloat(val, 64)
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert element at index %d to float64: %w", i, err)
+			}
+			result[i] = any(floatVal).(T)
+		}
+
+	case bool:
+		for i, val := range arr {
+			boolVal, err := ToBool(val)
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert element at index %d to bool: %w", i, err)
+			}
+			result[i] = any(boolVal).(T)
+		}
+
+	default:
+		return nil, fmt.Errorf("unsupported type for conversion")
+	}
+
+	return result, nil
+}
