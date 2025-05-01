@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ncobase/ncore/utils/nanoid"
+	"github.com/ncobase/ncore/validation/validator"
 )
 
 // FileType file type
@@ -57,7 +58,7 @@ func GetFileHeader(f *multipart.FileHeader, prefix ...string) *FileHeader {
 	}
 
 	// TODO get image exif data
-	if IsImage(file.Ext) {
+	if validator.IsImage(file.Ext) {
 		file.Metadata = map[string]any{}
 	}
 
@@ -111,14 +112,4 @@ type ThumbnailConfig struct {
 	Path      string `json:"path"`
 	MaxWidth  int64  `json:"max_width"`
 	MaxHeight int64  `json:"max_height"`
-}
-
-// IsImage verify is image
-func IsImage(ext string) bool {
-	return strings.HasPrefix(ext, ".") && (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif" || ext == ".bmp" || ext == ".webp" || ext == ".ico" || ext == ".svg")
-}
-
-// IsVideo verify is video
-func IsVideo(ext string) bool {
-	return strings.HasPrefix(ext, ".") && (ext == ".mp4" || ext == ".avi" || ext == ".mkv" || ext == ".mov" || ext == ".webm")
 }
