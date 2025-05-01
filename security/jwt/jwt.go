@@ -50,6 +50,7 @@ func NewTokenManager(key string) *TokenManager {
 	return &TokenManager{key: key}
 }
 
+// validateKey validates the token key
 func (jtm *TokenManager) validateKey() error {
 	if jtm.key == "" {
 		return ErrNeedTokenProvider
@@ -57,6 +58,7 @@ func (jtm *TokenManager) validateKey() error {
 	return nil
 }
 
+// generateToken generates a JWT token
 func (jtm *TokenManager) generateToken(token *Token) (string, error) {
 	if err := jtm.validateKey(); err != nil {
 		return "", err
@@ -73,6 +75,7 @@ func (jtm *TokenManager) generateToken(token *Token) (string, error) {
 	return t.SignedString([]byte(jtm.key))
 }
 
+// generateCustomToken generates a custom token with a specified expiration duration
 func (jtm *TokenManager) generateCustomToken(jti string, payload map[string]any, subject string, expireDuration time.Duration) (string, error) {
 	return jtm.generateToken(&Token{
 		JTI:     jti,
@@ -82,6 +85,7 @@ func (jtm *TokenManager) generateCustomToken(jti string, payload map[string]any,
 	})
 }
 
+// ensurePayloadDefaults ensures that the payload contains default values
 func ensurePayloadDefaults(payload map[string]any) {
 	defaults := map[string]any{
 		"roles":       []string{},
@@ -170,7 +174,7 @@ func (jtm *TokenManager) IsTokenExpired(tokenString string) (bool, error) {
 	return expiryTime.Before(time.Now()), nil
 }
 
-// Helper functions for extracting data from claims
+// getPayloadFromClaims extracts the payload from token claims
 func getPayloadFromClaims(claims map[string]any) (map[string]any, bool) {
 	payloadAny, ok := claims["payload"]
 	if !ok {
@@ -180,6 +184,7 @@ func getPayloadFromClaims(claims map[string]any) (map[string]any, bool) {
 	return payload, ok
 }
 
+// extractStringSlice extracts a string slice from the payload
 func extractStringSlice(payload map[string]any, key string) []string {
 	if valAny, ok := payload[key]; ok {
 		if slice, ok := valAny.([]any); ok {

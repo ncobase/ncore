@@ -38,6 +38,7 @@ type Config struct {
 	Storage   *Storage
 	OAuth     *OAuth
 	Email     *Email
+	Viper     *viper.Viper
 }
 
 func init() {
@@ -119,6 +120,7 @@ func LoadConfig(configPath string) (*Config, error) {
 		Storage:   getStorageConfig(v),
 		OAuth:     getOAuthConfig(v),
 		Email:     getEmailConfig(v),
+		Viper:     v,
 	}
 
 	return cfg, nil
