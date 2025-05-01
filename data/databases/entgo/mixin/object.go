@@ -36,4 +36,5 @@ var (
 	Leader     = JSONMixin{Field: "leader", Default: types.JSON{}, Comment: "Leader information, e.g., {id: '', name: '', avatar: '', url: '', email: '', ip: ''}", Optional: true}
 	Links      = JSONMixin{Field: "links", Default: types.JSONArray{}, Comment: "List of social links or profile links", Optional: true}
 	Payload    = JSONMixin{Field: "payload", Default: types.JSON{}, Comment: "Payload", Optional: true}
+	Metadata   = JSONMixin{Field: "metadata", Default: types.JSON{}, Comment: "Metadata", Optional: true}
 )
