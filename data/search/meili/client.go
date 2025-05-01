@@ -12,6 +12,9 @@ type Client struct {
 	client meilisearch.ServiceManager
 }
 
+// SearchParams is an alias for meilisearch.SearchRequest type
+type SearchParams = meilisearch.SearchRequest
+
 // NewMeilisearch new Meilisearch client
 func NewMeilisearch(host, apiKey string) *Client {
 	if host == "" {
