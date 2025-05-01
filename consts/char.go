@@ -11,10 +11,11 @@ const (
 	LowerUpper    = Lowercase + Uppercase           // Lowercase + Uppercase letters
 	NumLowerUpper = Number + Lowercase + Uppercase  // Numbers + Lowercase + Uppercase letters
 	All           = NumLowerUpper + Symbol          // Combination of all
+
+	URLSafeBase64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
 )
 
-// PrimaryKey is the character set used for primary keys
-const PrimaryKey = NumLowerUpper
-
-// PrimaryKeySize is the length of the primary key
-const PrimaryKeySize = 16
+const (
+	PrimaryKey     = NumLowerUpper
+	PrimaryKeySize = 16
+)
