@@ -168,7 +168,7 @@ func CmdServerTemplate(name, extType, moduleName string) string {
 
 import (
 	"context"
-	extm "github.com/ncobase/ncore/ext/manager"
+	extm "github.com/ncobase/ncore/extension/manager"
 	"github.com/ncobase/ncore/config"
 	"github.com/ncobase/ncore/logging/logger"
 	"net/http"
@@ -210,7 +210,7 @@ import (
 	"context"
 	// Import your extensions here
 	"{{ .PackagePath }}" // Import the current extension
-	nec "github.com/ncobase/ncore/ext/core"
+	ext "github.com/ncobase/ncore/extension/types"
 	"github.com/ncobase/ncore/logging/logger"
 	"strings"
 )
@@ -259,7 +259,7 @@ func CmdGinTemplate(name, extType, moduleName string) string {
 	return fmt.Sprintf(`package provider
 
 import (
-	nec "github.com/ncobase/ncore/ext/core"
+	ext "github.com/ncobase/ncore/extension/types"
 	"github.com/ncobase/ncore/config"
 	"github.com/ncobase/ncore/ecode"
 	"github.com/ncobase/ncore/net/resp"
