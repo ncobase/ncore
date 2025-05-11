@@ -1,8 +1,6 @@
 module github.com/ncobase/ncore
 
-go 1.23.0
-
-toolchain go1.23.1
+go 1.24
 
 require (
 	entgo.io/ent v0.14.4
@@ -27,7 +25,7 @@ require (
 	github.com/meilisearch/meilisearch-go v0.31.0
 	github.com/neo4j/neo4j-go-driver/v5 v5.28.0
 	github.com/rabbitmq/amqp091-go v1.10.0
-	github.com/redis/go-redis/v9 v9.7.3
+	github.com/redis/go-redis/v9 v9.8.0
 	github.com/segmentio/kafka-go v0.4.47
 	github.com/sendgrid/sendgrid-go v3.16.0+incompatible
 	github.com/sirupsen/logrus v1.9.3
