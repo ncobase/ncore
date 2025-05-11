@@ -1,17 +1,17 @@
 package config
 
 import (
-	config3 "github.com/ncobase/ncore/data/config"
+	dc "github.com/ncobase/ncore/data/config"
 	"github.com/spf13/viper"
 )
 
 // Data represents the data configuration
-type Data = config3.Config
+type Data = dc.Config
 
 // DBNode represents a database node
-type DBNode = config3.DBNode
+type DBNode = dc.DBNode
 
 // GetDataConfig returns data config
 func getDataConfig(v *viper.Viper) *Data {
-	return config3.GetConfig(v)
+	return dc.GetConfig(v)
 }
