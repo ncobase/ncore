@@ -6,7 +6,7 @@ import (
 
 // Config data config struct
 type Config struct {
-	Enveronment string `json:"environment"`
+	Environment string `json:"environment"`
 	*Database
 	*Redis
 	*Meilisearch
@@ -20,7 +20,7 @@ type Config struct {
 // GetConfig returns data config
 func GetConfig(v *viper.Viper) *Config {
 	return &Config{
-		Enveronment:   v.GetString("data.environment"),
+		Environment:   v.GetString("data.environment"),
 		Database:      getDatabaseConfig(v),
 		Redis:         getRedisConfigs(v),
 		Meilisearch:   getMeilisearchConfigs(v),
