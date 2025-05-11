@@ -9,7 +9,7 @@ func ExtTestTemplate(name, extType, moduleName string) string {
 import (
 	"testing"
 	"github.com/ncobase/ncore/config"
-	nec "github.com/ncobase/ncore/ext/core"
+	ext "github.com/ncobase/ncore/extension/types"
 	"{{ .PackagePath }}"
 )
 
