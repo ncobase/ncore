@@ -8,6 +8,7 @@ func PluginTemplate(name string) string {
 import (
 	"fmt"
 	"github.com/ncobase/ncore/config"
+	exr "github.com/ncobase/ncore/extension/registry"
 	ext "github.com/ncobase/ncore/extension/types"
 	"{{ .PackagePath }}/data"
 	"{{ .PackagePath }}/handler"
@@ -49,6 +50,13 @@ type discovery struct {
 	tags    []string
 	meta    map[string]string
 }
+
+
+// init registers the plugin
+func init() {
+	exr.RegisterToGroupWithWeakDeps(New(), group, []string{})
+}
+
 
 // New creates a new instance of the %s plugin.
 func New() ext.Interface {
@@ -141,6 +149,11 @@ func (p *Plugin) Dependencies() []string {
 	return dependencies
 }
 
+// GetAllDependencies returns all dependencies with their types
+func (m *Module) GetAllDependencies() []ext.DependencyEntry {
+	return []ext.DependencyEntry{}
+}
+
 // Description returns the description of the plugin
 func (p *Plugin) Description() string {
 	return desc
@@ -187,5 +200,5 @@ func (p *Plugin) GetServiceInfo() *ext.ServiceInfo {
 		Meta:    meta,
 	}
 }
-`, name, name, name, name, name, name, name, name, name, name)
+`, name, name, name, name, name, name, name)
 }
