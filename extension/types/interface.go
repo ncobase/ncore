@@ -28,7 +28,7 @@ type Interface interface {
 	GetMetadata() Metadata
 	// Version returns the version of the extension
 	Version() string
-	// Dependencies returns the dependencies of the extension
+	// Dependencies returns the strong dependencies of the extension
 	Dependencies() []string
 	// OptionalMethods returns the optional methods of the extension
 	OptionalMethods
@@ -36,6 +36,8 @@ type Interface interface {
 
 // OptionalMethods represents the optional methods for an extension
 type OptionalMethods interface {
+	// GetAllDependencies returns all dependencies with their types (Optional)
+	GetAllDependencies() []DependencyEntry
 	// PreInit performs any necessary setup before initialization
 	PreInit() error
 	// PostInit performs any necessary setup after initialization

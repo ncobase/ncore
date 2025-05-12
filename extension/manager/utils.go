@@ -12,7 +12,7 @@ import (
 // noDeps - modules with no dependencies, first to initialize
 // withDeps - modules with dependencies
 // special - special modules that should be ordered last
-func getInitOrder(extensions map[string]*types.Wrapper) ([]string, error) {
+func getInitOrder(extensions map[string]*types.Wrapper, dependencyGraph map[string][]string) ([]string, error) {
 	var noDeps, withDeps, special []string
 	// Exclude these modules from dependency check, adjust as needed
 	var specialModules []string
@@ -23,48 +23,36 @@ func getInitOrder(extensions map[string]*types.Wrapper) ([]string, error) {
 		specialSet[m] = true
 	}
 
-	dependencies := make(map[string]map[string]bool)
 	initialized := make(map[string]bool)
 
-	// Collect all available extension names
-	availableExtensions := make(map[string]bool)
-	for name := range extensions {
-		availableExtensions[name] = true
+	// If no dependency graph is provided, build one from extension metadata
+	if dependencyGraph == nil {
+		dependencyGraph = make(map[string][]string)
+		for name, ext := range extensions {
+			dependencyGraph[name] = ext.Instance.Dependencies()
+		}
 	}
 
-	// analyze dependencies, classify modules into noDeps and withDeps
-	for name, ext := range extensions {
+	// Classify modules based on dependencies
+	for name, _ := range extensions {
 		if specialSet[name] {
 			special = append(special, name)
 			continue
 		}
 
-		deps := make(map[string]bool)
-
-		// Check if all dependencies exist
-		for _, dep := range ext.Metadata.Dependencies {
-			if !specialSet[dep] {
-				// Check if dependency exists in extensions
-				if !availableExtensions[dep] {
-					return nil, fmt.Errorf("extension '%s' depends on '%s' which does not exist", name, dep)
-				}
-				deps[dep] = true
-			}
-		}
-
+		deps := dependencyGraph[name]
 		if len(deps) == 0 {
 			noDeps = append(noDeps, name)
 			initialized[name] = true
 		} else {
 			withDeps = append(withDeps, name)
-			dependencies[name] = deps
 		}
 	}
 
-	// sort noDeps modules
+	// Sort modules with no dependencies
 	sort.Strings(noDeps)
 
-	// sort withDeps modules
+	// Build initialization order
 	var order []string
 	order = append(order, noDeps...)
 
@@ -74,7 +62,7 @@ func getInitOrder(extensions map[string]*types.Wrapper) ([]string, error) {
 
 		for _, name := range withDeps {
 			canInitialize := true
-			for dep := range dependencies[name] {
+			for _, dep := range dependencyGraph[name] {
 				if !initialized[dep] {
 					canInitialize = false
 					break
@@ -91,13 +79,13 @@ func getInitOrder(extensions map[string]*types.Wrapper) ([]string, error) {
 		}
 
 		if !progress {
-			return nil, fmt.Errorf("cyclic dependency detected")
+			return nil, fmt.Errorf("cyclic dependency detected in extensions: %v", remainingDeps)
 		}
 
 		withDeps = remainingDeps
 	}
 
-	// add special modules
+	// Add special modules
 	order = append(order, special...)
 
 	return order, nil

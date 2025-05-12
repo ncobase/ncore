@@ -42,3 +42,8 @@ func (o *OptionalImpl) NeedServiceDiscovery() bool {
 func (o *OptionalImpl) GetServiceInfo() *ServiceInfo {
 	return nil
 }
+
+// GetAllDependencies returns all dependencies with their types
+func (o *OptionalImpl) GetAllDependencies() []DependencyEntry {
+	return []DependencyEntry{}
+}

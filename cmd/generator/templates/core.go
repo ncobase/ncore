@@ -8,6 +8,7 @@ func CoreTemplate(name string) string {
 import (
 	"fmt"
 	"github.com/ncobase/ncore/config"
+	exr "github.com/ncobase/ncore/extension/registry"
 	ext "github.com/ncobase/ncore/extension/types"
 	"{{ .PackagePath }}/data"
 	"{{ .PackagePath }}/handler"
@@ -48,6 +49,11 @@ type discovery struct {
 	address string
 	tags    []string
 	meta    map[string]string
+}
+
+// init registers the module
+func init() {
+	exr.RegisterToGroupWithWeakDeps(New(), group, []string{})
 }
 
 // New creates a new instance of the %s module.
@@ -141,6 +147,10 @@ func (m *Module) Dependencies() []string {
 	return dependencies
 }
 
+// GetAllDependencies returns all dependencies with their types
+func (m *Module) GetAllDependencies() []ext.DependencyEntry {
+	return []ext.DependencyEntry{}
+}
 // Description returns the description of the module
 func (m *Module) Description() string {
 	return desc
