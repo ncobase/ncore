@@ -94,6 +94,15 @@ type EventBusInterface interface {
 	GetMetrics() map[string]any
 }
 
+// EventTarget defines where an event should be published
+type EventTarget int
+
+const (
+	EventTargetMemory EventTarget                            = 1 << iota // In-memory event bus
+	EventTargetQueue                                                     // Message queue (RabbitMQ/Kafka)
+	EventTargetAll    = EventTargetMemory | EventTargetQueue             // All available targets
+)
+
 // ManagerInterface defines the interface for extension manager operations
 type ManagerInterface interface {
 	GetConfig() *config.Config
@@ -122,8 +131,9 @@ type ManagerInterface interface {
 
 	// Event bus
 
-	PublishEvent(eventName string, data any)
-	SubscribeEvent(eventName string, handler func(any))
+	PublishEvent(eventName string, data any, target ...EventTarget)
+	PublishEventWithRetry(eventName string, data any, maxRetries int, target ...EventTarget)
+	SubscribeEvent(eventName string, handler func(any), source ...EventTarget)
 
 	// Service discovery
 
@@ -147,4 +157,8 @@ type ManagerInterface interface {
 
 	PublishMessage(exchange, routingKey string, body []byte) error
 	SubscribeToMessages(queue string, handler func([]byte) error) error
+
+	// Metrics
+	
+	GetEventBusMetrics() map[string]any
 }

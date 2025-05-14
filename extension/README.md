@@ -64,17 +64,17 @@ The `registry` package provides a self-registration mechanism for extensions:
 ```go
 // In your extension's init() function
 func init() {
-    // Simple registration
-    registry.Register(New())
-    
-    // Or with group
-    registry.RegisterToGroup(New(), "core")
-    
-    // With weak dependencies
-    registry.RegisterWithWeakDeps(New(), []string{"optional-module"})
-    
-    // Or with both group and weak dependencies
-    registry.RegisterToGroupWithWeakDeps(New(), "core", []string{"optional-module"})
+  // Simple registration
+  registry.Register(New())
+  
+  // Or with group
+  registry.RegisterToGroup(New(), "core")
+  
+  // With weak dependencies
+  registry.RegisterWithWeakDeps(New(), []string{"optional-module"})
+  
+  // Or with both group and weak dependencies
+  registry.RegisterToGroupWithWeakDeps(New(), "core", []string{"optional-module"})
 }
 ```
 
@@ -88,31 +88,46 @@ The system supports strong and weak dependencies:
 ```go
 // Define strong dependencies
 func (e *MyExtension) Dependencies() []string {
-    return []string{"required-module"}
+  return []string{"required-module"}
 }
 
 // Define all dependencies including weak ones
 func (e *MyExtension) GetAllDependencies() []ext.DependencyEntry {
-    return []ext.DependencyEntry{
-        {Name: "required-module", Type: ext.StrongDependency},
-        {Name: "optional-module", Type: ext.WeakDependency},
-    }
+  return []ext.DependencyEntry{
+    {Name: "required-module", Type: ext.StrongDependency},
+    {Name: "optional-module", Type: ext.WeakDependency},
+  }
 }
 ```
 
 ### 4. Event System
 
-The `event` package provides asynchronous communication between extensions.
+The `event` package provides unified event handling with automatic transport selection:
 
 ```go
-// Subscribe to events
+// Event target options
+const (
+    EventTargetMemory // In-memory event bus
+    EventTargetQueue // Message queue (RabbitMQ/Kafka)
+    EventTargetAll   // All available targets
+)
+
+// Subscribe to events (default: message queue if available, otherwise in-memory)
 manager.SubscribeEvent("user.created", func(data any) {
-    eventData := data.(types.EventData)
-    // Handle event
+  eventData := data.(types.EventData)
+  // Handle event
 })
 
-// Publish events
+// Subscribe to specific sources
+manager.SubscribeEvent("user.created", handler, EventTargetMemory) // In-memory only
+manager.SubscribeEvent("user.created", handler, EventTargetQueue) // Message queue only
+
+// Publish events (default: message queue if available, otherwise in-memory)
 manager.PublishEvent("user.created", userData)
+
+// Publish to specific targets
+manager.PublishEvent("user.created", userData, EventTargetMemory) // In-memory only
+manager.PublishEvent("user.created", userData, EventTargetQueue) // Message queue only
 
 // Publish with retry
 manager.PublishEventWithRetry("important.event", eventData, 3)
@@ -182,7 +197,7 @@ An extension goes through the following phases:
 
 The manager provides RESTful APIs for extension management:
 
-```
+```plaintext
 GET  /exts              # List all extensions
 POST /exts/load         # Load an extension
 POST /exts/unload       # Unload an extension
@@ -195,8 +210,8 @@ Built-in circuit breaker for fault tolerance:
 
 ```go
 result, err := manager.ExecuteWithCircuitBreaker("service-name", func() (any, error) {
-    // Your code here
-    return result, nil
+  // Your code here
+  return result, nil
 })
 ```
 
@@ -222,25 +237,25 @@ result, err := manager.ExecuteWithCircuitBreaker("service-name", func() (any, er
 ```go
 // Example of graceful degradation with optional dependencies
 func (m *Module) PostInit() error {
-    // Required dependency
-    userService, err := m.em.GetService("user")
-    if err != nil {
-        return fmt.Errorf("failed to get user service: %v", err)
-    }
-    
-    // Optional dependency
-    var analyticsService interface{}
-    as, err := m.em.GetService("analytics")
-    if err == nil && as != nil {
-        analyticsService = as
-        logger.Info("Analytics service available")
-    } else {
-        logger.Info("Analytics service not available, some features will be limited")
-    }
-    
-    // Initialize with available services
-    m.initializeService(userService, analyticsService)
-    return nil
+  // Required dependency
+  userService, err := m.em.GetService("user")
+  if err != nil {
+    return fmt.Errorf("failed to get user service: %v", err)
+  }
+  
+  // Optional dependency
+  var analyticsService interface{}
+  as, err := m.em.GetService("analytics")
+  if err == nil && as != nil {
+    analyticsService = as
+    logger.Info("Analytics service available")
+  } else {
+    logger.Info("Analytics service not available, some features will be limited")
+  }
+  
+  // Initialize with available services
+  m.initializeService(userService, analyticsService)
+  return nil
 }
 ```
 
@@ -254,11 +269,13 @@ func (m *Module) PostInit() error {
 
 ### 4. Event Handling
 
-- Use strongly typed event data
+- Use appropriate event targets based on requirements:
+  - Use default behavior for most cases (message queue if available, otherwise in-memory)
+  - Use `EventTargetQueue` for events that need to reach all system instances
+  - Use `EventTargetMemory` for high-performance, instance-specific events
 - Implement retry for important events
-- Handle panics in event handlers
-- Monitor event metrics
-- Clean up event handlers
+- Keep event payloads serializable and concise
+- Use clear, descriptive event names with namespacing
 
 ### 5. Resource Management
 
@@ -274,22 +291,22 @@ Example configuration:
 
 ```go
 type Config struct {
-    Extension struct {
-        Path     string   // Plugin directory path
-        Mode     string   // Plugin mode
-        Includes []string // Included plugins
-        Excludes []string // Excluded plugins
-        HotReload bool    // Enable hot reloading
+  Extension struct {
+    Path     string   // Plugin directory path
+    Mode     string   // Plugin mode
+    Includes []string // Included plugins
+    Excludes []string // Excluded plugins
+    HotReload bool    // Enable hot reloading
+  }
+  Consul *struct {
+    Address    string // Consul address
+    Scheme     string // HTTP/HTTPS
+    Discovery struct {
+      HealthCheck   bool
+      CheckInterval string
+      Timeout       string
     }
-    Consul *struct {
-        Address    string // Consul address
-        Scheme     string // HTTP/HTTPS
-        Discovery struct {
-            HealthCheck   bool
-            CheckInterval string
-            Timeout       string
-        }
-    }
+  }
 }
 ```
 
