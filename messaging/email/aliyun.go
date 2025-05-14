@@ -19,7 +19,7 @@ type AliyunSender struct {
 	Config *AliyunConfig
 }
 
-func (s *AliyunSender) SendTemplateEmail(recipientEmail string, template AuthEmailTemplate) (string, error) {
+func (s *AliyunSender) SendTemplateEmail(recipientEmail string, template EmailTemplate) (string, error) {
 	auth := smtp.PlainAuth("", s.Config.ID, s.Config.Secret, "smtpdm.aliyun.com")
 	to := []string{recipientEmail}
 	msg := []byte(fmt.Sprintf("To: %s\r\nSubject: %s\r\n\r\n%s", recipientEmail, template.Subject, fmt.Sprintf("Keyword: %s\nURL: %s", template.Keyword, template.URL)))

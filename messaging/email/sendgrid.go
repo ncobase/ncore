@@ -22,7 +22,7 @@ type SendGridSender struct {
 	Config *SendGridConfig
 }
 
-func (s *SendGridSender) SendTemplateEmail(recipientEmail string, template AuthEmailTemplate) (string, error) {
+func (s *SendGridSender) SendTemplateEmail(recipientEmail string, template EmailTemplate) (string, error) {
 	from := mail.NewEmail("Example User", s.Config.From)
 	subject := template.Subject
 	to := mail.NewEmail("Recipient", recipientEmail)

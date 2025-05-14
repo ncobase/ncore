@@ -15,12 +15,13 @@ type Email struct {
 	TencentCloud *TencentCloudConfig
 }
 
-// AuthEmailTemplate represents the email template for authentication
-type AuthEmailTemplate struct {
+// EmailTemplate represents the email template
+type EmailTemplate struct {
 	Subject  string `json:"subject"`
 	Template string `json:"template"`
 	Keyword  string `json:"keyword"`
 	URL      string `json:"url"`
+	Data     any    `json:"data"`
 }
 
 // Config is a generic email configuration interface
@@ -28,7 +29,7 @@ type Config any
 
 // Sender is a generic interface for sending emails
 type Sender interface {
-	SendTemplateEmail(recipientEmail string, template AuthEmailTemplate) (string, error)
+	SendTemplateEmail(recipientEmail string, template EmailTemplate) (string, error)
 }
 
 // validateEmailConfig validates the common email configuration

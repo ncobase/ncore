@@ -21,7 +21,7 @@ type MailgunSender struct {
 	Config *MailgunConfig
 }
 
-func (s *MailgunSender) SendTemplateEmail(recipientEmail string, template AuthEmailTemplate) (string, error) {
+func (s *MailgunSender) SendTemplateEmail(recipientEmail string, template EmailTemplate) (string, error) {
 	mg := mailgun.NewMailgun(s.Config.Domain, s.Config.Key)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
