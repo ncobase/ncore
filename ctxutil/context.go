@@ -162,3 +162,18 @@ func EnsureTraceID(ctx context.Context) (context.Context, string) {
 	traceID := uuid.NewString()
 	return SetTraceID(ctx, traceID), traceID
 }
+
+// ExtractContext extracts context from payload map safely
+func ExtractContext(payload *map[string]any) context.Context {
+	if payload == nil {
+		return context.Background()
+	}
+
+	if ctxVal, exists := (*payload)["ctx"]; exists {
+		if ctx, ok := ctxVal.(context.Context); ok {
+			delete(*payload, "ctx")
+			return ctx
+		}
+	}
+	return context.Background()
+}
