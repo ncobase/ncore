@@ -1,7 +1,7 @@
 package create
 
 import (
-	"github.com/ncobase/ncore/cmd/generator"
+	"github.com/ncobase/ncore/cmd/ncore/generator"
 
 	"github.com/spf13/cobra"
 )

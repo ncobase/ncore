@@ -1,22 +1,22 @@
 package create
 
 import (
-	"github.com/ncobase/ncore/cmd/generator"
+	"github.com/ncobase/ncore/cmd/ncore/generator"
 
 	"github.com/spf13/cobra"
 )
 
-func newBusinessCommand() *cobra.Command {
+func newCoreCommand() *cobra.Command {
 	opts := &generator.Options{}
 
 	cmd := &cobra.Command{
-		Use:     "business [name]",
-		Aliases: []string{"b"},
-		Short:   "Create a new extension in business domain",
+		Use:     "core [name]",
+		Aliases: []string{"c"},
+		Short:   "Create a new extension in core domain",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.Name = args[0]
-			opts.Type = "business"
+			opts.Type = "core"
 
 			// Get flags
 			opts.ModuleName, _ = cmd.Flags().GetString("module")
@@ -32,6 +32,7 @@ func newBusinessCommand() *cobra.Command {
 			return generator.Generate(opts)
 		},
 	}
+
 	// Add flags
 	cmd.Flags().StringVarP(&opts.OutputPath, "path", "p", "", "output path (defaults to current directory)")
 	cmd.Flags().StringVarP(&opts.ModuleName, "module", "m", "", "Go module name (defaults to current module)")
@@ -40,8 +41,8 @@ func newBusinessCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&opts.UseGorm, "use-gorm", false, "use Gorm as ORM")
 	cmd.Flags().BoolVar(&opts.WithCmd, "with-cmd", false, "generate cmd directory with main.go")
 	cmd.Flags().BoolVar(&opts.WithTest, "with-test", false, "generate test files")
-	cmd.Flags().StringVar(&opts.Group, "group", "", "belongs domain group (optional)")
 	cmd.Flags().BoolVar(&opts.Standalone, "standalone", false, "generate as standalone app without extension structure")
+	cmd.Flags().StringVar(&opts.Group, "group", "", "belongs domain group (optional)")
 
 	return cmd
 }

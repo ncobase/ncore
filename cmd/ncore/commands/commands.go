@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ncobase/ncore/cmd/commands/create"
-	"github.com/ncobase/ncore/cmd/commands/migrate"
+	"github.com/ncobase/ncore/cmd/ncore/commands/create"
+	"github.com/ncobase/ncore/cmd/ncore/commands/migrate"
 	"github.com/ncobase/ncore/config"
 	extm "github.com/ncobase/ncore/extension/manager"
 	"github.com/ncobase/ncore/utils"
