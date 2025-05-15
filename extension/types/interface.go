@@ -159,6 +159,6 @@ type ManagerInterface interface {
 	SubscribeToMessages(queue string, handler func([]byte) error) error
 
 	// Metrics
-	
+
 	GetEventBusMetrics() map[string]any
 }

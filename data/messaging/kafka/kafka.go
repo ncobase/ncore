@@ -301,6 +301,6 @@ func (s *Kafka) Close() error {
 }
 
 // Helper function to log Kafka errors
-func logKafkaError(msg string, args ...interface{}) {
+func logKafkaError(msg string, args ...any) {
 	fmt.Printf("Kafka error: "+msg+"\n", args...)
 }
