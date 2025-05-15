@@ -33,7 +33,7 @@ go get github.com/ncobase/ncore@v1.0.0
 
 ```bash
 # Install the CLI tool
-go install github.com/ncobase/ncore/cmd/ncore@latest
+go install github.com/ncobase/ncore/cmd@latest
 
 # View available commands and options
 ncore --help
