@@ -201,7 +201,7 @@ func (m *Manager) SubscribeEvent(eventName string, handler func(any), source ...
 				m.eventBus.Subscribe(eventName, handler)
 			}
 		} else {
-			logger.Infof(context.Background(), "Successfully subscribed to message queue for event: %s", eventName)
+			logger.Debugf(context.Background(), "Successfully subscribed to message queue for event: %s", eventName)
 		}
 	}
 }
