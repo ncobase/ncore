@@ -1,7 +1,6 @@
 package plugin
 
 import (
-	"context"
 	"fmt"
 	plg "plugin"
 	"sync"
@@ -71,13 +70,13 @@ func LoadPlugin(path string, m types.ManagerInterface) error {
 
 	name := sc.Name()
 	if _, exists := registry.plugins[name]; exists {
-		logger.Warnf(context.Background(), "Plugin %s is being overwritten", name)
+		logger.Warnf(nil, "Plugin %s is being overwritten", name)
 	}
 	registry.plugins[name] = &types.Wrapper{
 		Metadata: metadata,
 		Instance: sc,
 	}
-	logger.Debugf(context.Background(), "Plugin %s loaded and initialized successfully", name)
+	logger.Debugf(nil, "Plugin %s loaded and initialized successfully", name)
 
 	return nil
 }
@@ -93,7 +92,7 @@ func UnloadPlugin(name string) error {
 	}
 
 	if err := c.Instance.PreCleanup(); err != nil {
-		logger.Warnf(context.Background(), "Failed pre-cleanup of plugin %s: %v", name, err)
+		logger.Warnf(nil, "Failed pre-cleanup of plugin %s: %v", name, err)
 	}
 
 	if err := c.Instance.Cleanup(); err != nil {
@@ -101,7 +100,7 @@ func UnloadPlugin(name string) error {
 	}
 
 	delete(registry.plugins, name)
-	logger.Infof(context.Background(), "plugin %s unloaded successfully", name)
+	logger.Infof(nil, "plugin %s unloaded successfully", name)
 	return nil
 }
 

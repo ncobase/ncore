@@ -34,7 +34,7 @@ func getInitOrder(extensions map[string]*types.Wrapper, dependencyGraph map[stri
 	}
 
 	// Classify modules based on dependencies
-	for name, _ := range extensions {
+	for name := range extensions {
 		if specialSet[name] {
 			special = append(special, name)
 			continue

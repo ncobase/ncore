@@ -323,63 +323,122 @@ func New(c *config.Logger) (func(), error) { return StdLogger().Init(c) }
 
 // WithFields returns an entry with the given fields
 func WithFields(ctx context.Context, fields logrus.Fields) *logrus.Entry {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	entry := StdLogger().entryFromContext(ctx)
 	return entry.WithFields(fields)
 }
 
 // Trace logs trace message
-func Trace(ctx context.Context, args ...any) { StdLogger().Trace(ctx, args...) }
+func Trace(ctx context.Context, args ...any) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	StdLogger().Trace(ctx, args...)
+}
 
 // Debug logs debug message
-func Debug(ctx context.Context, args ...any) { StdLogger().Debug(ctx, args...) }
+func Debug(ctx context.Context, args ...any) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	StdLogger().Debug(ctx, args...)
+}
 
 // Info logs info message
-func Info(ctx context.Context, args ...any) { StdLogger().Info(ctx, args...) }
+func Info(ctx context.Context, args ...any) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	StdLogger().Info(ctx, args...)
+}
 
 // Warn logs warn message
-func Warn(ctx context.Context, args ...any) { StdLogger().Warn(ctx, args...) }
+func Warn(ctx context.Context, args ...any) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	StdLogger().Warn(ctx, args...)
+}
 
 // Error logs error message
-func Error(ctx context.Context, args ...any) { StdLogger().Error(ctx, args...) }
+func Error(ctx context.Context, args ...any) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	StdLogger().Error(ctx, args...)
+}
 
 // Fatal logs fatal message
-func Fatal(ctx context.Context, args ...any) { StdLogger().Fatal(ctx, args...) }
+func Fatal(ctx context.Context, args ...any) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	StdLogger().Fatal(ctx, args...)
+}
 
 // Panic logs panic message
-func Panic(ctx context.Context, args ...any) { StdLogger().Panic(ctx, args...) }
+func Panic(ctx context.Context, args ...any) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	StdLogger().Panic(ctx, args...)
+}
 
 // Tracef logs trace message with format
 func Tracef(ctx context.Context, format string, args ...any) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	StdLogger().Tracef(ctx, format, args...)
 }
 
 // Debugf logs debug message with format
 func Debugf(ctx context.Context, format string, args ...any) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	StdLogger().Debugf(ctx, format, args...)
 }
 
 // Infof logs info message with format
 func Infof(ctx context.Context, format string, args ...any) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	StdLogger().Infof(ctx, format, args...)
 }
 
 // Warnf logs warn message with format
 func Warnf(ctx context.Context, format string, args ...any) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	StdLogger().Warnf(ctx, format, args...)
 }
 
 // Errorf logs error message with format
 func Errorf(ctx context.Context, format string, args ...any) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	StdLogger().Errorf(ctx, format, args...)
 }
 
 // Fatalf logs fatal message with format
 func Fatalf(ctx context.Context, format string, args ...any) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	StdLogger().Fatalf(ctx, format, args...)
 }
 
 // Panicf logs panic message with format
 func Panicf(ctx context.Context, format string, args ...any) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	StdLogger().Panicf(ctx, format, args...)
 }
 

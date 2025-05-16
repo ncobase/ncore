@@ -1,7 +1,6 @@
 package manager
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -35,18 +34,18 @@ func (m *Manager) loadPluginsInFile() error {
 	for _, pattern := range pluginPaths {
 		pds, err := filepath.Glob(pattern)
 		if err != nil {
-			logger.Errorf(context.Background(), "failed to list plugin files in %s: %v", pattern, err)
+			logger.Errorf(nil, "failed to list plugin files in %s: %v", pattern, err)
 			continue
 		}
 
 		for _, pp := range pds {
 			pluginName := strings.TrimSuffix(filepath.Base(pp), utils.GetPlatformExt())
 			if !m.shouldLoadPlugin(pluginName) {
-				logger.Infof(context.Background(), "🚧 Skipping plugin %s based on configuration", pluginName)
+				logger.Infof(nil, "🚧 Skipping plugin %s based on configuration", pluginName)
 				continue
 			}
 			if err := m.LoadPlugin(pp); err != nil {
-				logger.Errorf(context.Background(), "Failed to load plugin %s: %v", pluginName, err)
+				logger.Errorf(nil, "Failed to load plugin %s: %v", pluginName, err)
 				return err
 			}
 		}
@@ -61,11 +60,11 @@ func (m *Manager) loadPluginsInBuilt() error {
 
 	for _, c := range plugins {
 		if err := m.initializePlugin(c); err != nil {
-			logger.Errorf(context.Background(), "Failed to initialize plugin %s: %v", c.Metadata.Name, err)
+			logger.Errorf(nil, "Failed to initialize plugin %s: %v", c.Metadata.Name, err)
 			continue
 		}
 		m.extensions[c.Metadata.Name] = c
-		logger.Debugf(context.Background(), "Plugin %s loaded and initialized successfully", c.Metadata.Name)
+		logger.Debugf(nil, "Plugin %s loaded and initialized successfully", c.Metadata.Name)
 	}
 
 	return nil
@@ -82,14 +81,14 @@ func (m *Manager) LoadPlugin(path string) error {
 	}
 
 	if err := plugin.LoadPlugin(path, m); err != nil {
-		logger.Errorf(context.Background(), "failed to load plugin %s: %v", name, err)
+		logger.Errorf(nil, "failed to load plugin %s: %v", name, err)
 		return err
 	}
 
 	loadedPlugin := plugin.GetPlugin(name)
 	if loadedPlugin != nil {
 		m.extensions[name] = loadedPlugin
-		logger.Infof(context.Background(), "Plugin %s loaded successfully", name)
+		logger.Infof(nil, "Plugin %s loaded successfully", name)
 	}
 
 	return nil
@@ -119,11 +118,11 @@ func (m *Manager) UnloadPlugin(name string) error {
 	}
 
 	if err := ext.Instance.PreCleanup(); err != nil {
-		logger.Errorf(context.Background(), "failed pre-cleanup of extension %s: %v", name, err)
+		logger.Errorf(nil, "failed pre-cleanup of extension %s: %v", name, err)
 	}
 
 	if err := ext.Instance.Cleanup(); err != nil {
-		logger.Errorf(context.Background(), "failed to cleanup extension %s: %v", name, err)
+		logger.Errorf(nil, "failed to cleanup extension %s: %v", name, err)
 		return err
 	}
 
@@ -132,7 +131,7 @@ func (m *Manager) UnloadPlugin(name string) error {
 
 	if m.serviceDiscovery != nil {
 		if err := m.serviceDiscovery.DeregisterService(name); err != nil {
-			logger.Errorf(context.Background(), "failed to deregister service %s from Consul: %v", name, err)
+			logger.Errorf(nil, "failed to deregister service %s from Consul: %v", name, err)
 		}
 	}
 
@@ -145,7 +144,7 @@ func (m *Manager) ReloadPlugins() error {
 	fd := fc.Path
 	pds, err := filepath.Glob(filepath.Join(fd, "*"+utils.GetPlatformExt()))
 	if err != nil {
-		logger.Errorf(context.Background(), "failed to list plugin files: %v", err)
+		logger.Errorf(nil, "failed to list plugin files: %v", err)
 		return err
 	}
 	for _, fp := range pds {

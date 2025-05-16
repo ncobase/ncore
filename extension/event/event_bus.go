@@ -1,7 +1,6 @@
 package event
 
 import (
-	"context"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -52,7 +51,7 @@ func (eb *EventBus) Subscribe(eventName string, handler func(any)) {
 	wrappedHandler := func(data any) {
 		defer func() {
 			if r := recover(); r != nil {
-				logger.Errorf(context.Background(), "panic in event handler: %v", r)
+				logger.Errorf(nil, "panic in event handler: %v", r)
 			}
 		}()
 		handler(data)
@@ -83,7 +82,7 @@ func (eb *EventBus) Publish(eventName string, data any) {
 			defer func() {
 				if r := recover(); r != nil {
 					eb.metrics.failed.Add(1)
-					logger.Errorf(context.Background(), "event handler panic: %v", r)
+					logger.Errorf(nil, "event handler panic: %v", r)
 				}
 			}()
 
@@ -133,7 +132,7 @@ func (eb *EventBus) publishWithError(eventName string, data any) error {
 			defer func() {
 				if r := recover(); r != nil {
 					eb.metrics.failed.Add(1)
-					logger.Errorf(context.Background(), "event handler panic: %v", r)
+					logger.Errorf(nil, "event handler panic: %v", r)
 				}
 			}()
 

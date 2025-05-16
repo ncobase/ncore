@@ -31,10 +31,10 @@ func (m *Manager) SubscribeToMessages(queue string, handler func([]byte) error) 
 	}
 
 	if m.data.RabbitMQ != nil && m.data.RabbitMQ.IsConnected() {
-		logger.Debugf(context.Background(), "Subscribing to RabbitMQ queue: %s", queue)
+		logger.Debugf(nil, "Subscribing to RabbitMQ queue: %s", queue)
 		return m.data.ConsumeFromRabbitMQ(queue, handler)
 	} else if m.data.Kafka != nil && m.data.Kafka.IsConnected() {
-		logger.Debugf(context.Background(), "Subscribing to Kafka topic: %s", queue)
+		logger.Debugf(nil, "Subscribing to Kafka topic: %s", queue)
 		return m.data.ConsumeFromKafka(context.Background(), queue, "group", handler)
 	}
 	return fmt.Errorf("no message queue service available")
@@ -71,21 +71,21 @@ func (m *Manager) PublishEvent(eventName string, data any, target ...types.Event
 
 		jsonData, err := json.Marshal(eventData)
 		if err != nil {
-			logger.Errorf(context.Background(), "failed to serialize event: %v", err)
+			logger.Errorf(nil, "failed to serialize event: %v", err)
 			return
 		}
 
-		logger.Debugf(context.Background(), "Publishing event %s to message queue", eventName)
+		logger.Debugf(nil, "Publishing event %s to message queue", eventName)
 		if err := m.PublishMessage(eventName, eventName, jsonData); err != nil {
-			logger.Warnf(context.Background(), "failed to publish event %s to message queue: %v", eventName, err)
+			logger.Warnf(nil, "failed to publish event %s to message queue: %v", eventName, err)
 
 			// Fallback to in-memory if queue publishing fails and not already published to memory
 			if targetFlag&types.EventTargetMemory == 0 {
-				logger.Infof(context.Background(), "falling back to in-memory event bus for event: %s", eventName)
+				logger.Infof(nil, "falling back to in-memory event bus for event: %s", eventName)
 				m.eventBus.Publish(eventName, data)
 			}
 		} else {
-			logger.Debugf(context.Background(), "Successfully published event %s to message queue", eventName)
+			logger.Debugf(nil, "Successfully published event %s to message queue", eventName)
 		}
 	}
 }
@@ -121,35 +121,35 @@ func (m *Manager) PublishEventWithRetry(eventName string, data any, maxRetries i
 
 		jsonData, err := json.Marshal(eventData)
 		if err != nil {
-			logger.Errorf(context.Background(), "failed to serialize event: %v", err)
+			logger.Errorf(nil, "failed to serialize event: %v", err)
 			return
 		}
 
 		var attempts int
 		var publishErr error
 		for attempts <= maxRetries {
-			logger.Debugf(context.Background(), "Attempting to publish event %s to message queue (attempt %d)", eventName, attempts+1)
+			logger.Debugf(nil, "Attempting to publish event %s to message queue (attempt %d)", eventName, attempts+1)
 			publishErr = m.PublishMessage(eventName, eventName, jsonData)
 			if publishErr == nil {
-				logger.Debugf(context.Background(), "Successfully published event %s to message queue on attempt %d", eventName, attempts+1)
+				logger.Debugf(nil, "Successfully published event %s to message queue on attempt %d", eventName, attempts+1)
 				return
 			}
 
-			logger.Warnf(context.Background(), "Failed to publish event %s (attempt %d): %v", eventName, attempts+1, publishErr)
+			logger.Warnf(nil, "Failed to publish event %s (attempt %d): %v", eventName, attempts+1, publishErr)
 			attempts++
 
 			if attempts <= maxRetries {
 				backoff := time.Duration(attempts) * time.Second
-				logger.Debugf(context.Background(), "Retrying in %v...", backoff)
+				logger.Debugf(nil, "Retrying in %v...", backoff)
 				time.Sleep(backoff)
 			}
 		}
 
-		logger.Errorf(context.Background(), "Failed to publish event %s to message queue after %d retries: %v", eventName, maxRetries, publishErr)
+		logger.Errorf(nil, "Failed to publish event %s to message queue after %d retries: %v", eventName, maxRetries, publishErr)
 
 		// Fallback to in-memory if queue publishing fails and not already published to memory
 		if targetFlag&types.EventTargetMemory == 0 {
-			logger.Warnf(context.Background(), "falling back to in-memory event bus for event: %s", eventName)
+			logger.Warnf(nil, "falling back to in-memory event bus for event: %s", eventName)
 			m.eventBus.PublishWithRetry(eventName, data, maxRetries)
 		}
 	}
@@ -172,22 +172,22 @@ func (m *Manager) SubscribeEvent(eventName string, handler func(any), source ...
 
 	// Subscribe to in-memory event bus if requested or as fallback
 	if sourceFlag&types.EventTargetMemory != 0 {
-		// logger.Debugf(context.Background(), "Subscribing to in-memory event bus for event: %s", eventName)
+		// logger.Debugf(nil, "Subscribing to in-memory event bus for event: %s", eventName)
 		m.eventBus.Subscribe(eventName, handler)
 	}
 
 	// Subscribe to message queue if available and requested
 	if sourceFlag&types.EventTargetQueue != 0 && mqAvailable {
-		// logger.Debugf(context.Background(), "Subscribing to message queue for event: %s", eventName)
+		// logger.Debugf(nil, "Subscribing to message queue for event: %s", eventName)
 
 		err := m.SubscribeToMessages(eventName, func(data []byte) error {
 			var eventData types.EventData
 			if err := json.Unmarshal(data, &eventData); err != nil {
-				logger.Errorf(context.Background(), "Failed to unmarshal event data: %v", err)
+				logger.Errorf(nil, "Failed to unmarshal event data: %v", err)
 				return err
 			}
 
-			// logger.Debugf(context.Background(), "Received event %s from message queue", eventName)
+			// logger.Debugf(nil, "Received event %s from message queue", eventName)
 			handler(eventData)
 			return nil
 		})
@@ -195,7 +195,7 @@ func (m *Manager) SubscribeEvent(eventName string, handler func(any), source ...
 		if err != nil {
 			// If we haven't already subscribed to in-memory bus, do it as fallback
 			if sourceFlag&types.EventTargetMemory == 0 {
-				logger.Warnf(context.Background(), "Falling back to in-memory event bus for event: %s", eventName)
+				logger.Warnf(nil, "Falling back to in-memory event bus for event: %s", eventName)
 				m.eventBus.Subscribe(eventName, handler)
 			}
 		}

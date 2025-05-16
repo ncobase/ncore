@@ -1,7 +1,6 @@
 package manager
 
 import (
-	"context"
 	"fmt"
 	"sync"
 
@@ -129,7 +128,7 @@ func (m *Manager) InitExtensions() error {
 	// Get initialization order using dependency graph
 	initOrder, err := getInitOrder(m.extensions, dependencyGraph)
 	if err != nil {
-		logger.Errorf(context.Background(), "failed to determine initialization order: %v", err)
+		logger.Errorf(nil, "failed to determine initialization order: %v", err)
 		m.mu.Unlock()
 		return err
 	}
@@ -141,7 +140,7 @@ func (m *Manager) InitExtensions() error {
 	for _, name := range initOrder {
 		ext := m.extensions[name]
 		if err := ext.Instance.PreInit(); err != nil {
-			logger.Errorf(context.Background(), "failed pre-initialization of extension %s: %v", name, err)
+			logger.Errorf(nil, "failed pre-initialization of extension %s: %v", name, err)
 			initErrors = append(initErrors, fmt.Errorf("pre-initialization of extension %s failed: %w", name, err))
 		}
 	}
@@ -151,7 +150,7 @@ func (m *Manager) InitExtensions() error {
 		ext := m.extensions[name]
 		err := ext.Instance.Init(m.conf, m)
 		if err != nil {
-			logger.Errorf(context.Background(), "failed to initialize extension %s: %v", name, err)
+			logger.Errorf(nil, "failed to initialize extension %s: %v", name, err)
 			initErrors = append(initErrors, fmt.Errorf("initialization of extension %s failed: %w", name, err))
 		}
 	}
@@ -161,7 +160,7 @@ func (m *Manager) InitExtensions() error {
 		ext := m.extensions[name]
 		err := ext.Instance.PostInit()
 		if err != nil {
-			logger.Errorf(context.Background(), "failed post-initialization of extension %s: %v", name, err)
+			logger.Errorf(nil, "failed post-initialization of extension %s: %v", name, err)
 			initErrors = append(initErrors, fmt.Errorf("post-initialization of extension %s failed: %w", name, err))
 		}
 	}
@@ -184,7 +183,7 @@ func (m *Manager) InitExtensions() error {
 				svcInfo := ext.Instance.GetServiceInfo()
 				if svcInfo != nil {
 					if err := m.serviceDiscovery.RegisterService(name, svcInfo); err != nil {
-						logger.Warnf(context.Background(), "failed to register extension %s with Consul: %v", name, err)
+						logger.Warnf(nil, "failed to register extension %s with Consul: %v", name, err)
 					}
 				}
 			}
@@ -230,15 +229,15 @@ func (m *Manager) Cleanup() {
 
 	for _, ext := range m.extensions {
 		if err := ext.Instance.PreCleanup(); err != nil {
-			logger.Errorf(context.Background(), "failed pre-cleanup of extension %s: %v", ext.Metadata.Name, err)
+			logger.Errorf(nil, "failed pre-cleanup of extension %s: %v", ext.Metadata.Name, err)
 		}
 		if err := ext.Instance.Cleanup(); err != nil {
-			logger.Errorf(context.Background(), "failed to cleanup extension %s: %v", ext.Metadata.Name, err)
+			logger.Errorf(nil, "failed to cleanup extension %s: %v", ext.Metadata.Name, err)
 		}
 		// Deregister from Consul
 		if m.serviceDiscovery != nil && ext.Instance.NeedServiceDiscovery() {
 			if err := m.serviceDiscovery.DeregisterService(ext.Metadata.Name); err != nil {
-				logger.Errorf(context.Background(), "failed to deregister service %s from Consul: %v", ext.Metadata.Name, err)
+				logger.Errorf(nil, "failed to deregister service %s from Consul: %v", ext.Metadata.Name, err)
 			}
 		}
 	}
@@ -248,7 +247,7 @@ func (m *Manager) Cleanup() {
 	m.initialized = false
 
 	if errs := m.data.Close(); len(errs) > 0 {
-		logger.Errorf(context.Background(), "errors closing data connections: %v", errs)
+		logger.Errorf(nil, "errors closing data connections: %v", errs)
 	}
 }
 
