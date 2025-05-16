@@ -149,7 +149,7 @@ func (m *Manager) PublishEventWithRetry(eventName string, data any, maxRetries i
 
 		// Fallback to in-memory if queue publishing fails and not already published to memory
 		if targetFlag&types.EventTargetMemory == 0 {
-			logger.Infof(context.Background(), "falling back to in-memory event bus for event: %s", eventName)
+			logger.Warnf(context.Background(), "falling back to in-memory event bus for event: %s", eventName)
 			m.eventBus.PublishWithRetry(eventName, data, maxRetries)
 		}
 	}
@@ -172,13 +172,13 @@ func (m *Manager) SubscribeEvent(eventName string, handler func(any), source ...
 
 	// Subscribe to in-memory event bus if requested or as fallback
 	if sourceFlag&types.EventTargetMemory != 0 {
-		logger.Debugf(context.Background(), "Subscribing to in-memory event bus for event: %s", eventName)
+		// logger.Debugf(context.Background(), "Subscribing to in-memory event bus for event: %s", eventName)
 		m.eventBus.Subscribe(eventName, handler)
 	}
 
 	// Subscribe to message queue if available and requested
 	if sourceFlag&types.EventTargetQueue != 0 && mqAvailable {
-		logger.Debugf(context.Background(), "Subscribing to message queue for event: %s", eventName)
+		// logger.Debugf(context.Background(), "Subscribing to message queue for event: %s", eventName)
 
 		err := m.SubscribeToMessages(eventName, func(data []byte) error {
 			var eventData types.EventData
@@ -187,21 +187,17 @@ func (m *Manager) SubscribeEvent(eventName string, handler func(any), source ...
 				return err
 			}
 
-			logger.Debugf(context.Background(), "Received event %s from message queue", eventName)
+			// logger.Debugf(context.Background(), "Received event %s from message queue", eventName)
 			handler(eventData)
 			return nil
 		})
 
 		if err != nil {
-			logger.Warnf(context.Background(), "Failed to subscribe to message queue for event %s: %v", eventName, err)
-
 			// If we haven't already subscribed to in-memory bus, do it as fallback
 			if sourceFlag&types.EventTargetMemory == 0 {
-				logger.Infof(context.Background(), "Falling back to in-memory event bus for event: %s", eventName)
+				logger.Warnf(context.Background(), "Falling back to in-memory event bus for event: %s", eventName)
 				m.eventBus.Subscribe(eventName, handler)
 			}
-		} else {
-			logger.Debugf(context.Background(), "Successfully subscribed to message queue for event: %s", eventName)
 		}
 	}
 }

@@ -150,7 +150,7 @@ func (p *Plugin) Dependencies() []string {
 }
 
 // GetAllDependencies returns all dependencies with their types
-func (m *Module) GetAllDependencies() []ext.DependencyEntry {
+func (p *Plugin) GetAllDependencies() []ext.DependencyEntry {
 	return []ext.DependencyEntry{}
 }
 

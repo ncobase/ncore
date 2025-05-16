@@ -137,7 +137,7 @@ func (m *Manager) InitExtensions() error {
 
 	var initErrors []error
 
-	// Pre-initialization
+	// Phase 1: Pre-initialization
 	for _, name := range initOrder {
 		ext := m.extensions[name]
 		if err := ext.Instance.PreInit(); err != nil {
@@ -146,7 +146,7 @@ func (m *Manager) InitExtensions() error {
 		}
 	}
 
-	// Initialization
+	// Phase 2: Initialization
 	for _, name := range initOrder {
 		ext := m.extensions[name]
 		err := ext.Instance.Init(m.conf, m)
@@ -156,7 +156,7 @@ func (m *Manager) InitExtensions() error {
 		}
 	}
 
-	// Post-initialization
+	// Phase 3: Post-initialization
 	for _, name := range initOrder {
 		ext := m.extensions[name]
 		err := ext.Instance.PostInit()
@@ -171,14 +171,10 @@ func (m *Manager) InitExtensions() error {
 	if len(initErrors) > 0 {
 		m.initialized = false
 		m.mu.Unlock()
+		return fmt.Errorf("failed to initialize extensions: %v", initErrors)
 	} else {
 		m.initialized = true
 		m.mu.Unlock()
-	}
-
-	// Ensure all services are initialized
-	for _, ext := range m.extensions {
-		_ = ext.Instance.GetServices()
 	}
 
 	// Register services with service discovery
@@ -194,8 +190,6 @@ func (m *Manager) InitExtensions() error {
 			}
 		}
 	}
-
-	logger.Info(context.Background(), "All extensions initialized successfully")
 	return nil
 }
 
@@ -212,7 +206,7 @@ func (m *Manager) GetExtension(name string) (types.Interface, error) {
 	return ext.Instance, nil
 }
 
-// GetExtensions returns the loaded extensions
+// GetExtensions returns all loaded extensions
 func (m *Manager) GetExtensions() map[string]*types.Wrapper {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -312,8 +306,12 @@ func (m *Manager) GetServices() map[string]types.Service {
 
 	services := make(map[string]types.Service)
 	for name, ext := range m.extensions {
-		services[name] = ext.Instance.GetServices()
+		service := ext.Instance.GetServices()
+		if service != nil {
+			services[name] = service
+		}
 	}
+
 	return services
 }
 
