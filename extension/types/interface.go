@@ -11,8 +11,14 @@ import (
 // Handler represents the handler for an extension
 type Handler any
 
+// HandlerImpl represents the default implementation of the Handler interface
+type HandlerImpl struct{}
+
 // Service represents the service for an extension
 type Service any
+
+// ServiceImpl represents the default implementation of the Service interface
+type ServiceImpl struct{}
 
 // Interface defines the structure for an extension (Plugin / Module)
 type Interface interface {
