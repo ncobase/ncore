@@ -8,7 +8,7 @@ require (
 	github.com/casdoor/oss v1.8.0
 	github.com/elastic/go-elasticsearch/v8 v8.18.0
 	github.com/fsnotify/fsnotify v1.9.0
-	github.com/getsentry/sentry-go v0.32.0
+	github.com/getsentry/sentry-go v0.33.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-playground/validator/v10 v10.26.0
 	github.com/go-sql-driver/mysql v1.9.2
