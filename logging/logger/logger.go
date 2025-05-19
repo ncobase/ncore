@@ -2,7 +2,6 @@ package logger
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -14,6 +13,7 @@ import (
 	"github.com/ncobase/ncore/config"
 	"github.com/ncobase/ncore/data/search/elastic"
 	"github.com/ncobase/ncore/data/search/meili"
+	"github.com/ncobase/ncore/data/search/opensearch"
 	"github.com/sirupsen/logrus"
 )
 
@@ -22,6 +22,7 @@ const (
 	VersionKey      = "version"
 	SpanTitleKey    = "title"
 	SpanFunctionKey = "function"
+	timeFormat      = time.RFC3339
 )
 
 // Logger represents logger instance
@@ -32,7 +33,8 @@ type Logger struct {
 	logPath     string
 	meiliClient *meili.Client
 	esClient    *elastic.Client
-	indexName   string // Meilisearch / Elasticsearch index name
+	osClient    *opensearch.Client
+	indexName   string // Search engine index name
 }
 
 var (
@@ -84,26 +86,41 @@ func (l *Logger) Init(c *config.Logger) (func(), error) {
 		}
 	}
 
-	// Initialize MeiliSearch client
-	if c.Meilisearch.Host != "" {
+	// Set the index name for search engines
+	l.indexName = c.IndexName
+
+	// Initialize MeiliSearch hook
+	if c.Meilisearch != nil && c.Meilisearch.Host != "" {
 		l.meiliClient = meili.NewMeilisearch(c.Meilisearch.Host, c.Meilisearch.APIKey)
-		l.indexName = c.IndexName
 		l.AddHook(&MeiliSearchHook{
 			client: l.meiliClient,
 			index:  l.indexName,
 		})
 	}
 
-	// Initialize Elasticsearch client
-	if len(c.Elasticsearch.Addresses) > 0 {
+	// Initialize Elasticsearch hook
+	if c.Elasticsearch != nil && len(c.Elasticsearch.Addresses) > 0 {
 		var err error
 		l.esClient, err = elastic.NewClient(c.Elasticsearch.Addresses, c.Elasticsearch.Username, c.Elasticsearch.Password)
 		if err != nil {
 			return nil, fmt.Errorf("error initializing Elasticsearch client: %w", err)
 		}
-		l.indexName = c.IndexName
 		l.AddHook(&ElasticSearchHook{
 			client: l.esClient,
+			index:  l.indexName,
+		})
+	}
+
+	// Initialize OpenSearch hook
+	if c.OpenSearch != nil && len(c.OpenSearch.Addresses) > 0 {
+		var err error
+		l.osClient, err = opensearch.NewClient(c.OpenSearch.Addresses, c.OpenSearch.Username, c.OpenSearch.Password, c.OpenSearch.InsecureSkipTLS)
+		if err != nil {
+			return nil, fmt.Errorf("error initializing OpenSearch client: %w", err)
+		}
+		l.indexName = c.IndexName
+		l.AddHook(&OpenSearchHook{
+			client: l.osClient,
 			index:  l.indexName,
 		})
 	}
@@ -171,14 +188,15 @@ func (l *Logger) entryFromContext(ctx context.Context) *logrus.Entry {
 	return l.WithFields(fields)
 }
 
-// Log methods
+// Log methods implementation below
+// -----------------------------
 
-// Log logs a message with the given level
+// log logs a message with the given level
 func (l *Logger) log(ctx context.Context, level logrus.Level, args ...any) {
 	l.entryFromContext(ctx).Log(level, args...)
 }
 
-// Logf logs a formatted message
+// logf logs a formatted message
 func (l *Logger) logf(ctx context.Context, level logrus.Level, format string, args ...any) {
 	l.entryFromContext(ctx).Logf(level, format, args...)
 }
@@ -253,43 +271,8 @@ func (l *Logger) Panicf(ctx context.Context, format string, args ...any) {
 	l.logf(ctx, logrus.PanicLevel, format, args...)
 }
 
-// MeiliSearch and Elasticsearch log hooks
-
-// MeiliSearchHook represents a MeiliSearch log hook
-type MeiliSearchHook struct {
-	client *meili.Client
-	index  string
-}
-
-// Levels returns all log levels
-func (h *MeiliSearchHook) Levels() []logrus.Level {
-	return logrus.AllLevels
-}
-
-// Fire sends log entry to MeiliSearch
-func (h *MeiliSearchHook) Fire(entry *logrus.Entry) error {
-	jsonData, err := json.Marshal(entry.Data)
-	if err != nil {
-		return fmt.Errorf("failed to marshal log data: %w", err)
-	}
-	return h.client.IndexDocuments(h.index, jsonData)
-}
-
-// ElasticSearchHook represents an Elasticsearch log hook
-type ElasticSearchHook struct {
-	client *elastic.Client
-	index  string
-}
-
-// Levels returns all log levels
-func (h *ElasticSearchHook) Levels() []logrus.Level {
-	return logrus.AllLevels
-}
-
-// Fire sends log entry to Elasticsearch
-func (h *ElasticSearchHook) Fire(entry *logrus.Entry) error {
-	return h.client.IndexDocument(context.Background(), h.index, entry.Time.Format(time.RFC3339), entry.Data)
-}
+// Utility functions
+// -----------------------------
 
 // SetOutput sets the output destination for the logger
 func (l *Logger) SetOutput(out io.Writer) {
@@ -314,6 +297,9 @@ func (l *Logger) hookExists(hook logrus.Hook) bool {
 	}
 	return false
 }
+
+// Global convenience functions
+// -----------------------------
 
 // SetVersion sets the version for logging
 func SetVersion(v string) { StdLogger().SetVersion(v) }

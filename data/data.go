@@ -12,6 +12,7 @@ import (
 	"github.com/ncobase/ncore/data/messaging/rabbitmq"
 	"github.com/ncobase/ncore/data/search/elastic"
 	"github.com/ncobase/ncore/data/search/meili"
+	"github.com/ncobase/ncore/data/search/opensearch"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -133,7 +134,7 @@ func (d *Data) WithTxRead(ctx context.Context, fn func(ctx context.Context) erro
 	return tx.Commit()
 }
 
-// GetDBManager get database manager
+// GetDBManager returns the database manager
 func (d *Data) GetDBManager() *connection.DBManager {
 	if d.Conn != nil {
 		return d.Conn.DBM
@@ -157,24 +158,44 @@ func (d *Data) DBRead() (*sql.DB, error) {
 	return nil, errors.New("no database connection available")
 }
 
-// GetRedis get redis
+// GetRedis returns the Redis client
 func (d *Data) GetRedis() *redis.Client {
-	return d.Conn.RC
+	if d.Conn != nil {
+		return d.Conn.RC
+	}
+	return nil
 }
 
-// GetMeilisearch get meilisearch
+// GetMeilisearch returns the Meilisearch client
 func (d *Data) GetMeilisearch() *meili.Client {
-	return d.Conn.MS
+	if d.Conn != nil {
+		return d.Conn.MS
+	}
+	return nil
 }
 
-// GetElasticsearch get elasticsearch
+// GetElasticsearch returns the Elasticsearch client
 func (d *Data) GetElasticsearch() *elastic.Client {
-	return d.Conn.ES
+	if d.Conn != nil {
+		return d.Conn.ES
+	}
+	return nil
 }
 
-// GetMongoManager get mongo manager
+// GetOpenSearch returns the OpenSearch client
+func (d *Data) GetOpenSearch() *opensearch.Client {
+	if d.Conn != nil {
+		return d.Conn.OS
+	}
+	return nil
+}
+
+// GetMongoManager returns the MongoDB client
 func (d *Data) GetMongoManager() *connection.MongoManager {
-	return d.Conn.MGM
+	if d.Conn != nil {
+		return d.Conn.MGM
+	}
+	return nil
 }
 
 // Ping checks all database connections

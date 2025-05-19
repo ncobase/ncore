@@ -9,6 +9,7 @@ import (
 	"github.com/ncobase/ncore/data/config"
 	"github.com/ncobase/ncore/data/search/elastic"
 	"github.com/ncobase/ncore/data/search/meili"
+	"github.com/ncobase/ncore/data/search/opensearch"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/redis/go-redis/v9"
@@ -21,6 +22,7 @@ type Connections struct {
 	RC     *redis.Client
 	MS     *meili.Client
 	ES     *elastic.Client
+	OS     *opensearch.Client
 	MGM    *MongoManager
 	Neo    neo4j.DriverWithContext
 	RMQ    *amqp.Connection
@@ -57,6 +59,13 @@ func New(conf *config.Config) (*Connections, error) {
 
 	if conf.Elasticsearch != nil && len(conf.Elasticsearch.Addresses) > 0 {
 		c.ES, err = newElasticsearchClient(conf.Elasticsearch)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if conf.OpenSearch != nil && len(conf.OpenSearch.Addresses) > 0 {
+		c.OS, err = newOpenSearchClient(conf.OpenSearch)
 		if err != nil {
 			return nil, err
 		}
@@ -156,6 +165,13 @@ func (d *Connections) Close() (errs []error) {
 		}
 		d.KFK = nil
 	}
+
+	// Set Meilisearch client to nil
+	d.MS = nil
+	// Set Elasticsearch client to nil
+	d.ES = nil
+	// Set OpenSearch client to nil
+	d.OS = nil
 
 	d.closed = true
 

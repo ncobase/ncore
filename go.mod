@@ -24,6 +24,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/meilisearch/meilisearch-go v0.32.0
 	github.com/neo4j/neo4j-go-driver/v5 v5.28.1
+	github.com/opensearch-project/opensearch-go/v4 v4.4.0
 	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/redis/go-redis/v9 v9.8.0
 	github.com/segmentio/kafka-go v0.4.48

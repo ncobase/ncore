@@ -11,6 +11,7 @@ type Config struct {
 	*Redis
 	*Meilisearch
 	*Elasticsearch
+	*OpenSearch
 	*MongoDB
 	*Neo4j
 	*RabbitMQ
@@ -25,6 +26,7 @@ func GetConfig(v *viper.Viper) *Config {
 		Redis:         getRedisConfigs(v),
 		Meilisearch:   getMeilisearchConfigs(v),
 		Elasticsearch: getElasticsearchConfigs(v),
+		OpenSearch:    getOpenSearchConfigs(v),
 		MongoDB:       getMongoDBConfigs(v),
 		Neo4j:         getNeo4jConfigs(v),
 		RabbitMQ:      getRabbitMQConfigs(v),
