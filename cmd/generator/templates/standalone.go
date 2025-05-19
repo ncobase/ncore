@@ -29,7 +29,7 @@ const (
 )
 
 func main() {
-	logger.SetVersion(version.Version)
+	logger.SetVersion(version.GetVersionInfo().Version)
 	// load config
 	conf := loadConfig()
 
