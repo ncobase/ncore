@@ -1,6 +1,7 @@
 package types
 
 import (
+	"reflect"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -50,6 +51,10 @@ type OptionalMethods interface {
 	PostInit() error
 	// RegisterRoutes registers routes for the extension (optional)
 	RegisterRoutes(router *gin.RouterGroup)
+	// GetPublisher returns an event publisher interface if the module supports publishing events
+	GetPublisher() any
+	// GetSubscriber returns an event subscriber interface if the module supports subscribing to events
+	GetSubscriber() any
 	// PreCleanup performs any necessary cleanup before the main cleanup
 	PreCleanup() error
 	// Cleanup cleans up the extension
@@ -136,6 +141,8 @@ type ManagerInterface interface {
 	ReloadPlugins() error
 
 	// Event bus
+	GetExtensionPublisher(name string, publisherType reflect.Type) (any, error)
+	GetExtensionSubscriber(name string, subscriberType reflect.Type) (any, error)
 
 	PublishEvent(eventName string, data any, target ...EventTarget)
 	PublishEventWithRetry(eventName string, data any, maxRetries int, target ...EventTarget)

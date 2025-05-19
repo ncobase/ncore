@@ -18,6 +18,16 @@ func (o *OptionalImpl) PostInit() error {
 // RegisterRoutes registers routes for the extension
 func (o *OptionalImpl) RegisterRoutes(router *gin.RouterGroup) {}
 
+// GetPublisher returns the event publisher for the extension
+func (o *OptionalImpl) GetPublisher() any {
+	return nil
+}
+
+// GetSubscriber returns the event subscriber for the extension
+func (o *OptionalImpl) GetSubscriber() any {
+	return nil
+}
+
 // PreCleanup performs any necessary cleanup before the main cleanup
 func (o *OptionalImpl) PreCleanup() error {
 	return nil

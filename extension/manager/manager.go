@@ -2,6 +2,7 @@ package manager
 
 import (
 	"fmt"
+	"reflect"
 	"sync"
 
 	"github.com/ncobase/ncore/config"
@@ -312,6 +313,50 @@ func (m *Manager) GetServices() map[string]types.Service {
 	}
 
 	return services
+}
+
+// GetExtensionPublisher returns a specific extension publisher
+func (m *Manager) GetExtensionPublisher(name string, publisherType reflect.Type) (any, error) {
+	ext, err := m.GetExtension(name)
+	if err != nil {
+		return nil, err
+	}
+
+	publisher := ext.GetPublisher()
+	if publisher == nil {
+		return nil, fmt.Errorf("extension %s does not provide a publisher", name)
+	}
+
+	// Check if the publisher is of the correct type
+	pubValue := reflect.ValueOf(publisher)
+	if !pubValue.Type().ConvertibleTo(publisherType) {
+		return nil, fmt.Errorf("extension %s publisher type %s is not compatible with requested type %s",
+			name, pubValue.Type().String(), publisherType.String())
+	}
+
+	return publisher, nil
+}
+
+// GetExtensionSubscriber returns a specific extension subscriber
+func (m *Manager) GetExtensionSubscriber(name string, subscriberType reflect.Type) (any, error) {
+	ext, err := m.GetExtension(name)
+	if err != nil {
+		return nil, err
+	}
+
+	subscriber := ext.GetSubscriber()
+	if subscriber == nil {
+		return nil, fmt.Errorf("extension %s does not provide a subscriber", name)
+	}
+
+	// Check if the subscriber is of the correct type
+	subValue := reflect.ValueOf(subscriber)
+	if !subValue.Type().ConvertibleTo(subscriberType) {
+		return nil, fmt.Errorf("extension %s subscriber type %s is not compatible with requested type %s",
+			name, subValue.Type().String(), subscriberType.String())
+	}
+
+	return subscriber, nil
 }
 
 // GetMetadata returns the metadata of all registered extensions
