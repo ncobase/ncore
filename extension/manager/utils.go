@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	"github.com/ncobase/ncore/extension/types"
+	"github.com/ncobase/ncore/logging/logger"
 )
 
 // getInitOrder returns the initialization order based on dependencies
@@ -87,6 +88,8 @@ func getInitOrder(extensions map[string]*types.Wrapper, dependencyGraph map[stri
 
 	// Add special modules
 	order = append(order, special...)
+
+	logger.Debugf(nil, "Extension initialization order: %v", order)
 
 	return order, nil
 }
