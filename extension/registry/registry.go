@@ -9,8 +9,8 @@ import (
 	"github.com/ncobase/ncore/logging/logger"
 )
 
-// ExtensionEntry represents an entry in the registry
-type ExtensionEntry struct {
+// Entry represents an entry in the registry
+type Entry struct {
 	Instance         ext.Interface
 	Group            string
 	WeakDependencies []string // Optional dependencies that won't block initialization
@@ -18,7 +18,7 @@ type ExtensionEntry struct {
 
 var (
 	// extensionRegistry stores all registered extensions
-	extensionRegistry = make(map[string]ExtensionEntry)
+	extensionRegistry = make(map[string]Entry)
 	// mutex protects concurrent access to registry
 	mutex = &sync.RWMutex{}
 )
@@ -34,7 +34,7 @@ func RegisterToGroup(extension ext.Interface, group string) {
 	defer mutex.Unlock()
 
 	name := extension.Name()
-	extensionRegistry[name] = ExtensionEntry{
+	extensionRegistry[name] = Entry{
 		Instance: extension,
 		Group:    group,
 	}
@@ -51,7 +51,7 @@ func RegisterToGroupWithWeakDeps(extension ext.Interface, group string, weakDeps
 	defer mutex.Unlock()
 
 	name := extension.Name()
-	extensionRegistry[name] = ExtensionEntry{
+	extensionRegistry[name] = Entry{
 		Instance:         extension,
 		Group:            group,
 		WeakDependencies: weakDeps,
@@ -59,11 +59,11 @@ func RegisterToGroupWithWeakDeps(extension ext.Interface, group string, weakDeps
 }
 
 // GetExtensions returns all registered extensions
-func GetExtensions() map[string]ExtensionEntry {
+func GetExtensions() map[string]Entry {
 	mutex.RLock()
 	defer mutex.RUnlock()
 
-	result := make(map[string]ExtensionEntry)
+	result := make(map[string]Entry)
 	for k, v := range extensionRegistry {
 		result[k] = v
 	}
@@ -71,11 +71,11 @@ func GetExtensions() map[string]ExtensionEntry {
 }
 
 // GetExtensionsByGroup returns extensions in a specific group
-func GetExtensionsByGroup(groupName string) map[string]ExtensionEntry {
+func GetExtensionsByGroup(groupName string) map[string]Entry {
 	mutex.RLock()
 	defer mutex.RUnlock()
 
-	result := make(map[string]ExtensionEntry)
+	result := make(map[string]Entry)
 	for k, v := range extensionRegistry {
 		if v.Group == groupName {
 			result[k] = v
@@ -295,9 +295,9 @@ func GetExtensionsAndDependencies() (map[string]ext.Interface, map[string][]stri
 	return instances, resolvedGraph
 }
 
-// ClearRegistry clears the registry (mainly for testing)
-func ClearRegistry() {
+// Clear clears the registry (mainly for testing)
+func Clear() {
 	mutex.Lock()
 	defer mutex.Unlock()
-	extensionRegistry = make(map[string]ExtensionEntry)
+	extensionRegistry = make(map[string]Entry)
 }

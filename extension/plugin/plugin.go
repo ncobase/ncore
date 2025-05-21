@@ -9,13 +9,13 @@ import (
 	"github.com/ncobase/ncore/logging/logger"
 )
 
-// PluginRegistry manages the loaded plugins
-type PluginRegistry struct {
+// Registry manages the loaded plugins
+type Registry struct {
 	mu      sync.RWMutex
 	plugins map[string]*types.Wrapper
 }
 
-var registry = &PluginRegistry{
+var registry = &Registry{
 	plugins: make(map[string]*types.Wrapper),
 }
 

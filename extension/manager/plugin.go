@@ -57,6 +57,7 @@ func (m *Manager) loadPluginsInFile() error {
 // loadPluginsInBuilt built-in all plugins.
 func (m *Manager) loadPluginsInBuilt() error {
 	plugins := plugin.GetRegisteredPlugins()
+	sps := make([]string, 0, len(plugins))
 
 	for _, c := range plugins {
 		if err := m.initializePlugin(c); err != nil {
@@ -64,7 +65,11 @@ func (m *Manager) loadPluginsInBuilt() error {
 			continue
 		}
 		m.extensions[c.Metadata.Name] = c
-		logger.Debugf(nil, "Plugin %s loaded and initialized successfully", c.Metadata.Name)
+		sps = append(sps, c.Metadata.Name)
+	}
+
+	if len(sps) > 0 {
+		logger.Infof(nil, "Successfully initialized %d plugins: %v", len(sps), sps)
 	}
 
 	return nil
