@@ -8,6 +8,7 @@ const (
 	emptyMsg       = "empty"
 	requiredMsg    = "required"
 	invalidMsg     = "invalid"
+	assertionMsg   = "type assertion failed"
 	successMsg     = "success"
 	failedMsg      = "failed"
 	existMsg       = "already exists"
@@ -102,4 +103,20 @@ func Expired(k ...string) string {
 		return fmt.Sprintf("%s %s", k[0], expiredMsg)
 	}
 	return expiredMsg
+}
+
+// TypeMismatch returns type mismatch message
+func TypeMismatch(k ...string) string {
+	if len(k) > 0 {
+		return fmt.Sprintf("%s %s", k[0], invalidMsg)
+	}
+	return invalidMsg
+}
+
+// AssertionFailed returns type assertion failed message
+func AssertionFailed(k ...any) string {
+	if len(k) > 0 {
+		return fmt.Sprintf("%s %s", k[0], assertionMsg)
+	}
+	return assertionMsg
 }
