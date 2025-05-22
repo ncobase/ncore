@@ -152,3 +152,12 @@ func ToUnixMilli(v any) int64 {
 		return 0
 	}
 }
+
+// ParseTimePtr parses a time string into a *time.Time using multiple formats
+func ParseTimePtr(timeStr string) *time.Time {
+	t, err := ParseLocalTime(timeStr)
+	if err != nil {
+		return nil
+	}
+	return &t
+}
