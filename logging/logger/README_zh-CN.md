@@ -131,13 +131,20 @@ Meilisearch: &config.Meilisearch{
 
 ```go
 Desensitization: &config.Desensitization{
-    Enabled:         true,
-    UseFixedLength:  true,
-    FixedMaskLength: 8,
-    SensitiveFields: []string{"password", "token", "secret", "api_key"},
-    CustomPatterns:  []string{`\b\d{4}-\d{4}-\d{4}-\d{4}\b`}, // 信用卡号
+    Enabled:               true,
+    UseFixedLength:        true,
+    FixedMaskLength:       8,
+    SensitiveFields:       []string{"password", "token", "secret", "api_key"},
+    CustomPatterns:        []string{`\b\d{4}-\d{4}-\d{4}-\d{4}\b`}, // 信用卡号
+    EnableDefaultPatterns: true,  // 启用内置模式（信用卡、邮箱等）
+    ExactFieldMatch:       false, // false: 模糊匹配, true: 精确匹配
 }
 ```
+
+**字段匹配模式:**
+
+- `ExactFieldMatch: false` (默认): 模糊匹配 - `"password"` 匹配 `"user_password"`, `"password_hash"`
+- `ExactFieldMatch: true`: 精确匹配 - `"password"` 只匹配 `"password"`
 
 ## 请求追踪
 
@@ -166,6 +173,7 @@ logger:
     enabled: true
     use_fixed_length: true
     fixed_mask_length: 8
+    enable_default_patterns: true # 内置模式：信用卡、邮箱等
     
   elasticsearch:
     addresses: ["http://es:9200"]

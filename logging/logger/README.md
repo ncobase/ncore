@@ -131,13 +131,20 @@ Meilisearch: &config.Meilisearch{
 
 ```go
 Desensitization: &config.Desensitization{
-    Enabled:         true,
-    UseFixedLength:  true,
-    FixedMaskLength: 8,
-    SensitiveFields: []string{"password", "token", "secret", "api_key"},
-    CustomPatterns:  []string{`\b\d{4}-\d{4}-\d{4}-\d{4}\b`}, // Credit cards
+    Enabled:               true,
+    UseFixedLength:        true,
+    FixedMaskLength:       8,
+    SensitiveFields:       []string{"password", "token", "secret", "api_key"},
+    CustomPatterns:        []string{`\b\d{4}-\d{4}-\d{4}-\d{4}\b`}, // Credit cards
+    EnableDefaultPatterns: true,  // Enable built-in patterns (credit cards, emails, etc.)
+    ExactFieldMatch:       false, // false: fuzzy match, true: exact match
 }
 ```
+
+**Field Matching Modes:**
+
+- `ExactFieldMatch: false` (default): Fuzzy match - `"password"` matches `"user_password"`, `"password_hash"`
+- `ExactFieldMatch: true`: Exact match - `"password"` only matches `"password"`
 
 ## Request Tracing
 
@@ -166,6 +173,7 @@ logger:
     enabled: true
     use_fixed_length: true
     fixed_mask_length: 8
+    enable_default_patterns: true # Built-in patterns for credit cards, emails, etc.
     
   elasticsearch:
     addresses: ["http://es:9200"]

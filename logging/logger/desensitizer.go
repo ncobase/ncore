@@ -38,8 +38,11 @@ func NewDesensitizer(cfg *config.Desensitization) *Desensitizer {
 		}
 	}
 
-	// Add default patterns
-	d.patterns = append(d.patterns, defaultValuePatterns...)
+	// Default patterns only if enabled
+	if cfg.EnableDefaultPatterns {
+		d.patterns = append(d.patterns, defaultValuePatterns...)
+	}
+
 	return d
 }
 
@@ -72,9 +75,34 @@ func (d *Desensitizer) desensitizeValue(key string, value any, depth int) any {
 		return d.maskValue(value)
 	}
 
+	// Try reflection-based processing with panic recovery
+	defer func() {
+		if r := recover(); r != nil {
+			// If reflection fails, return original value
+			value = d.processViaJSON(value, depth)
+		}
+	}()
+
 	// Process by type using reflection
 	v := reflect.ValueOf(value)
 	return d.processValueByType(key, v, depth)
+}
+
+// processViaJSON handles complex types via JSON marshaling (fallback method)
+func (d *Desensitizer) processViaJSON(value any, depth int) any {
+	// Convert to JSON and back to map[string]interface{} for safe processing
+	jsonBytes, err := json.Marshal(value)
+	if err != nil {
+		return value // Return original if JSON marshal fails
+	}
+
+	var result any
+	if err := json.Unmarshal(jsonBytes, &result); err != nil {
+		return value // Return original if JSON unmarshal fails
+	}
+
+	// Process the result recursively
+	return d.desensitizeValue("", result, depth+1)
 }
 
 // processValueByType handles different value types
@@ -117,7 +145,23 @@ func (d *Desensitizer) processMap(v reflect.Value, depth int) any {
 		mapValue := v.MapIndex(key)
 		keyStr := d.reflectValueToString(key)
 		processedValue := d.desensitizeValue(keyStr, mapValue.Interface(), depth+1)
-		newMap.SetMapIndex(key, reflect.ValueOf(processedValue))
+
+		if processedValue != nil {
+			processedReflectValue := reflect.ValueOf(processedValue)
+			valueType := v.Type().Elem()
+
+			// Handle type compatibility for map values
+			if processedReflectValue.Type().AssignableTo(valueType) {
+				newMap.SetMapIndex(key, processedReflectValue)
+			} else if processedReflectValue.Type().ConvertibleTo(valueType) {
+				newMap.SetMapIndex(key, processedReflectValue.Convert(valueType))
+			} else {
+				// If types don't match, keep original value
+				newMap.SetMapIndex(key, mapValue)
+			}
+		} else {
+			newMap.SetMapIndex(key, mapValue)
+		}
 	}
 	return newMap.Interface()
 }
@@ -130,7 +174,22 @@ func (d *Desensitizer) processSlice(v reflect.Value, depth int) any {
 	for i := 0; i < length; i++ {
 		element := v.Index(i)
 		processedElement := d.desensitizeValue("", element.Interface(), depth+1)
-		newSlice.Index(i).Set(reflect.ValueOf(processedElement))
+
+		// Handle type conversion safely
+		if processedElement != nil {
+			processedValue := reflect.ValueOf(processedElement)
+			elementType := newSlice.Index(i).Type()
+
+			// Check if types are compatible
+			if processedValue.Type().AssignableTo(elementType) {
+				newSlice.Index(i).Set(processedValue)
+			} else if processedValue.Type().ConvertibleTo(elementType) {
+				newSlice.Index(i).Set(processedValue.Convert(elementType))
+			} else {
+				// If types don't match, keep original value
+				newSlice.Index(i).Set(element)
+			}
+		}
 	}
 	return newSlice.Interface()
 }
@@ -165,10 +224,24 @@ func (d *Desensitizer) processStruct(v reflect.Value, depth int) any {
 			}
 		}
 
-		if field.CanSet() {
+		if field.CanSet() && newStruct.Field(i).CanSet() {
 			processedValue := d.desensitizeValue(fieldName, field.Interface(), depth+1)
 			if processedValue != nil {
-				newStruct.Field(i).Set(reflect.ValueOf(processedValue))
+				processedReflectValue := reflect.ValueOf(processedValue)
+				fieldType := newStruct.Field(i).Type()
+
+				// Check if types are compatible
+				if processedReflectValue.Type().AssignableTo(fieldType) {
+					newStruct.Field(i).Set(processedReflectValue)
+				} else if processedReflectValue.Type().ConvertibleTo(fieldType) {
+					newStruct.Field(i).Set(processedReflectValue.Convert(fieldType))
+				} else {
+					// If types don't match, keep original value
+					newStruct.Field(i).Set(field)
+				}
+			} else {
+				// Keep original field value if processed value is nil
+				newStruct.Field(i).Set(field)
 			}
 		}
 	}
@@ -194,9 +267,20 @@ func (d *Desensitizer) isSensitiveField(fieldName string) bool {
 	}
 
 	lowerName := strings.ToLower(fieldName)
+
 	for _, sensitiveField := range d.config.SensitiveFields {
-		if strings.Contains(lowerName, strings.ToLower(sensitiveField)) {
-			return true
+		lowerSensitiveField := strings.ToLower(sensitiveField)
+
+		if d.config.ExactFieldMatch {
+			// Exact match mode
+			if lowerName == lowerSensitiveField {
+				return true
+			}
+		} else {
+			// Fuzzy match mode (contains)
+			if strings.Contains(lowerName, lowerSensitiveField) {
+				return true
+			}
 		}
 	}
 	return false
