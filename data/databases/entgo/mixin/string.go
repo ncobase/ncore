@@ -86,7 +86,7 @@ var (
 	TextStatus     = StringMixin{Field: "status", Comment: "Status, text status", Optional: true}
 	Email          = StringMixin{Field: "email", Comment: "email", Optional: true}
 	Username       = StringMixin{Field: "username", Comment: "username", Optional: true}
-	UsernameUnique = StringMixin{Field: "username", Comment: "username", Unique: true, NotEmpty: true, Optional: true, MaxLen: 50, MatchRegex: regexp.MustCompile("^[a-zA-Z0-9]{4,16}$")}
+	UsernameUnique = StringMixin{Field: "username", Comment: "username", Unique: true, NotEmpty: true, Optional: true, MaxLen: 50, MatchRegex: regexp.MustCompile("^[a-zA-Z0-9._-]{3,20}$")}
 	Password       = StringMixin{Field: "password", Comment: "password", Sensitive: true, Optional: true}
 	Secret         = StringMixin{Field: "secret", Comment: "secret key", Optional: true}
 	Phone          = StringMixin{Field: "phone", Comment: "phone", Optional: true}
