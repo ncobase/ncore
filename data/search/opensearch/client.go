@@ -75,7 +75,7 @@ func (c *Client) Search(ctx context.Context, indexName, query string) (*opensear
 }
 
 // IndexDocument indexes a document in OpenSearch
-func (c *Client) IndexDocument(ctx context.Context, indexName string, documentID string, document interface{}) error {
+func (c *Client) IndexDocument(ctx context.Context, indexName string, documentID string, document any) error {
 	if c == nil || c.client == nil {
 		return errors.New("opensearch client is nil, cannot index documents")
 	}
@@ -126,7 +126,7 @@ func (c *Client) DeleteDocument(ctx context.Context, indexName, documentID strin
 }
 
 // BulkIndex indexes multiple documents in OpenSearch
-func (c *Client) BulkIndex(ctx context.Context, indexName string, documents []interface{}) error {
+func (c *Client) BulkIndex(ctx context.Context, indexName string, documents []any) error {
 	if c == nil || c.client == nil {
 		return errors.New("opensearch client is nil, cannot perform bulk indexing")
 	}

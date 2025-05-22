@@ -174,12 +174,9 @@ func (i Info) String() string {
 }
 
 // JSON returns a JSON representation of version information
-func (i Info) JSON() (string, error) {
-	data, err := json.MarshalIndent(i, "", "  ")
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
+func (i Info) JSON() string {
+	data, _ := json.MarshalIndent(i, "", "  ")
+	return string(data)
 }
 
 // Print prints version information to stdout
