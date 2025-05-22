@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ncobase/ncore/config"
 	"github.com/ncobase/ncore/data/search/elastic"
 	"github.com/ncobase/ncore/data/search/meili"
 	"github.com/ncobase/ncore/data/search/opensearch"
+	"github.com/ncobase/ncore/logging/logger/config"
 	"github.com/sirupsen/logrus"
 )
 
@@ -28,13 +28,14 @@ const (
 // Logger represents logger instance
 type Logger struct {
 	*logrus.Logger
-	version     string
-	logFile     *os.File
-	logPath     string
-	meiliClient *meili.Client
-	esClient    *elastic.Client
-	osClient    *opensearch.Client
-	indexName   string // Search engine index name
+	version      string
+	logFile      *os.File
+	logPath      string
+	meiliClient  *meili.Client
+	esClient     *elastic.Client
+	osClient     *opensearch.Client
+	indexName    string // Search engine index name
+	desensitizer *Desensitizer
 }
 
 var (
@@ -61,7 +62,11 @@ func (l *Logger) SetVersion(v string) {
 }
 
 // Init initializes the logger with the given configuration
-func (l *Logger) Init(c *config.Logger) (func(), error) {
+func (l *Logger) Init(c *config.Config) (func(), error) {
+	if c == nil {
+		return nil, fmt.Errorf("logger config is nil")
+	}
+
 	l.SetLevel(logrus.Level(c.Level))
 
 	switch c.Format {
@@ -88,6 +93,11 @@ func (l *Logger) Init(c *config.Logger) (func(), error) {
 
 	// Set the index name for search engines
 	l.indexName = c.IndexName
+
+	// Initialize desensitizer
+	if c.Desensitization != nil {
+		l.desensitizer = NewDesensitizer(c.Desensitization)
+	}
 
 	// Initialize MeiliSearch hook
 	if c.Meilisearch != nil && c.Meilisearch.Host != "" {
@@ -186,6 +196,14 @@ func (l *Logger) entryFromContext(ctx context.Context) *logrus.Entry {
 	}
 
 	return l.WithFields(fields)
+}
+
+// processFields applies desensitization to fields if enabled
+func (l *Logger) processFields(fields logrus.Fields) logrus.Fields {
+	if l.desensitizer != nil {
+		return l.desensitizer.DesensitizeFields(fields)
+	}
+	return fields
 }
 
 // Log methods implementation below
@@ -305,7 +323,7 @@ func (l *Logger) hookExists(hook logrus.Hook) bool {
 func SetVersion(v string) { StdLogger().SetVersion(v) }
 
 // New creates new logger
-func New(c *config.Logger) (func(), error) { return StdLogger().Init(c) }
+func New(c *config.Config) (func(), error) { return StdLogger().Init(c) }
 
 // WithFields returns an entry with the given fields
 func WithFields(ctx context.Context, fields logrus.Fields) *logrus.Entry {
@@ -313,7 +331,8 @@ func WithFields(ctx context.Context, fields logrus.Fields) *logrus.Entry {
 		ctx = context.Background()
 	}
 	entry := StdLogger().entryFromContext(ctx)
-	return entry.WithFields(fields)
+	processedFields := StdLogger().processFields(fields)
+	return entry.WithFields(processedFields)
 }
 
 // Trace logs trace message

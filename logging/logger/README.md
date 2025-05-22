@@ -1,194 +1,201 @@
-# ncore/loger
+# ncore/logger
 
-A powerful logging system built on [logrus](https://github.com/sirupsen/logrus) with support for multiple output targets and search engine integrations (Elasticsearch, OpenSearch, and Meilisearch).
+A powerful logging system built on [logrus](https://github.com/sirupsen/logrus) with multi-output support, search engine integrations, and data desensitization.
 
 ## Features
 
-- Multiple log levels (Trace, Debug, Info, Warn, Error, Fatal, Panic)
-- Structured JSON logging
-- Context-aware tracing
-- File rotation
-- Multiple outputs (console, file, search engines)
-- Search engine integrations:
-  - Elasticsearch
-  - OpenSearch
-  - Meilisearch
+- Multiple log levels with structured JSON logging
+- Context-aware tracing with automatic trace ID propagation
+- **Data desensitization with deep structure support**
+- Multiple outputs: console, file (auto-rotation), Elasticsearch, OpenSearch, Meilisearch
+- Fixed-length masking to prevent sensitive data length disclosure
 
-## Usage
-
-### Initialization
-
-```go
-import (
-    "github.com/ncobase/ncore/config"
-    "github.com/ncobase/ncore/logging/logger"
-)
-
-// Create configuration
-loggerConfig := &config.Logger{
-    Level:    4, // Info level
-    Format:   "json",
-    Output:   "stdout",
-    IndexName: "application-logs",
-}
-
-// Initialize logger
-cleanup, err := logger.New(loggerConfig)
-if err != nil {
-    panic(err)
-}
-defer cleanup()
-
-// Set application version (optional)
-logger.SetVersion("1.0.0")
-```
-
-### Basic Logging
+## Quick Start
 
 ```go
 import (
     "context"
     "github.com/ncobase/ncore/logging/logger"
-    "github.com/sirupsen/logrus"
+    "github.com/ncobase/ncore/logging/logger/config"
 )
 
+// Basic setup
+cleanup, err := logger.New(&config.Config{
+    Level:  4, // Info level
+    Format: "json",
+    Output: "stdout",
+})
+if err != nil {
+    panic(err)
+}
+defer cleanup()
+
+// Logging
 ctx := context.Background()
-
-// Basic logs
-logger.Debug(ctx, "Debug message")
-logger.Info(ctx, "Info message")
-logger.Warn(ctx, "Warning message")
-logger.Error(ctx, "Error message")
-
-// Formatted logs
-logger.Infof(ctx, "User %s logged in with role: %s", "john", "admin")
-
-// With fields
+logger.Info(ctx, "Application started")
 logger.WithFields(ctx, logrus.Fields{
-    "user_id": "12345",
+    "user_id": "123",
     "action":  "login",
-    "ip":      "192.168.1.1",
-}).Info("User login successful")
+}).Info("User login")
 ```
 
-### Configure File Output
+## Data Desensitization
+
+Automatically protects sensitive data in logs with fixed-length masking:
 
 ```go
-loggerConfig := &config.Logger{
-    Level:      4,
-    Format:     "json",
-    Output:     "file",
+// Secure configuration (recommended)
+&config.Config{
+    Level:  4,
+    Format: "json",
+    Output: "file",
     OutputFile: "./logs/app.log",
-}
-```
-
-### Configure Elasticsearch
-
-```go
-loggerConfig := &config.Logger{
-    Level:      4,
-    Format:     "json",
-    IndexName:  "application-logs",
-    Elasticsearch: struct {
-        Addresses []string
-        Username  string
-        Password  string
-    }{
-        Addresses: []string{"http://elasticsearch:9200"},
-        Username:  "elastic",
-        Password:  "password",
+    Desensitization: &config.Desensitization{
+        Enabled:         true,
+        UseFixedLength:  true,  // All sensitive data → "********"
+        FixedMaskLength: 8,
+        MaskChar:        "*",
     },
 }
+
+// Usage - sensitive fields automatically masked
+logger.WithFields(ctx, logrus.Fields{
+    "username": "john",
+    "password": "secret123",     // → "********"
+    "email":    "john@test.com", // → "********"
+    "token":    "eyJhbGci...",   // → "********"
+}).Info("User authenticated")
 ```
 
-### Configure OpenSearch
+### Deep Structure Support
+
+Automatically processes nested objects, arrays, and maps:
 
 ```go
-loggerConfig := &config.Logger{
-    Level:      4,
-    Format:     "json",
-    IndexName:  "application-logs",
-    OpenSearch: struct {
-        Addresses      []string
-        Username       string
-        Password       string
-        InsecureSkipTLS bool
-    }{
-        Addresses:      []string{"https://opensearch:9200"},
-        Username:       "admin",
-        Password:       "admin",
-        InsecureSkipTLS: true,
-    },
+type User struct {
+    Username string            `json:"username"`
+    Password string            `json:"password"`
+    Profile  map[string]string `json:"profile"`
+    APIKeys  []string          `json:"api_keys"`
+}
+
+user := User{
+    Username: "john",
+    Password: "secret",
+    Profile:  map[string]string{"email": "john@test.com"},
+    APIKeys:  []string{"sk_test_123", "pk_live_456"},
+}
+
+// All nested sensitive data automatically masked
+logger.WithFields(ctx, logrus.Fields{
+    "user": user, // Deep structure processed
+}).Info("User created")
+```
+
+## Configuration
+
+### File Output
+
+```go
+&config.Config{
+    Output:     "file",
+    OutputFile: "./logs/app.log", // Daily rotation
 }
 ```
 
-### Configure Meilisearch
+### Search Engines
 
 ```go
-loggerConfig := &config.Logger{
-    Level:      4,
-    Format:     "json",
-    IndexName:  "application-logs",
-    Meilisearch: struct {
-        Host   string
-        APIKey string
-    }{
-        Host:   "http://meilisearch:7700",
-        APIKey: "masterKey",
-    },
+// Elasticsearch
+Elasticsearch: &config.Elasticsearch{
+    Addresses: []string{"http://localhost:9200"},
+    Username:  "elastic",
+    Password:  "password",
+}
+
+// OpenSearch  
+OpenSearch: &config.OpenSearch{
+    Addresses: []string{"https://localhost:9200"},
+    Username:  "admin",
+    Password:  "admin",
+}
+
+// Meilisearch
+Meilisearch: &config.Meilisearch{
+    Host:   "http://localhost:7700",
+    APIKey: "masterKey",
 }
 ```
 
-### Request Tracing
+### Custom Desensitization
+
+```go
+Desensitization: &config.Desensitization{
+    Enabled:         true,
+    UseFixedLength:  true,
+    FixedMaskLength: 8,
+    SensitiveFields: []string{"password", "token", "secret", "api_key"},
+    CustomPatterns:  []string{`\b\d{4}-\d{4}-\d{4}-\d{4}\b`}, // Credit cards
+}
+```
+
+## Request Tracing
 
 ```go
 func HandleRequest(w http.ResponseWriter, r *http.Request) {
-    // Create context with trace ID
     ctx, traceID := logger.EnsureTraceID(r.Context())
-    
-    // Add trace ID to response header
     w.Header().Set("X-Trace-ID", traceID)
     
-    logger.Infof(ctx, "Processing request: %s %s", r.Method, r.URL.Path)
-    
-    // Request handling logic
-    
-    logger.Infof(ctx, "Request completed: %s %s", r.Method, r.URL.Path)
+    logger.Info(ctx, "Request started")
+    // All logs in this context include the same trace ID
+    processRequest(ctx)
+    logger.Info(ctx, "Request completed")
 }
 ```
 
-### Error Handling
+## Production Configuration
+
+```yaml
+logger:
+  level: 4
+  format: json
+  output: file
+  output_file: /var/log/app.log
+  
+  desensitization:
+    enabled: true
+    use_fixed_length: true
+    fixed_mask_length: 8
+    
+  elasticsearch:
+    addresses: ["http://es:9200"]
+    username: elastic
+    password: ${ES_PASSWORD}
+```
+
+## API Reference
 
 ```go
-func ProcessData(ctx context.Context, data []byte) error {
-    if len(data) == 0 {
-        logger.Warn(ctx, "Received empty data")
-        return nil
-    }
-    
-    result, err := parseData(data)
-    if err != nil {
-        logger.WithFields(ctx, logrus.Fields{
-            "error": err.Error(),
-            "data_length": len(data),
-        }).Error("Data parsing failed")
-        return err
-    }
-    
-    logger.WithFields(ctx, logrus.Fields{
-        "result_count": len(result),
-    }).Info("Data processing successful")
-    
-    return nil
-}
+// Initialization
+func New(c *config.Config) (func(), error)
+
+// Logging
+func Debug/Info/Warn/Error/Fatal/Panic(ctx context.Context, args ...any)
+func Debugf/Infof/Warnf/Errorf/Fatalf/Panicf(ctx context.Context, format string, args ...any)
+func WithFields(ctx context.Context, fields logrus.Fields) *logrus.Entry
+
+// Tracing
+func EnsureTraceID(ctx context.Context) (context.Context, string)
 ```
 
 ## Log Levels
 
-- **Trace** (6): Extremely detailed information
-- **Debug** (5): Detailed debugging information
-- **Info** (4): General operational information
-- **Warn** (3): Warnings, potentially problematic situations
-- **Error** (2): Error conditions, operational failures
-- **Fatal** (1): Severe errors causing application termination
-- **Panic** (0): Critical errors causing application panic
+| Level | Value | Usage |
+|-------|-------|-------|
+| Trace | 6 | Detailed debugging |
+| Debug | 5 | Debug information |
+| Info  | 4 | General information |
+| Warn  | 3 | Warnings |
+| Error | 2 | Errors |
+| Fatal | 1 | Critical errors |
+| Panic | 0 | System panic |

@@ -1,194 +1,201 @@
-# ncore/loger
+# ncore/logger
 
-基于 [logrus](https://github.com/sirupsen/logrus) 构建的强大日志系统，支持多种输出目标和搜索引擎集成（Elasticsearch、OpenSearch 和 Meilisearch）。
+基于 [logrus](https://github.com/sirupsen/logrus) 构建的强大日志系统，支持多输出目标、搜索引擎集成和数据脱敏功能。
 
 ## 功能特点
 
-- 多级别日志（Trace、Debug、Info、Warn、Error、Fatal、Panic）
-- 结构化 JSON 日志
-- 上下文感知的追踪
-- 文件轮换
-- 多输出目标（控制台、文件、搜索引擎）
-- 搜索引擎集成：
-  - Elasticsearch
-  - OpenSearch
-  - Meilisearch
+- 多级别结构化 JSON 日志
+- 上下文感知追踪，自动 Trace ID 传播
+- **数据脱敏，支持深层结构处理**
+- 多输出目标：控制台、文件（自动轮换）、Elasticsearch、OpenSearch、Meilisearch
+- 固定长度脱敏，防止敏感数据长度泄露
 
-## 使用方法
-
-### 初始化
-
-```go
-import (
-    "github.com/ncobase/ncore/config"
-    "github.com/ncobase/ncore/logging/logger"
-)
-
-// 创建配置
-loggerConfig := &config.Logger{
-    Level:    4, // Info 级别
-    Format:   "json",
-    Output:   "stdout",
-    IndexName: "application-logs",
-}
-
-// 初始化日志器
-cleanup, err := logger.New(loggerConfig)
-if err != nil {
-    panic(err)
-}
-defer cleanup()
-
-// 设置应用版本（可选）
-logger.SetVersion("1.0.0")
-```
-
-### 基本日志记录
+## 快速开始
 
 ```go
 import (
     "context"
     "github.com/ncobase/ncore/logging/logger"
-    "github.com/sirupsen/logrus"
+    "github.com/ncobase/ncore/logging/logger/config"
 )
 
+// 基本设置
+cleanup, err := logger.New(&config.Config{
+    Level:  4, // Info 级别
+    Format: "json",
+    Output: "stdout",
+})
+if err != nil {
+    panic(err)
+}
+defer cleanup()
+
+// 日志记录
 ctx := context.Background()
-
-// 基本日志
-logger.Debug(ctx, "调试信息")
-logger.Info(ctx, "信息消息")
-logger.Warn(ctx, "警告消息")
-logger.Error(ctx, "错误消息")
-
-// 格式化日志
-logger.Infof(ctx, "用户 %s 以角色 %s 登录", "john", "admin")
-
-// 带字段的日志
+logger.Info(ctx, "应用程序启动")
 logger.WithFields(ctx, logrus.Fields{
-    "user_id": "12345",
+    "user_id": "123",
     "action":  "login",
-    "ip":      "192.168.1.1",
-}).Info("用户登录成功")
+}).Info("用户登录")
 ```
 
-### 配置文件输出
+## 数据脱敏
+
+自动保护日志中的敏感数据，使用固定长度脱敏：
 
 ```go
-loggerConfig := &config.Logger{
-    Level:      4,
-    Format:     "json",
-    Output:     "file",
+// 安全配置（推荐）
+&config.Config{
+    Level:  4,
+    Format: "json",
+    Output: "file",
     OutputFile: "./logs/app.log",
-}
-```
-
-### 配置 Elasticsearch
-
-```go
-loggerConfig := &config.Logger{
-    Level:      4,
-    Format:     "json",
-    IndexName:  "application-logs",
-    Elasticsearch: struct {
-        Addresses []string
-        Username  string
-        Password  string
-    }{
-        Addresses: []string{"http://elasticsearch:9200"},
-        Username:  "elastic",
-        Password:  "password",
+    Desensitization: &config.Desensitization{
+        Enabled:         true,
+        UseFixedLength:  true,  // 所有敏感数据 → "********"
+        FixedMaskLength: 8,
+        MaskChar:        "*",
     },
 }
+
+// 使用 - 敏感字段自动脱敏
+logger.WithFields(ctx, logrus.Fields{
+    "username": "john",
+    "password": "secret123",     // → "********"
+    "email":    "john@test.com", // → "********"
+    "token":    "eyJhbGci...",   // → "********"
+}).Info("用户身份验证")
 ```
 
-### 配置 OpenSearch
+### 深层结构支持
+
+自动处理嵌套对象、数组和映射：
 
 ```go
-loggerConfig := &config.Logger{
-    Level:      4,
-    Format:     "json",
-    IndexName:  "application-logs",
-    OpenSearch: struct {
-        Addresses      []string
-        Username       string
-        Password       string
-        InsecureSkipTLS bool
-    }{
-        Addresses:      []string{"https://opensearch:9200"},
-        Username:       "admin",
-        Password:       "admin",
-        InsecureSkipTLS: true,
-    },
+type User struct {
+    Username string            `json:"username"`
+    Password string            `json:"password"`
+    Profile  map[string]string `json:"profile"`
+    APIKeys  []string          `json:"api_keys"`
+}
+
+user := User{
+    Username: "john",
+    Password: "secret",
+    Profile:  map[string]string{"email": "john@test.com"},
+    APIKeys:  []string{"sk_test_123", "pk_live_456"},
+}
+
+// 所有嵌套敏感数据自动脱敏
+logger.WithFields(ctx, logrus.Fields{
+    "user": user, // 深层结构自动处理
+}).Info("用户创建完成")
+```
+
+## 配置
+
+### 文件输出
+
+```go
+&config.Config{
+    Output:     "file",
+    OutputFile: "./logs/app.log", // 每日轮换
 }
 ```
 
-### 配置 Meilisearch
+### 搜索引擎
 
 ```go
-loggerConfig := &config.Logger{
-    Level:      4,
-    Format:     "json",
-    IndexName:  "application-logs",
-    Meilisearch: struct {
-        Host   string
-        APIKey string
-    }{
-        Host:   "http://meilisearch:7700",
-        APIKey: "masterKey",
-    },
+// Elasticsearch
+Elasticsearch: &config.Elasticsearch{
+    Addresses: []string{"http://localhost:9200"},
+    Username:  "elastic",
+    Password:  "password",
+}
+
+// OpenSearch  
+OpenSearch: &config.OpenSearch{
+    Addresses: []string{"https://localhost:9200"},
+    Username:  "admin",
+    Password:  "admin",
+}
+
+// Meilisearch
+Meilisearch: &config.Meilisearch{
+    Host:   "http://localhost:7700",
+    APIKey: "masterKey",
 }
 ```
 
-### 请求追踪
+### 自定义脱敏
+
+```go
+Desensitization: &config.Desensitization{
+    Enabled:         true,
+    UseFixedLength:  true,
+    FixedMaskLength: 8,
+    SensitiveFields: []string{"password", "token", "secret", "api_key"},
+    CustomPatterns:  []string{`\b\d{4}-\d{4}-\d{4}-\d{4}\b`}, // 信用卡号
+}
+```
+
+## 请求追踪
 
 ```go
 func HandleRequest(w http.ResponseWriter, r *http.Request) {
-    // 创建带有追踪 ID 的上下文
     ctx, traceID := logger.EnsureTraceID(r.Context())
-    
-    // 添加追踪 ID 到响应头
     w.Header().Set("X-Trace-ID", traceID)
     
-    logger.Infof(ctx, "处理请求：%s %s", r.Method, r.URL.Path)
-    
-    // 请求处理逻辑
-    
-    logger.Infof(ctx, "请求完成：%s %s", r.Method, r.URL.Path)
+    logger.Info(ctx, "请求开始")
+    // 此上下文中的所有日志都包含相同的 trace ID
+    processRequest(ctx)
+    logger.Info(ctx, "请求完成")
 }
 ```
 
-### 错误处理
+## 生产环境配置
+
+```yaml
+logger:
+  level: 4
+  format: json
+  output: file
+  output_file: /var/log/app.log
+  
+  desensitization:
+    enabled: true
+    use_fixed_length: true
+    fixed_mask_length: 8
+    
+  elasticsearch:
+    addresses: ["http://es:9200"]
+    username: elastic
+    password: ${ES_PASSWORD}
+```
+
+## API 参考
 
 ```go
-func ProcessData(ctx context.Context, data []byte) error {
-    if len(data) == 0 {
-        logger.Warn(ctx, "接收到空数据")
-        return nil
-    }
-    
-    result, err := parseData(data)
-    if err != nil {
-        logger.WithFields(ctx, logrus.Fields{
-            "error": err.Error(),
-            "data_length": len(data),
-        }).Error("数据解析失败")
-        return err
-    }
-    
-    logger.WithFields(ctx, logrus.Fields{
-        "result_count": len(result),
-    }).Info("数据处理成功")
-    
-    return nil
-}
+// 初始化
+func New(c *config.Config) (func(), error)
+
+// 日志记录
+func Debug/Info/Warn/Error/Fatal/Panic(ctx context.Context, args ...any)
+func Debugf/Infof/Warnf/Errorf/Fatalf/Panicf(ctx context.Context, format string, args ...any)
+func WithFields(ctx context.Context, fields logrus.Fields) *logrus.Entry
+
+// 追踪
+func EnsureTraceID(ctx context.Context) (context.Context, string)
 ```
 
 ## 日志级别
 
-- **Trace** (6): 极其详细的信息
-- **Debug** (5): 详细的调试信息
-- **Info** (4): 一般操作信息
-- **Warn** (3): 警告，潜在的问题情况
-- **Error** (2): 错误条件，操作失败
-- **Fatal** (1): 严重错误导致应用终止
-- **Panic** (0): 关键错误导致应用崩溃
+| 级别 | 值 | 用途 |
+|------|----|----|
+| Trace | 6 | 详细调试 |
+| Debug | 5 | 调试信息 |
+| Info  | 4 | 一般信息 |
+| Warn  | 3 | 警告 |
+| Error | 2 | 错误 |
+| Fatal | 1 | 严重错误 |
+| Panic | 0 | 系统崩溃 |
