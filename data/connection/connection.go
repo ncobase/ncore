@@ -194,12 +194,18 @@ func (d *Connections) DB() *sql.DB {
 	return d.DBM.Master()
 }
 
-// DBRead returns a slave database connection for read operations
-func (d *Connections) DBRead() (*sql.DB, error) {
+// ReadDB returns a slave database connection for read operations
+func (d *Connections) ReadDB() (*sql.DB, error) {
 	if d.DBM == nil {
 		return nil, errors.New("database manager is nil")
 	}
 	return d.DBM.Slave()
+}
+
+// DBRead returns a slave database connection for read operations
+// Deprecated: Use ReadDB() for better clarity
+func (d *Connections) DBRead() (*sql.DB, error) {
+	return d.ReadDB()
 }
 
 // pingRedis checks if Redis connection is alive

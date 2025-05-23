@@ -112,7 +112,7 @@ func (d *Data) WithTx(ctx context.Context, fn func(ctx context.Context) error) e
 
 // WithTxRead wraps function within read-only transaction
 func (d *Data) WithTxRead(ctx context.Context, fn func(ctx context.Context) error) error {
-	dbRead, err := d.DBRead()
+	dbRead, err := d.GetSlaveDB()
 	if err != nil {
 		return err
 	}
@@ -142,20 +142,79 @@ func (d *Data) GetDBManager() *connection.DBManager {
 	return nil
 }
 
-// DB returns the master database connection for write operations
-func (d *Data) DB() *sql.DB {
+// GetMasterDB returns the master database connection for write operations
+func (d *Data) GetMasterDB() *sql.DB {
 	if d.Conn != nil {
 		return d.Conn.DB()
 	}
 	return nil
 }
 
-// DBRead returns slave database connection for read operations
-func (d *Data) DBRead() (*sql.DB, error) {
+// GetSlaveDB returns slave database connection for read operations
+func (d *Data) GetSlaveDB() (*sql.DB, error) {
 	if d.Conn != nil {
-		return d.Conn.DBRead()
+		return d.Conn.ReadDB()
 	}
 	return nil, errors.New("no database connection available")
+}
+
+// DB returns the master database connection for write operations
+// Deprecated: Use GetMasterDB() for better clarity
+func (d *Data) DB() *sql.DB {
+	return d.GetMasterDB()
+}
+
+// DBRead returns slave database connection for read operations
+// Deprecated: Use GetSlaveDB() for better clarity
+func (d *Data) DBRead() (*sql.DB, error) {
+	return d.GetSlaveDB()
+}
+
+// GetDatabaseNodes returns information about all database nodes (master and slaves)
+func (d *Data) GetDatabaseNodes() (master *sql.DB, slaves []*sql.DB, err error) {
+	if d.Conn == nil || d.Conn.DBM == nil {
+		return nil, nil, errors.New("no database manager available")
+	}
+
+	master = d.Conn.DBM.Master()
+
+	// Get all slave connections by repeatedly calling Slave() method
+	// This is a bit hacky but works with the current DBManager interface
+	slavesMap := make(map[*sql.DB]bool)
+	for i := 0; i < 10; i++ { // Try up to 10 times to get different slaves
+		slave, err := d.Conn.DBM.Slave()
+		if err != nil {
+			break
+		}
+		if slave != master { // Only add if it's not the master
+			slavesMap[slave] = true
+		}
+	}
+
+	for slave := range slavesMap {
+		slaves = append(slaves, slave)
+	}
+
+	return master, slaves, nil
+}
+
+// IsReadOnlyMode checks if the system is in read-only mode (only slaves available)
+func (d *Data) IsReadOnlyMode(ctx context.Context) bool {
+	if d.Conn == nil || d.Conn.DBM == nil {
+		return false
+	}
+
+	master := d.Conn.DBM.Master()
+	if master == nil {
+		return true
+	}
+
+	// Check if master is healthy
+	if err := master.PingContext(ctx); err != nil {
+		return true
+	}
+
+	return false
 }
 
 // GetRedis returns the Redis client
