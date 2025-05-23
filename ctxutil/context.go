@@ -10,16 +10,20 @@ import (
 )
 
 const (
-	ginContextKey = consts.GinContextKey
-	userIDKey     = consts.UserKey
-	tenantIDKey   = consts.TenantKey
-	tokenKey      = consts.TokenKey
-	providerKey   = "provider"
-	profileKey    = "profile"
-	configKey     = "config"
-	emailSender   = "email_sender"
-	storageKey    = "storage"
-	TraceIDKey    = "trace_id"
+	ginContextKey   = consts.GinContextKey
+	userIDKey       = consts.UserKey
+	tenantIDKey     = consts.TenantKey
+	tokenKey        = consts.TokenKey
+	providerKey     = "provider"
+	profileKey      = "profile"
+	configKey       = "config"
+	emailSender     = "email_sender"
+	storageKey      = "storage"
+	TraceIDKey      = "trace_id"
+	userRolesKey    = "user_roles"
+	userPermissions = "user_permissions"
+	userIsAdminKey  = "user_is_admin"
+	tenantIDsKey    = "user_tenant_ids"
 )
 
 // FromGinContext extracts the context.Context from *gin.Context.
@@ -176,4 +180,56 @@ func ExtractContext(payload *map[string]any) context.Context {
 		}
 	}
 	return context.Background()
+}
+
+// SetUserRoles sets user roles to context.Context.
+func SetUserRoles(ctx context.Context, roles []string) context.Context {
+	return SetValue(ctx, userRolesKey, roles)
+}
+
+// GetUserRoles gets user roles from context.Context.
+func GetUserRoles(ctx context.Context) []string {
+	if roles, ok := GetValue(ctx, userRolesKey).([]string); ok {
+		return roles
+	}
+	return []string{}
+}
+
+// SetUserPermissions sets user permissions to context.Context.
+func SetUserPermissions(ctx context.Context, permissions []string) context.Context {
+	return SetValue(ctx, userPermissions, permissions)
+}
+
+// GetUserPermissions gets user permissions from context.Context.
+func GetUserPermissions(ctx context.Context) []string {
+	if perms, ok := GetValue(ctx, userPermissions).([]string); ok {
+		return perms
+	}
+	return []string{}
+}
+
+// SetUserIsAdmin sets user admin status to context.Context.
+func SetUserIsAdmin(ctx context.Context, isAdmin bool) context.Context {
+	return SetValue(ctx, userIsAdminKey, isAdmin)
+}
+
+// GetUserIsAdmin gets user admin status from context.Context.
+func GetUserIsAdmin(ctx context.Context) bool {
+	if isAdmin, ok := GetValue(ctx, userIsAdminKey).(bool); ok {
+		return isAdmin
+	}
+	return false
+}
+
+// SetUserTenantIDs sets user tenant IDs to context.Context.
+func SetUserTenantIDs(ctx context.Context, tenantIDs []string) context.Context {
+	return SetValue(ctx, tenantIDsKey, tenantIDs)
+}
+
+// GetUserTenantIDs gets user tenant IDs from context.Context.
+func GetUserTenantIDs(ctx context.Context) []string {
+	if tenantIDs, ok := GetValue(ctx, tenantIDsKey).([]string); ok {
+		return tenantIDs
+	}
+	return []string{}
 }
