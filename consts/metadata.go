@@ -18,6 +18,15 @@ const UserKey string = "x-md-uid"
 // UsernameKey global username
 const UsernameKey string = "x-md-uname"
 
+// UserEmailKey global user email
+const UserEmailKey = "x-md-email"
+
+// UserStatusKey global user status
+const UserStatusKey = "x-md-status"
+
+// UserIsCertifiedKey global user is certified
+const UserIsCertifiedKey = "x-md-is-certified"
+
 // TokenKey global token
 const TokenKey string = "x-md-token"
 

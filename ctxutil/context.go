@@ -12,6 +12,10 @@ import (
 const (
 	ginContextKey   = consts.GinContextKey
 	userIDKey       = consts.UserKey
+	usernameKey     = consts.UsernameKey
+	userEmailKey    = consts.UserEmailKey
+	userStatusKey   = consts.UserStatusKey
+	userIsCertified = consts.UserIsCertifiedKey
 	tenantIDKey     = consts.TenantKey
 	tokenKey        = consts.TokenKey
 	providerKey     = "provider"
@@ -91,6 +95,58 @@ func GetUserID(ctx context.Context) string {
 		return uid
 	}
 	return ""
+}
+
+// SetUsername sets username to context.Context.
+func SetUsername(ctx context.Context, username string) context.Context {
+	return SetValue(ctx, usernameKey, username)
+}
+
+// GetUsername gets username from context.Context.
+func GetUsername(ctx context.Context) string {
+	if username, ok := GetValue(ctx, usernameKey).(string); ok {
+		return username
+	}
+	return ""
+}
+
+// SetUserEmail sets user email to context.Context.
+func SetUserEmail(ctx context.Context, email string) context.Context {
+	return SetValue(ctx, userEmailKey, email)
+}
+
+// GetUserEmail gets user email from context.Context.
+func GetUserEmail(ctx context.Context) string {
+	if email, ok := GetValue(ctx, userEmailKey).(string); ok {
+		return email
+	}
+	return ""
+}
+
+// SetUserStatus sets user status to context.Context.
+func SetUserStatus(ctx context.Context, status int64) context.Context {
+	return SetValue(ctx, userStatusKey, status)
+}
+
+// GetUserStatus gets user status from context.Context.
+func GetUserStatus(ctx context.Context) int64 {
+	if status, ok := GetValue(ctx, userStatusKey).(int64); ok {
+		return status
+	}
+	return 3 // unknown
+}
+
+// SetUserIsCertified sets user is certified to context.Context.
+func SetUserIsCertified(ctx context.Context, isCertified bool) context.Context {
+	return SetValue(ctx, userIsCertified, isCertified)
+}
+
+// GetUserIsCertified gets user is certified from context.Context.
+func GetUserIsCertified(ctx context.Context) bool {
+	if isCertified, ok := GetValue(ctx, userIsCertified).(bool); ok {
+		return isCertified
+	}
+	return false
 }
 
 // SetTenantID sets tenant id to context.Context.
