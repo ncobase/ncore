@@ -5,7 +5,6 @@ import (
 	"sort"
 
 	"github.com/ncobase/ncore/extension/types"
-	"github.com/ncobase/ncore/logging/logger"
 )
 
 // getInitOrder returns the initialization order based on dependencies
@@ -20,8 +19,11 @@ func getInitOrder(extensions map[string]*types.Wrapper, dependencyGraph map[stri
 	// Example of how to add modules dynamically
 	// specialModules = append(specialModules, "relation", "relations", "linker", "linkers")
 	specialSet := make(map[string]bool)
-	for _, m := range specialModules {
-		specialSet[m] = true
+	if len(specialModules) > 0 {
+		specialModules = append(specialModules, specialModules...)
+		for _, m := range specialModules {
+			specialSet[m] = true
+		}
 	}
 
 	initialized := make(map[string]bool)
@@ -88,8 +90,6 @@ func getInitOrder(extensions map[string]*types.Wrapper, dependencyGraph map[stri
 
 	// Add special modules
 	order = append(order, special...)
-
-	logger.Debugf(nil, "Extension initialization order: %v", order)
 
 	return order, nil
 }

@@ -107,11 +107,11 @@ func (m *Manager) InitExtensions() error {
 		return fmt.Errorf("extensions already initialized")
 	}
 
-	// Get auto-registered extensions and their dependency graph
-	autoRegisteredExtensions, dependencyGraph := registry.GetExtensionsAndDependencies()
+	// Get registered extensions and their dependency graph
+	registeredExtensions, dependencyGraph := registry.GetExtensionsAndDependencies()
 
-	// Add auto-registered extensions to the manager
-	for name, ext := range autoRegisteredExtensions {
+	// Add registered extensions to the manager
+	for name, ext := range registeredExtensions {
 		if _, exists := m.extensions[name]; !exists {
 			m.extensions[name] = &types.Wrapper{
 				Metadata: ext.GetMetadata(),
@@ -135,7 +135,8 @@ func (m *Manager) InitExtensions() error {
 	}
 	m.mu.Unlock() // Unlock after dependencies check and order determination
 
-	var initErrors []error
+	var initErrors []error            // Errors during initialization
+	var successfulExtensions []string // Successfully initialized extensions
 
 	// Phase 1: Pre-initialization
 	for _, name := range initOrder {
@@ -163,6 +164,8 @@ func (m *Manager) InitExtensions() error {
 		if err != nil {
 			logger.Errorf(nil, "failed post-initialization of extension %s: %v", name, err)
 			initErrors = append(initErrors, fmt.Errorf("post-initialization of extension %s failed: %w", name, err))
+		} else {
+			successfulExtensions = append(successfulExtensions, name)
 		}
 	}
 
@@ -199,6 +202,13 @@ func (m *Manager) InitExtensions() error {
 			}
 		}
 	}
+
+	// Log successful initialization
+	if len(successfulExtensions) > 0 {
+		logger.Debugf(nil, "Successfully initialized %d extensions: %s",
+			len(successfulExtensions), successfulExtensions)
+	}
+
 	return nil
 }
 

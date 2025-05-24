@@ -69,7 +69,7 @@ func (m *Manager) loadPluginsInBuilt() error {
 	}
 
 	if len(sps) > 0 {
-		logger.Infof(nil, "Successfully initialized %d plugins: %v", len(sps), sps)
+		logger.Debugf(nil, "Successfully initialized %d plugins: %v", len(sps), sps)
 	}
 
 	return nil
