@@ -166,6 +166,15 @@ func (m *Manager) InitExtensions() error {
 		}
 	}
 
+	// Phase 4: Auto-register cross-module services
+	if len(initErrors) == 0 {
+		m.autoRegisterAllServices()
+		// Publish event that all extensions are ready
+		m.PublishEvent("exts.all.registered", map[string]any{
+			"status": "completed",
+		})
+	}
+
 	// Set initialization status
 	m.mu.Lock()
 	if len(initErrors) > 0 {

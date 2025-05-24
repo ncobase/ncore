@@ -31,10 +31,10 @@ func (m *Manager) SubscribeToMessages(queue string, handler func([]byte) error) 
 	}
 
 	if m.data.RabbitMQ != nil && m.data.RabbitMQ.IsConnected() {
-		logger.Debugf(nil, "Subscribing to RabbitMQ queue: %s", queue)
+		// logger.Debugf(nil, "Subscribing to RabbitMQ queue: %s", queue)
 		return m.data.ConsumeFromRabbitMQ(queue, handler)
 	} else if m.data.Kafka != nil && m.data.Kafka.IsConnected() {
-		logger.Debugf(nil, "Subscribing to Kafka topic: %s", queue)
+		// logger.Debugf(nil, "Subscribing to Kafka topic: %s", queue)
 		return m.data.ConsumeFromKafka(context.Background(), queue, "group", handler)
 	}
 	return fmt.Errorf("no message queue service available")
@@ -75,7 +75,7 @@ func (m *Manager) PublishEvent(eventName string, data any, target ...types.Event
 			return
 		}
 
-		logger.Debugf(nil, "Publishing event %s to message queue", eventName)
+		// logger.Debugf(nil, "Publishing event %s to message queue", eventName)
 		if err := m.PublishMessage(eventName, eventName, jsonData); err != nil {
 			logger.Warnf(nil, "failed to publish event %s to message queue: %v", eventName, err)
 
@@ -84,9 +84,10 @@ func (m *Manager) PublishEvent(eventName string, data any, target ...types.Event
 				logger.Infof(nil, "falling back to in-memory event bus for event: %s", eventName)
 				m.eventBus.Publish(eventName, data)
 			}
-		} else {
-			logger.Debugf(nil, "Successfully published event %s to message queue", eventName)
 		}
+		// else {
+		// 	logger.Debugf(nil, "Successfully published event %s to message queue", eventName)
+		// }
 	}
 }
 

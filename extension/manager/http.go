@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ncobase/ncore/extension/types"
+	"github.com/ncobase/ncore/net/resp"
 	"github.com/ncobase/ncore/utils"
 
 	"github.com/gin-gonic/gin"
@@ -29,49 +30,53 @@ func (m *Manager) ManageRoutes(r *gin.RouterGroup) {
 			result[group][ext.Metadata.Type] = append(result[group][ext.Metadata.Type], ext.Metadata)
 		}
 
-		// Use your actual response helper here
-		c.JSON(200, gin.H{"success": true, "data": result})
+		resp.Success(c.Writer, result)
 	})
 
 	r.POST("/exts/load", func(c *gin.Context) {
 		name := c.Query("name")
 		if name == "" {
-			c.JSON(400, gin.H{"success": false, "message": "name is required"})
+			resp.Fail(c.Writer, resp.BadRequest("name is required"))
 			return
 		}
 		fc := m.conf.Extension
 		fp := filepath.Join(fc.Path, name+utils.GetPlatformExt())
 		if err := m.LoadPlugin(fp); err != nil {
-			c.JSON(500, gin.H{"success": false, "message": fmt.Sprintf("Failed to load extension %s: %v", name, err)})
+			resp.Fail(c.Writer, resp.InternalServer("Failed to load extension %s: %v", name, err))
 			return
 		}
-		c.JSON(200, gin.H{"success": true, "message": fmt.Sprintf("%s loaded successfully", name)})
+		resp.Success(c.Writer, fmt.Sprintf("%s loaded successfully", name))
 	})
 
 	r.POST("/exts/unload", func(c *gin.Context) {
 		name := c.Query("name")
 		if name == "" {
-			c.JSON(400, gin.H{"success": false, "message": "name is required"})
+			resp.Fail(c.Writer, resp.BadRequest("name is required"))
 			return
 		}
 		if err := m.UnloadPlugin(name); err != nil {
-			c.JSON(500, gin.H{"success": false, "message": fmt.Sprintf("Failed to unload extension %s: %v", name, err)})
+			resp.Fail(c.Writer, resp.InternalServer("Failed to unload extension %s: %v", name, err))
 			return
 		}
-		c.JSON(200, gin.H{"success": true, "message": fmt.Sprintf("%s unloaded successfully", name)})
+		resp.Success(c.Writer, fmt.Sprintf("%s unloaded successfully", name))
 	})
 
 	r.POST("/exts/reload", func(c *gin.Context) {
 		name := c.Query("name")
 		if name == "" {
-			c.JSON(400, gin.H{"success": false, "message": "name is required"})
+			resp.Fail(c.Writer, resp.BadRequest("name is required"))
 			return
 		}
 		if err := m.ReloadPlugin(name); err != nil {
-			c.JSON(500, gin.H{"success": false, "message": fmt.Sprintf("Failed to reload extension %s: %v", name, err)})
+			resp.Fail(c.Writer, resp.InternalServer("Failed to reload extension %s: %v", name, err))
 			return
 		}
-		c.JSON(200, gin.H{"success": true, "message": fmt.Sprintf("%s reloaded successfully", name)})
+		resp.Success(c.Writer, fmt.Sprintf("%s reloaded successfully", name))
+	})
+
+	r.POST("/exts/refresh-cross-services", func(c *gin.Context) {
+		m.RefreshCrossServices()
+		resp.Success(c.Writer, "Cross services refreshed successfully")
 	})
 }
 

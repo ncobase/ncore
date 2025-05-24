@@ -132,6 +132,12 @@ type ManagerInterface interface {
 	GetMetadata() map[string]Metadata
 	GetStatus() map[string]string
 
+	// Cross service methods
+
+	GetCrossService(extensionName, servicePath string) (any, error)
+	RegisterCrossService(key string, service any)
+	RefreshCrossServices()
+
 	// Plugin management
 
 	LoadPlugins() error
@@ -140,10 +146,10 @@ type ManagerInterface interface {
 	UnloadPlugin(name string) error
 	ReloadPlugins() error
 
-	// Event bus
+	// Events
+
 	GetExtensionPublisher(name string, publisherType reflect.Type) (any, error)
 	GetExtensionSubscriber(name string, subscriberType reflect.Type) (any, error)
-
 	PublishEvent(eventName string, data any, target ...EventTarget)
 	PublishEventWithRetry(eventName string, data any, maxRetries int, target ...EventTarget)
 	SubscribeEvent(eventName string, handler func(any), source ...EventTarget)
