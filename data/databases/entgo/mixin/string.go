@@ -157,6 +157,7 @@ var (
 	CreatedBy      = StringMixin{Field: "created_by", Comment: "id of the creator", Optional: true, MaxLen: consts.PrimaryKeySize}
 	UpdatedBy      = StringMixin{Field: "updated_by", Comment: "id of the last updater", Optional: true, MaxLen: consts.PrimaryKeySize}
 	DeletedBy      = StringMixin{Field: "deleted_by", Comment: "id of the deleter", Optional: true, MaxLen: consts.PrimaryKeySize}
+	Details        = StringMixin{Field: "details", Comment: "details", Optional: true}
 )
 
 // DateFormat default date format
