@@ -166,6 +166,11 @@ func (m *Manager) InitExtensions() error {
 			initErrors = append(initErrors, fmt.Errorf("post-initialization of extension %s failed: %w", name, err))
 		} else {
 			successfulExtensions = append(successfulExtensions, name)
+			m.PublishEvent(fmt.Sprintf("exts.%s.ready", name), map[string]any{
+				"name":     name,
+				"status":   "ready",
+				"metadata": ext.Instance.GetMetadata(),
+			})
 		}
 	}
 
@@ -174,7 +179,9 @@ func (m *Manager) InitExtensions() error {
 		m.autoRegisterAllServices()
 		// Publish event that all extensions are ready
 		m.PublishEvent("exts.all.registered", map[string]any{
-			"status": "completed",
+			"status":     "completed",
+			"extensions": successfulExtensions,
+			"count":      len(successfulExtensions),
 		})
 	}
 
