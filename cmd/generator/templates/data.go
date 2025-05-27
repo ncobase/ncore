@@ -111,7 +111,7 @@ func New(conf *config.Data) (*Data, func(name ...string), error) {
 		return nil, cleanup, fmt.Errorf("master database connection is nil")
 	}
 
-	// create master ent client (supports migration)
+	// create master ent client
 	entClient, err := newEntClient(masterDB, conf.Database.Master, conf.Database.Migrate, conf.Environment)
 	if err != nil {
 		return nil, cleanup, fmt.Errorf("failed to create master ent client: %v", err)
