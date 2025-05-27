@@ -121,3 +121,9 @@ func ParseJSON(s string, v any) bool {
 	err := FromJSON(s, v)
 	return err == nil
 }
+
+// JSONUnmarshal unmarshals JSON string to specified object, returns false on error
+func JSONUnmarshal(s string, v any) bool {
+	err := json.Unmarshal([]byte(s), v)
+	return err == nil
+}

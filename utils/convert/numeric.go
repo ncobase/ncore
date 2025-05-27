@@ -30,6 +30,11 @@ func Int64ToString(n int64) string {
 	return strconv.FormatInt(n, 10)
 }
 
+// Float64ToString converts a float64 to a string
+func Float64ToString(n float64) string {
+	return strconv.FormatFloat(n, 'f', -1, 64)
+}
+
 // StringToInt converts a string to an int
 func StringToInt(s string) (int, error) {
 	n, err := strconv.Atoi(s)
@@ -42,6 +47,15 @@ func StringToInt(s string) (int, error) {
 // StringToInt64 converts a string to an int64
 func StringToInt64(s string) (int64, error) {
 	n, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+// StringToFloat64 converts a string to a float64
+func StringToFloat64(s string) (float64, error) {
+	n, err := strconv.ParseFloat(s, 64)
 	if err != nil {
 		return 0, err
 	}
