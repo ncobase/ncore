@@ -4,17 +4,21 @@ import "github.com/spf13/viper"
 
 // Auth auth config struct
 type Auth struct {
-	JWT       *JWT
-	Casbin    *Casbin
-	Whitelist []string
+	JWT                    *JWT
+	Casbin                 *Casbin
+	Whitelist              []string
+	MaxSessions            int `json:"max_sessions" yaml:"max_sessions"`
+	SessionCleanupInterval int `json:"session_cleanup_interval" yaml:"session_cleanup_interval"`
 }
 
 // getAuth returns the auth config.
 func getAuth(v *viper.Viper) *Auth {
 	return &Auth{
-		JWT:       getJWT(v),
-		Casbin:    getCasbin(v),
-		Whitelist: getWhitelist(v),
+		JWT:                    getJWT(v),
+		Casbin:                 getCasbin(v),
+		Whitelist:              getWhitelist(v),
+		MaxSessions:            v.GetInt("auth.max_sessions"),
+		SessionCleanupInterval: v.GetInt("auth.session_cleanup_interval"),
 	}
 }
 

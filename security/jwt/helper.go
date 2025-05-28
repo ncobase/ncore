@@ -39,6 +39,14 @@ func getInt64(payload map[string]any, key string) int64 {
 	return 0
 }
 
+// getInt safely extracts int value from payload
+func getInt(payload map[string]any, key string) int {
+	if val, ok := payload[key].(int); ok {
+		return val
+	}
+	return 0
+}
+
 // getStringSlice safely extracts string slice from payload
 func getStringSlice(payload map[string]any, key string) []string {
 	if val, ok := payload[key].([]any); ok {
@@ -51,6 +59,30 @@ func getStringSlice(payload map[string]any, key string) []string {
 		return result
 	}
 	return []string{}
+}
+
+// GetTokenIDFromToken extracts JWT ID (jti) from token claims
+func GetTokenIDFromToken(claims map[string]any) string {
+	if jti, ok := claims["jti"].(string); ok {
+		return jti
+	}
+	return ""
+}
+
+// GetSubjectFromToken extracts subject (sub) from token claims
+func GetSubjectFromToken(claims map[string]any) string {
+	if sub, ok := claims["sub"].(string); ok {
+		return sub
+	}
+	return ""
+}
+
+// GetExpirationFromToken extracts expiration time from token claims
+func GetExpirationFromToken(claims map[string]any) time.Time {
+	if exp, ok := claims["exp"].(float64); ok && exp > 0 {
+		return time.Unix(int64(exp), 0)
+	}
+	return time.Time{}
 }
 
 // GetUserIDFromToken extracts user ID from token claims
@@ -118,9 +150,9 @@ func IsAdminFromToken(claims map[string]any) bool {
 }
 
 // GetUserStatusFromToken extracts user status from token claims
-func GetUserStatusFromToken(claims map[string]any) int64 {
+func GetUserStatusFromToken(claims map[string]any) int {
 	if payload, ok := getPayload(claims); ok {
-		return getInt64(payload, "user_status")
+		return getInt(payload, "user_status")
 	}
 	return 0
 }
@@ -135,7 +167,7 @@ func IsCertifiedFromToken(claims map[string]any) bool {
 
 // GetIssuedAtFromToken extracts issued at time from token claims
 func GetIssuedAtFromToken(claims map[string]any) time.Time {
-	if iat, ok := claims["exp"].(float64); ok && iat > 0 {
+	if iat, ok := claims["iat"].(float64); ok && iat > 0 {
 		return time.Unix(int64(iat), 0)
 	}
 	return time.Time{}
@@ -159,7 +191,7 @@ func ValidateTokenUser(claims map[string]any, currentUser *TokenUser) error {
 	}
 
 	// Validate user status
-	if tokenStatus := getInt64(payload, "user_status"); tokenStatus != int64(currentUser.Status) {
+	if tokenStatus := getInt(payload, "user_status"); tokenStatus != currentUser.Status {
 		return TokenError("user status changed")
 	}
 
@@ -221,4 +253,29 @@ func HasAnyRole(claims map[string]any, roles ...string) bool {
 // IsAdminRole checks if user has admin role
 func IsAdminRole(claims map[string]any) bool {
 	return HasAnyRole(claims, "super-admin", "system-admin")
+}
+
+// IsAccessToken checks if token is an access token
+func IsAccessToken(claims map[string]any) bool {
+	return GetSubjectFromToken(claims) == "access"
+}
+
+// IsRefreshToken checks if token is a refresh token
+func IsRefreshToken(claims map[string]any) bool {
+	return GetSubjectFromToken(claims) == "refresh"
+}
+
+// IsRegisterToken checks if token is a register token
+func IsRegisterToken(claims map[string]any) bool {
+	subject := GetSubjectFromToken(claims)
+	return subject != "access" && subject != "refresh"
+}
+
+// ValidateTokenType ensures token is of expected type
+func ValidateTokenType(claims map[string]any, expectedType string) error {
+	actualType := GetSubjectFromToken(claims)
+	if actualType != expectedType {
+		return TokenError("invalid token type: expected " + expectedType + ", got " + actualType)
+	}
+	return nil
 }

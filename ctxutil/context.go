@@ -124,13 +124,13 @@ func GetUserEmail(ctx context.Context) string {
 }
 
 // SetUserStatus sets user status to context.Context.
-func SetUserStatus(ctx context.Context, status int64) context.Context {
+func SetUserStatus(ctx context.Context, status int) context.Context {
 	return SetValue(ctx, userStatusKey, status)
 }
 
 // GetUserStatus gets user status from context.Context.
-func GetUserStatus(ctx context.Context) int64 {
-	if status, ok := GetValue(ctx, userStatusKey).(int64); ok {
+func GetUserStatus(ctx context.Context) int {
+	if status, ok := GetValue(ctx, userStatusKey).(int); ok {
 		return status
 	}
 	return 3 // unknown
