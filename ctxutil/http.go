@@ -13,6 +13,7 @@ const (
 	clientIPKey    = "client_ip"
 	userAgentKey   = "user_agent"
 	sessionIDKey   = "session_id"
+	refererKey     = "referer"
 	httpRequestKey = "http_request"
 )
 
@@ -346,6 +347,10 @@ func GetReferer(ctx context.Context) string {
 		if referer := ginCtx.GetHeader("Referer"); referer != "" {
 			return referer
 		}
+		// Also try Referrer
+		if referer := ginCtx.GetHeader("Referrer"); referer != "" {
+			return referer
+		}
 	}
 
 	// Try to get from HTTP request
@@ -353,9 +358,17 @@ func GetReferer(ctx context.Context) string {
 		if referer := req.Header.Get("Referer"); referer != "" {
 			return referer
 		}
+		if referer := req.Header.Get("Referrer"); referer != "" {
+			return referer
+		}
 	}
 
 	return ""
+}
+
+// SetReferer sets HTTP referer in context
+func SetReferer(ctx context.Context, referer string) context.Context {
+	return SetValue(ctx, refererKey, referer)
 }
 
 // GetAcceptLanguage gets Accept-Language header from context
@@ -375,6 +388,138 @@ func GetAcceptLanguage(ctx context.Context) string {
 	}
 
 	return ""
+}
+
+// GetContentType gets Content-Type header from context
+func GetContentType(ctx context.Context) string {
+	// Try to get from Gin context
+	if ginCtx, ok := GetGinContext(ctx); ok {
+		return ginCtx.ContentType()
+	}
+
+	// Try to get from HTTP request
+	if req := GetHTTPRequest(ctx); req != nil {
+		return req.Header.Get("Content-Type")
+	}
+
+	return ""
+}
+
+// GetHost gets Host header from context
+func GetHost(ctx context.Context) string {
+	// Try to get from Gin context
+	if ginCtx, ok := GetGinContext(ctx); ok && ginCtx.Request != nil {
+		return ginCtx.Request.Host
+	}
+
+	// Try to get from HTTP request
+	if req := GetHTTPRequest(ctx); req != nil {
+		return req.Host
+	}
+
+	return ""
+}
+
+// GetRemoteAddr gets remote address from context
+func GetRemoteAddr(ctx context.Context) string {
+	// Try to get from Gin context
+	if ginCtx, ok := GetGinContext(ctx); ok && ginCtx.Request != nil {
+		return ginCtx.Request.RemoteAddr
+	}
+
+	// Try to get from HTTP request
+	if req := GetHTTPRequest(ctx); req != nil {
+		return req.RemoteAddr
+	}
+
+	return ""
+}
+
+// GetRequestURL gets full request URL from context
+func GetRequestURL(ctx context.Context) string {
+	// Try to get from Gin context
+	if ginCtx, ok := GetGinContext(ctx); ok && ginCtx.Request != nil {
+		return ginCtx.Request.URL.String()
+	}
+
+	// Try to get from HTTP request
+	if req := GetHTTPRequest(ctx); req != nil && req.URL != nil {
+		return req.URL.String()
+	}
+
+	return ""
+}
+
+// GetQueryParams gets all query parameters from context
+func GetQueryParams(ctx context.Context) map[string]string {
+	params := make(map[string]string)
+
+	// Try to get from Gin context
+	if ginCtx, ok := GetGinContext(ctx); ok && ginCtx.Request != nil {
+		for key, values := range ginCtx.Request.URL.Query() {
+			if len(values) > 0 {
+				params[key] = values[0]
+			}
+		}
+		return params
+	}
+
+	// Try to get from HTTP request
+	if req := GetHTTPRequest(ctx); req != nil && req.URL != nil {
+		for key, values := range req.URL.Query() {
+			if len(values) > 0 {
+				params[key] = values[0]
+			}
+		}
+	}
+
+	return params
+}
+
+// IsAjaxRequest checks if request is an AJAX request
+func IsAjaxRequest(ctx context.Context) bool {
+	// Try to get from Gin context
+	if ginCtx, ok := GetGinContext(ctx); ok {
+		xRequestedWith := ginCtx.GetHeader("X-Requested-With")
+		return strings.ToLower(xRequestedWith) == "xmlhttprequest"
+	}
+
+	// Try to get from HTTP request
+	if req := GetHTTPRequest(ctx); req != nil {
+		xRequestedWith := req.Header.Get("X-Requested-With")
+		return strings.ToLower(xRequestedWith) == "xmlhttprequest"
+	}
+
+	return false
+}
+
+// IsSecureRequest checks if request is HTTPS
+func IsSecureRequest(ctx context.Context) bool {
+	// Try to get from Gin context
+	if ginCtx, ok := GetGinContext(ctx); ok && ginCtx.Request != nil {
+		// Check direct TLS
+		if ginCtx.Request.TLS != nil {
+			return true
+		}
+		// Check proxy headers
+		if proto := ginCtx.GetHeader("X-Forwarded-Proto"); proto == "https" {
+			return true
+		}
+		return ginCtx.Request.URL.Scheme == "https"
+	}
+
+	// Try to get from HTTP request
+	if req := GetHTTPRequest(ctx); req != nil {
+		if req.TLS != nil {
+			return true
+		}
+		if proto := req.Header.Get("X-Forwarded-Proto"); proto == "https" {
+			return true
+		}
+		return req.URL.Scheme == "https"
+	}
+
+	return false
 }
 
 // GetRequestMethod gets HTTP method from context
