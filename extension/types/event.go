@@ -6,6 +6,15 @@ import (
 	"time"
 )
 
+// EventTarget defines where an event should be published
+type EventTarget int
+
+const (
+	EventTargetMemory EventTarget                            = 1 << iota // In-memory event bus
+	EventTargetQueue                                                     // Message queue (RabbitMQ/Kafka)
+	EventTargetAll    = EventTargetMemory | EventTargetQueue             // All available targets
+)
+
 // EventData Event data structure
 type EventData struct {
 	Time      time.Time `json:"time"`

@@ -221,12 +221,3 @@ type EventBusInterface interface {
 	PublishWithRetry(eventName string, data any, maxRetries int)
 	GetMetrics() map[string]any
 }
-
-// EventTarget defines where an event should be published
-type EventTarget int
-
-const (
-	EventTargetMemory EventTarget                            = 1 << iota // In-memory event bus
-	EventTargetQueue                                                     // Message queue (RabbitMQ/Kafka)
-	EventTargetAll    = EventTargetMemory | EventTargetQueue             // All available targets
-)

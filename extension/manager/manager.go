@@ -23,13 +23,14 @@ type Manager struct {
 	conf             *config.Config
 	mu               sync.RWMutex
 	initialized      bool
-	eventBus         *event.Bus
+	eventDispatcher  *event.Dispatcher
 	serviceDiscovery *discovery.ServiceDiscovery
 	grpcServer       *grpc.Server
 	grpcRegistry     *grpc.ServiceRegistry
 	circuitBreakers  map[string]*gobreaker.CircuitBreaker
 	crossServices    map[string]any
 	data             *data.Data
+	mqMetrics        *MessageQueueMetrics
 }
 
 // NewManager creates a new extension manager
@@ -71,11 +72,12 @@ func NewManager(conf *config.Config) (*Manager, error) {
 	return &Manager{
 		extensions:       make(map[string]*types.Wrapper),
 		conf:             conf,
-		eventBus:         event.NewEventBus(),
+		eventDispatcher:  event.NewEventDispatcher(),
 		serviceDiscovery: svcDiscovery,
 		circuitBreakers:  make(map[string]*gobreaker.CircuitBreaker),
 		crossServices:    make(map[string]any),
 		data:             d,
+		mqMetrics:        NewMessageQueueMetrics(),
 	}, nil
 }
 
@@ -550,6 +552,7 @@ func (m *Manager) GetSystemMetrics() map[string]any {
 		"events":        m.GetEventsMetrics(),
 		"service_cache": m.GetServiceCacheStats(),
 		"extensions":    m.GetExtensionMetrics(),
+		"messaging":     m.getMessagingHealthStatus(),
 		"timestamp":     time.Now(),
 	}
 }
