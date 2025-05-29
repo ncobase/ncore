@@ -203,7 +203,15 @@ func (m *Manager) SubscribeEvent(eventName string, handler func(any), source ...
 	}
 }
 
-// GetEventBusMetrics returns event bus metrics
-func (m *Manager) GetEventBusMetrics() map[string]any {
-	return m.eventBus.GetMetrics()
+// GetEventsMetrics returns comprehensive event metrics
+func (m *Manager) GetEventsMetrics() map[string]any {
+	if m.eventBus == nil {
+		return map[string]any{
+			"status": "not_initialized",
+		}
+	}
+
+	metrics := m.eventBus.GetMetrics()
+	metrics["status"] = "active"
+	return metrics
 }

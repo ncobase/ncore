@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/hashicorp/consul/api"
@@ -18,6 +19,12 @@ type ServiceCache struct {
 	mu         sync.RWMutex
 	ttl        time.Duration
 	lastUpdate time.Time
+	metrics    struct {
+		hits      atomic.Int64
+		misses    atomic.Int64
+		updates   atomic.Int64
+		evictions atomic.Int64
+	}
 }
 
 // NewServiceCache creates a new service cache
@@ -28,16 +35,23 @@ func NewServiceCache(ttl time.Duration) *ServiceCache {
 	}
 }
 
-// Get gets a service
+// Get gets a service from cache
 func (sc *ServiceCache) Get(name string) (*api.AgentService, bool) {
 	sc.mu.RLock()
 	defer sc.mu.RUnlock()
 
 	if time.Since(sc.lastUpdate) > sc.ttl {
+		sc.metrics.misses.Add(1)
 		return nil, false
 	}
 
 	svc, ok := sc.services[name]
+	if ok {
+		sc.metrics.hits.Add(1)
+	} else {
+		sc.metrics.misses.Add(1)
+	}
+
 	return svc, ok
 }
 
@@ -46,27 +60,54 @@ func (sc *ServiceCache) Update(services map[string]*api.AgentService) {
 	sc.mu.Lock()
 	defer sc.mu.Unlock()
 
+	oldSize := len(sc.services)
 	sc.services = services
 	sc.lastUpdate = time.Now()
+	sc.metrics.updates.Add(1)
+
+	// Track evictions (services removed from cache)
+	newSize := len(sc.services)
+	if newSize < oldSize {
+		sc.metrics.evictions.Add(int64(oldSize - newSize))
+	}
 }
 
 // Clear clears the cache
 func (sc *ServiceCache) Clear() {
 	sc.mu.Lock()
 	defer sc.mu.Unlock()
+
+	evicted := int64(len(sc.services))
 	sc.services = make(map[string]*api.AgentService)
 	sc.lastUpdate = time.Time{}
+	sc.metrics.evictions.Add(evicted)
 }
 
-// GetStats returns the cache stats
+// GetStats returns comprehensive cache statistics
 func (sc *ServiceCache) GetStats() map[string]any {
 	sc.mu.RLock()
 	defer sc.mu.RUnlock()
 
+	hits := sc.metrics.hits.Load()
+	misses := sc.metrics.misses.Load()
+	total := hits + misses
+
+	var hitRate float64
+	if total > 0 {
+		hitRate = (float64(hits) / float64(total)) * 100.0
+	}
+
 	return map[string]any{
-		"size":        len(sc.services),
-		"last_update": sc.lastUpdate,
-		"ttl":         sc.ttl,
+		"size":         len(sc.services),
+		"ttl_seconds":  sc.ttl.Seconds(),
+		"last_update":  sc.lastUpdate,
+		"cache_hits":   hits,
+		"cache_misses": misses,
+		"hit_rate":     hitRate,
+		"updates":      sc.metrics.updates.Load(),
+		"evictions":    sc.metrics.evictions.Load(),
+		"age_seconds":  time.Since(sc.lastUpdate).Seconds(),
+		"is_expired":   time.Since(sc.lastUpdate) > sc.ttl,
 	}
 }
 
@@ -86,6 +127,13 @@ type ServiceDiscovery struct {
 	consul       *api.Client
 	serviceCache *ServiceCache
 	config       *ConsulConfig
+	metrics      struct {
+		registrations   atomic.Int64
+		deregistrations atomic.Int64
+		lookups         atomic.Int64
+		healthChecks    atomic.Int64
+		errors          atomic.Int64
+	}
 }
 
 // NewServiceDiscovery creates a new service discovery instance
@@ -113,11 +161,11 @@ func NewServiceDiscovery(config *ConsulConfig) (*ServiceDiscovery, error) {
 // RegisterService registers a service with Consul
 func (sd *ServiceDiscovery) RegisterService(name string, info *types.ServiceInfo) error {
 	if sd.consul == nil {
-		// Consul is not configured
 		return nil
 	}
 
 	if info == nil || info.Address == "" {
+		sd.metrics.errors.Add(1)
 		return fmt.Errorf("invalid service info")
 	}
 
@@ -145,11 +193,12 @@ func (sd *ServiceDiscovery) RegisterService(name string, info *types.ServiceInfo
 	}
 
 	if err := sd.consul.Agent().ServiceRegister(registration); err != nil {
+		sd.metrics.errors.Add(1)
 		return fmt.Errorf("failed to register service: %w", err)
 	}
 
-	// clear cache
 	sd.serviceCache.Clear()
+	sd.metrics.registrations.Add(1)
 
 	logger.Infof(context.Background(),
 		"service registered successfully: %s, address: %s",
@@ -166,11 +215,12 @@ func (sd *ServiceDiscovery) DeregisterService(name string) error {
 	}
 
 	if err := sd.consul.Agent().ServiceDeregister(name); err != nil {
+		sd.metrics.errors.Add(1)
 		return fmt.Errorf("failed to deregister service: %w", err)
 	}
 
-	// clear cache
 	sd.serviceCache.Clear()
+	sd.metrics.deregistrations.Add(1)
 
 	logger.Infof(context.Background(),
 		"service deregistered successfully: %s",
@@ -182,21 +232,24 @@ func (sd *ServiceDiscovery) DeregisterService(name string) error {
 // GetService gets a service from Consul
 func (sd *ServiceDiscovery) GetService(name string) (*api.AgentService, error) {
 	if sd.consul == nil {
+		sd.metrics.errors.Add(1)
 		return nil, fmt.Errorf("consul client not initialized")
 	}
 
-	// cache hit
+	sd.metrics.lookups.Add(1)
+
+	// Try cache first
 	if svc, ok := sd.serviceCache.Get(name); ok {
 		return svc, nil
 	}
 
-	// cache miss, get from Consul
+	// Cache miss, fetch from Consul
 	services, err := sd.consul.Agent().Services()
 	if err != nil {
+		sd.metrics.errors.Add(1)
 		return nil, fmt.Errorf("failed to get services from consul: %w", err)
 	}
 
-	// update cache
 	sd.serviceCache.Update(services)
 
 	service, ok := services[name]
@@ -213,8 +266,11 @@ func (sd *ServiceDiscovery) CheckServiceHealth(name string) string {
 		return types.ServiceStatusUnknown
 	}
 
+	sd.metrics.healthChecks.Add(1)
+
 	checks, _, err := sd.consul.Health().Checks(name, &api.QueryOptions{})
 	if err != nil {
+		sd.metrics.errors.Add(1)
 		logger.Errorf(context.Background(),
 			"failed to get health checks for service %s: %v",
 			name,
@@ -238,11 +294,15 @@ func (sd *ServiceDiscovery) CheckServiceHealth(name string) string {
 // GetHealthyServices gets healthy services
 func (sd *ServiceDiscovery) GetHealthyServices(name string) ([]*api.ServiceEntry, error) {
 	if sd.consul == nil {
+		sd.metrics.errors.Add(1)
 		return nil, fmt.Errorf("consul client not initialized")
 	}
 
+	sd.metrics.lookups.Add(1)
+
 	services, _, err := sd.consul.Health().Service(name, "", true, &api.QueryOptions{})
 	if err != nil {
+		sd.metrics.errors.Add(1)
 		return nil, fmt.Errorf("failed to get healthy services: %w", err)
 	}
 
@@ -261,7 +321,16 @@ func (sd *ServiceDiscovery) ClearCache() {
 	sd.serviceCache.Clear()
 }
 
-// GetCacheStats returns the service cache stats
+// GetCacheStats returns comprehensive cache and discovery metrics
 func (sd *ServiceDiscovery) GetCacheStats() map[string]any {
-	return sd.serviceCache.GetStats()
+	cacheStats := sd.serviceCache.GetStats()
+
+	// Add service discovery specific metrics
+	cacheStats["registrations"] = sd.metrics.registrations.Load()
+	cacheStats["deregistrations"] = sd.metrics.deregistrations.Load()
+	cacheStats["lookups"] = sd.metrics.lookups.Load()
+	cacheStats["health_checks"] = sd.metrics.healthChecks.Load()
+	cacheStats["errors"] = sd.metrics.errors.Load()
+
+	return cacheStats
 }

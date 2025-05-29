@@ -5,89 +5,109 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ncobase/ncore/config"
 	"github.com/ncobase/ncore/extension/plugin"
 	"github.com/ncobase/ncore/extension/types"
 	"github.com/ncobase/ncore/logging/logger"
 	"github.com/ncobase/ncore/utils"
 )
 
-// LoadPlugins loads all plugins based on the current configuration
+// LoadPlugins loads all plugins based on configuration
 func (m *Manager) LoadPlugins() error {
-	if isIncludePluginMode(m.conf) {
-		return m.loadPluginsInBuilt()
+	if m.isBuiltInMode() {
+		return m.loadBuiltInPlugins()
 	}
-	return m.loadPluginsInFile()
+	return m.loadFilePlugins()
 }
 
-// loadPluginsInFile loads plugins in production mode
-func (m *Manager) loadPluginsInFile() error {
-	fc := m.conf.Extension
-	basePath := fc.Path
+// loadFilePlugins loads plugins from files (production mode)
+func (m *Manager) loadFilePlugins() error {
+	basePath := m.conf.Extension.Path
+	if basePath == "" {
+		logger.Warnf(nil, "No plugin path configured, skipping file plugin loading")
+		return nil
+	}
 
-	// multiple paths
-	pluginPaths := []string{
+	// Search for plugin files in multiple locations
+	searchPaths := []string{
 		filepath.Join(basePath, "*"+utils.GetPlatformExt()),            // extension/*
 		filepath.Join(basePath, "plugins", "*"+utils.GetPlatformExt()), // extension/plugins/*
 	}
 
-	for _, pattern := range pluginPaths {
-		pds, err := filepath.Glob(pattern)
+	var loaded []string
+	for _, pattern := range searchPaths {
+		files, err := filepath.Glob(pattern)
 		if err != nil {
-			logger.Errorf(nil, "failed to list plugin files in %s: %v", pattern, err)
+			logger.Errorf(nil, "failed to search plugin files in %s: %v", pattern, err)
 			continue
 		}
 
-		for _, pp := range pds {
-			pluginName := strings.TrimSuffix(filepath.Base(pp), utils.GetPlatformExt())
+		for _, filePath := range files {
+			pluginName := strings.TrimSuffix(filepath.Base(filePath), utils.GetPlatformExt())
+
 			if !m.shouldLoadPlugin(pluginName) {
-				logger.Infof(nil, "🚧 Skipping plugin %s based on configuration", pluginName)
+				logger.Infof(nil, "Skipping plugin %s based on configuration", pluginName)
 				continue
 			}
-			if err := m.LoadPlugin(pp); err != nil {
+
+			if err := m.LoadPlugin(filePath); err != nil {
 				logger.Errorf(nil, "Failed to load plugin %s: %v", pluginName, err)
 				return err
 			}
+
+			loaded = append(loaded, pluginName)
 		}
+	}
+
+	if len(loaded) > 0 {
+		logger.Infof(nil, "Loaded %d file plugins: %v", len(loaded), loaded)
 	}
 
 	return nil
 }
 
-// loadPluginsInBuilt built-in all plugins.
-func (m *Manager) loadPluginsInBuilt() error {
+// loadBuiltInPlugins loads built-in registered plugins
+func (m *Manager) loadBuiltInPlugins() error {
 	plugins := plugin.GetRegisteredPlugins()
-	sps := make([]string, 0, len(plugins))
+	var loaded []string
 
-	for _, c := range plugins {
-		if err := m.initializePlugin(c); err != nil {
-			logger.Errorf(nil, "Failed to initialize plugin %s: %v", c.Metadata.Name, err)
+	for _, pluginWrapper := range plugins {
+		pluginName := pluginWrapper.Metadata.Name
+
+		if !m.shouldLoadPlugin(pluginName) {
+			logger.Infof(nil, "Skipping built-in plugin %s based on configuration", pluginName)
 			continue
 		}
-		m.extensions[c.Metadata.Name] = c
-		sps = append(sps, c.Metadata.Name)
+
+		if err := m.initializePlugin(pluginWrapper); err != nil {
+			logger.Errorf(nil, "Failed to initialize built-in plugin %s: %v", pluginName, err)
+			continue
+		}
+
+		m.extensions[pluginName] = pluginWrapper
+		loaded = append(loaded, pluginName)
 	}
 
-	if len(sps) > 0 {
-		logger.Debugf(nil, "Successfully initialized %d plugins: %v", len(sps), sps)
+	if len(loaded) > 0 {
+		logger.Infof(nil, "Loaded %d built-in plugins: %v", len(loaded), loaded)
 	}
 
 	return nil
 }
 
-// LoadPlugin loads a single plugin
+// LoadPlugin loads a single plugin from file
 func (m *Manager) LoadPlugin(path string) error {
 	name := strings.TrimSuffix(filepath.Base(path), utils.GetPlatformExt())
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if _, exists := m.extensions[name]; exists {
-		return nil // plugin already loaded
+		logger.Debugf(nil, "Plugin %s already loaded, skipping", name)
+		return nil
 	}
 
 	if err := plugin.LoadPlugin(path, m); err != nil {
-		logger.Errorf(nil, "failed to load plugin %s: %v", name, err)
-		return err
+		return fmt.Errorf("failed to load plugin %s: %v", name, err)
 	}
 
 	loadedPlugin := plugin.GetPlugin(name)
@@ -99,85 +119,116 @@ func (m *Manager) LoadPlugin(path string) error {
 	return nil
 }
 
-// ReloadPlugin reloads a single extension / plugin
+// ReloadPlugin reloads a single plugin
 func (m *Manager) ReloadPlugin(name string) error {
-	fc := m.conf.Extension
-	fd := fc.Path
-	fp := filepath.Join(fd, name+utils.GetPlatformExt())
+	basePath := m.conf.Extension.Path
+	filePath := filepath.Join(basePath, name+utils.GetPlatformExt())
 
 	if err := m.UnloadPlugin(name); err != nil {
-		return err
+		return fmt.Errorf("failed to unload plugin %s: %v", name, err)
 	}
 
-	return m.LoadPlugin(fp)
+	if err := m.LoadPlugin(filePath); err != nil {
+		return fmt.Errorf("failed to reload plugin %s: %v", name, err)
+	}
+
+	logger.Infof(nil, "Plugin %s reloaded successfully", name)
+	return nil
 }
 
-// UnloadPlugin unloads a single extension
+// UnloadPlugin unloads a single plugin
 func (m *Manager) UnloadPlugin(name string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	ext, exists := m.extensions[name]
 	if !exists {
-		return fmt.Errorf("extension %s not found", name)
+		return fmt.Errorf("plugin %s not found", name)
 	}
 
+	// Cleanup extension
 	if err := ext.Instance.PreCleanup(); err != nil {
-		logger.Errorf(nil, "failed pre-cleanup of extension %s: %v", name, err)
+		logger.Errorf(nil, "failed pre-cleanup of plugin %s: %v", name, err)
 	}
 
 	if err := ext.Instance.Cleanup(); err != nil {
-		logger.Errorf(nil, "failed to cleanup extension %s: %v", name, err)
+		logger.Errorf(nil, "failed cleanup of plugin %s: %v", name, err)
 		return err
 	}
 
+	// Remove from collections
 	delete(m.extensions, name)
 	delete(m.circuitBreakers, name)
 
-	if m.serviceDiscovery != nil {
+	// Remove cross services for this extension
+	m.removeCrossServicesForExtension(name)
+
+	// Deregister from service discovery
+	if m.serviceDiscovery != nil && ext.Instance.NeedServiceDiscovery() {
 		if err := m.serviceDiscovery.DeregisterService(name); err != nil {
-			logger.Errorf(nil, "failed to deregister service %s from Consul: %v", name, err)
+			logger.Errorf(nil, "failed to deregister service %s: %v", name, err)
 		}
 	}
 
+	logger.Infof(nil, "Plugin %s unloaded successfully", name)
 	return nil
 }
 
-// ReloadPlugins reloads all extensions / plugins
+// ReloadPlugins reloads all plugins
 func (m *Manager) ReloadPlugins() error {
-	fc := m.conf.Extension
-	fd := fc.Path
-	pds, err := filepath.Glob(filepath.Join(fd, "*"+utils.GetPlatformExt()))
+	basePath := m.conf.Extension.Path
+	if basePath == "" {
+		return fmt.Errorf("no plugin path configured")
+	}
+
+	files, err := filepath.Glob(filepath.Join(basePath, "*"+utils.GetPlatformExt()))
 	if err != nil {
-		logger.Errorf(nil, "failed to list plugin files: %v", err)
-		return err
+		return fmt.Errorf("failed to list plugin files: %v", err)
 	}
-	for _, fp := range pds {
-		if err := m.ReloadPlugin(strings.TrimSuffix(filepath.Base(fp), utils.GetPlatformExt())); err != nil {
-			return err
+
+	var reloaded []string
+	for _, filePath := range files {
+		pluginName := strings.TrimSuffix(filepath.Base(filePath), utils.GetPlatformExt())
+
+		if err := m.ReloadPlugin(pluginName); err != nil {
+			logger.Errorf(nil, "Failed to reload plugin %s: %v", pluginName, err)
+			continue
 		}
+
+		reloaded = append(reloaded, pluginName)
 	}
+
+	if len(reloaded) > 0 {
+		logger.Infof(nil, "Reloaded %d plugins: %v", len(reloaded), reloaded)
+	}
+
 	return nil
 }
 
 // initializePlugin initializes a single plugin
-func (m *Manager) initializePlugin(c *types.Wrapper) error {
-	if err := c.Instance.PreInit(); err != nil {
-		return fmt.Errorf("failed pre-initialization: %v", err)
+func (m *Manager) initializePlugin(pluginWrapper *types.Wrapper) error {
+	instance := pluginWrapper.Instance
+
+	if err := instance.PreInit(); err != nil {
+		return fmt.Errorf("pre-initialization failed: %v", err)
 	}
-	if err := c.Instance.Init(m.conf, m); err != nil {
-		return fmt.Errorf("failed initialization: %v", err)
+
+	if err := instance.Init(m.conf, m); err != nil {
+		return fmt.Errorf("initialization failed: %v", err)
 	}
-	if err := c.Instance.PostInit(); err != nil {
-		return fmt.Errorf("failed post-initialization: %v", err)
+
+	if err := instance.PostInit(); err != nil {
+		return fmt.Errorf("post-initialization failed: %v", err)
 	}
+
 	return nil
 }
 
-// shouldLoadPlugin returns true if the plugin should be loaded
+// shouldLoadPlugin checks if a plugin should be loaded based on configuration
 func (m *Manager) shouldLoadPlugin(name string) bool {
 	fc := m.conf.Extension
 
+	// If includes list is specified, only load plugins in the list
 	if len(fc.Includes) > 0 {
 		for _, include := range fc.Includes {
 			if include == name {
@@ -187,6 +238,7 @@ func (m *Manager) shouldLoadPlugin(name string) bool {
 		return false
 	}
 
+	// If excludes list is specified, skip plugins in the list
 	if len(fc.Excludes) > 0 {
 		for _, exclude := range fc.Excludes {
 			if exclude == name {
@@ -198,7 +250,7 @@ func (m *Manager) shouldLoadPlugin(name string) bool {
 	return true
 }
 
-// isIncludePluginMode returns true if the mode is "c2hlbgo"
-func isIncludePluginMode(conf *config.Config) bool {
-	return conf.Extension.Mode == "c2hlbgo"
+// isBuiltInMode checks if we're in built-in plugin mode
+func (m *Manager) isBuiltInMode() bool {
+	return m.conf.Extension.Mode == "c2hlbgo" // built-in mode
 }

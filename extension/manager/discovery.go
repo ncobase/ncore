@@ -48,10 +48,15 @@ func (m *Manager) GetHealthyServices(name string) ([]*api.ServiceEntry, error) {
 	return m.serviceDiscovery.GetHealthyServices(name)
 }
 
-// GetServiceCacheStats returns the service cache stats
+// GetServiceCacheStats returns comprehensive service cache statistics
 func (m *Manager) GetServiceCacheStats() map[string]any {
 	if m.serviceDiscovery == nil {
-		return map[string]any{}
+		return map[string]any{
+			"status": "not_initialized",
+		}
 	}
-	return m.serviceDiscovery.GetCacheStats()
+
+	stats := m.serviceDiscovery.GetCacheStats()
+	stats["status"] = "active"
+	return stats
 }

@@ -1,331 +1,317 @@
 # NCore Extension System
 
-> A flexible and robust extension system that provides dynamic loading, lifecycle management, dependency handling, and inter-module communication capabilities.
+A flexible and robust extension system that provides dynamic loading, lifecycle management, dependency handling, and inter-service communication capabilities.
 
-## Overview
+## Features
 
-The Extension System is designed to provide a plugin architecture that allows for:
+- **Dynamic Loading**: Load extensions from files or built-in registration
+- **Dependency Management**: Strong and weak dependency support with automatic resolution
+- **Service Discovery**: Consul-based service registration and discovery
+- **Event System**: Unified event handling with memory and message queue support
+- **gRPC Integration**: Optional gRPC service support for distributed communication
+- **Circuit Breaker**: Built-in fault tolerance for service calls
+- **Hot Reload**: Runtime plugin loading and unloading
+- **Cross-Service Calls**: Unified local and remote service calling interface
 
-- Dynamic loading/unloading of extensions
-- Automatic extension self-registration
-- Smart dependency management with support for weak dependencies
-- Service discovery and registration
-- Event-driven communication between extensions
-- Lifecycle management
-- Health monitoring and circuit breaking
+## Basic Usage
 
-## Architecture
-
-```plaintext
-├── discovery/          # Service discovery
-│   └── service.go      # Service discovery implementation
-├── event/              # Event
-│   └── event_bus.go    # Event bus implementation
-├── manager/            # Extension manager
-│   ├── discovery.go    # Service discovery methods
-│   ├── http.go         # HTTP routing
-│   ├── manager.go      # Main manager implementation
-│   ├── message.go      # Messaging functionality
-│   ├── plugin.go       # Plugin management
-│   └── utils.go        # Dependency resolution
-├── plugin/             # Plugin
-│   └── plugin.go       # Plugin loading/management
-├── registry/           # Extension registry
-│   └── registry.go     # Self-registration system
-├── types/               # Core interfaces and types
-│   ├── dependency.go   # Dependency type definitions
-│   ├── event.go        # Event data structures
-│   ├── extension.go    # Extension metadata
-│   ├── interface.go    # Interface definitions
-│   ├── optional_impl.go# Default implementation of optional methods
-│   ├── service.go      # Service information
-│   └── status.go       # Extension status constants
-└── README.md           # This file
-```
-
-## Core Components
-
-### 1. Core Interfaces and Types
-
-The `types` package defines the essential interfaces and types for the extension system:
-
-- `Interface`: The main extension interface
-- `OptionalMethods`: Optional methods extensions can implement
-- `ManagerInterface`: Manager functionality for extensions to use
-- `DependencyType`/`DependencyEntry`: Represents dependencies with their types (strong or weak)
-- `EventData`: Structure for passing event data
-- `ServiceInfo`: Information for service registration
-- `Metadata`: Extension metadata information
-
-### 2. Registry System
-
-The `registry` package provides a self-registration mechanism for extensions:
+### Create Extension
 
 ```go
-// In your extension's init() function
-func init() {
-  // Simple registration
-  registry.Register(New())
-  
-  // Or with group
-  registry.RegisterToGroup(New(), "core")
-  
-  // With weak dependencies
-  registry.RegisterWithWeakDeps(New(), []string{"optional-module"})
-  
-  // Or with both group and weak dependencies
-  registry.RegisterToGroupWithWeakDeps(New(), "core", []string{"optional-module"})
-}
-```
+package myext
 
-### 3. Dependency Management
-
-The system supports strong and weak dependencies:
-
-- **Strong dependencies**: Must be present and initialized before an extension
-- **Weak dependencies**: Optional, extension will function without them
-
-```go
-// Define strong dependencies
-func (e *MyExtension) Dependencies() []string {
-  return []string{"required-module"}
-}
-
-// Define all dependencies including weak ones
-func (e *MyExtension) GetAllDependencies() []ext.DependencyEntry {
-  return []ext.DependencyEntry{
-    {Name: "required-module", Type: ext.StrongDependency},
-    {Name: "optional-module", Type: ext.WeakDependency},
-  }
-}
-```
-
-### 4. Event System
-
-The `event` package provides unified event handling with automatic transport selection:
-
-```go
-// Event target options
-const (
-    EventTargetMemory // In-memory event bus
-    EventTargetQueue // Message queue (RabbitMQ/Kafka)
-    EventTargetAll   // All available targets
+import (
+    "github.com/ncobase/ncore/extension/registry"
+    "github.com/ncobase/ncore/extension/types"
 )
 
-// Subscribe to events (default: message queue if available, otherwise in-memory)
-manager.SubscribeEvent("user.created", func(data any) {
-  eventData := data.(types.EventData)
-  // Handle event
-})
-
-// Subscribe to specific sources
-manager.SubscribeEvent("user.created", handler, EventTargetMemory) // In-memory only
-manager.SubscribeEvent("user.created", handler, EventTargetQueue) // Message queue only
-
-// Publish events (default: message queue if available, otherwise in-memory)
-manager.PublishEvent("user.created", userData)
-
-// Publish to specific targets
-manager.PublishEvent("user.created", userData, EventTargetMemory) // In-memory only
-manager.PublishEvent("user.created", userData, EventTargetQueue) // Message queue only
-
-// Publish with retry
-manager.PublishEventWithRetry("important.event", eventData, 3)
-```
-
-### 5. Service Discovery
-
-The `discovery` package provides service discovery mechanisms using Consul.
-
-```go
-// Register a service
-info := &types.ServiceInfo{
-    Address: "localhost:8080",
-    Tags:    []string{"api", "v1"},
-    Meta:    map[string]string{"version": "1.0"},
+type MyExtension struct {
+    types.OptionalImpl
 }
-err := manager.RegisterConsulService("user-service", info)
 
-// Check service health
-status := manager.CheckServiceHealth("user-service")
+func init() {
+    registry.RegisterToGroupWithWeakDeps(New(), "core", []string{"user"})
+}
+
+func (m *MyExtension) Name() string { return "my-extension" }
+func (m *MyExtension) Version() string { return "1.0.0" }
+func (m *MyExtension) Dependencies() []string { return []string{} }
+
+func (m *MyExtension) Init(conf *config.Config, manager types.ManagerInterface) error {
+    // Initialize extension
+    return nil
+}
+
+func (m *MyExtension) GetMetadata() types.Metadata {
+    return types.Metadata{
+        Name: m.Name(), Version: m.Version(),
+        Description: "My extension", Type: "module", Group: "core",
+    }
+}
 ```
 
-### 6. Plugin Management
-
-The `plugin` package supports dynamic loading and unloading of plugins across platforms.
+### Use Manager
 
 ```go
-// Load all plugins
-err := manager.LoadPlugins()
+func main() {
+    mgr, err := manager.NewManager(config)
+    if err != nil { panic(err) }
+    defer mgr.Cleanup()
 
-// Load specific plugin
-err := manager.LoadPlugin("./plugins/my-plugin.so")
-
-// Reload plugin
-err := manager.ReloadPlugin("my-plugin")
-```
-
-### 7. Manager
-
-The `manager` package coordinates all extension functionality through a unified API.
-
-```go
-// Create a new manager
-manager, err := manager.NewManager(config)
-
-// Initialize extensions
-err := manager.InitExtensions()
-
-// Get an extension
-ext, err := manager.GetExtension("my-extension")
-
-// Get a service
-svc, err := manager.GetService("my-service")
+    if err := mgr.InitExtensions(); err != nil { panic(err) }
+    
+    ext, err := mgr.GetExtensionByName("my-extension")
+    // Use extension...
+}
 ```
 
 ## Extension Lifecycle
 
-An extension goes through the following phases:
+Extensions follow a structured initialization process:
 
-1. **Registration**: Auto-registered via `init()` or manually with `manager.Register()`
-2. **Pre-initialization**: `PreInit()` method
-3. **Initialization**: `Init(conf, manager)` method
-4. **Post-initialization**: `PostInit()` method
-5. **Cleanup**: `PreCleanup()` and `Cleanup()` methods
+1. **Registration** - Auto-registered via `init()` or manually with `manager.RegisterExtension()`
+2. **Dependency Resolution** - System calculates initialization order based on dependencies
+3. **Pre-initialization** - `PreInit()` method for early setup
+4. **Initialization** - `Init(config, manager)` method with full context
+5. **Post-initialization** - `PostInit()` method for cross-extension communication
+6. **Runtime** - Extension is active and serving requests
+7. **Cleanup** - `PreCleanup()` and `Cleanup()` methods for resource cleanup
 
-## HTTP API Endpoints
+## Dependency Management
 
-The manager provides RESTful APIs for extension management:
+### Dependency Types
 
-```plaintext
-GET  /exts              # List all extensions
-POST /exts/load         # Load an extension
-POST /exts/unload       # Unload an extension
-POST /exts/reload       # Reload an extension
-```
-
-## Circuit Breaking
-
-Built-in circuit breaker for fault tolerance:
+**Strong Dependencies** - Required and must be initialized first:
 
 ```go
-result, err := manager.ExecuteWithCircuitBreaker("service-name", func() (any, error) {
-  // Your code here
-  return result, nil
-})
-```
-
-## Best Practices
-
-### 1. Extension Development
-
-- Use self-registration through the registry system
-- Properly classify dependencies as strong or weak
-- Handle missing optional dependencies gracefully
-- Implement proper cleanup and resource management
-- Follow error handling patterns
-- Include proper logging and metrics
-
-### 2. Dependency Management
-
-- Keep strong dependencies minimal
-- Use weak dependencies for optional features
-- Design interfaces to break circular dependencies
-- Handle graceful degradation when dependencies are missing
-- Check for optional dependencies in your PostInit method
-
-```go
-// Example of graceful degradation with optional dependencies
-func (m *Module) PostInit() error {
-  // Required dependency
-  userService, err := m.em.GetService("user")
-  if err != nil {
-    return fmt.Errorf("failed to get user service: %v", err)
-  }
-  
-  // Optional dependency
-  var analyticsService interface{}
-  as, err := m.em.GetService("analytics")
-  if err == nil && as != nil {
-    analyticsService = as
-    logger.Info("Analytics service available")
-  } else {
-    logger.Info("Analytics service not available, some features will be limited")
-  }
-  
-  // Initialize with available services
-  m.initializeService(userService, analyticsService)
-  return nil
+func (m *MyExtension) Dependencies() []string {
+    return []string{"required-module"}
 }
 ```
 
-### 3. Service Discovery
+**Weak Dependencies** - Optional, graceful degradation when missing:
 
-- Always validate service info
-- Handle registration failures gracefully
-- Implement proper health checks
-- Use appropriate TTL values for caching
-- Monitor service health status
+```go
+func (m *MyExtension) GetAllDependencies() []types.DependencyEntry {
+    return []types.DependencyEntry{
+        {Name: "required-module", Type: types.StrongDependency},
+        {Name: "optional-module", Type: types.WeakDependency},
+    }
+}
+```
 
-### 4. Event Handling
+### Dependency Resolution
 
-- Use appropriate event targets based on requirements:
-  - Use default behavior for most cases (message queue if available, otherwise in-memory)
-  - Use `EventTargetQueue` for events that need to reach all system instances
-  - Use `EventTargetMemory` for high-performance, instance-specific events
-- Implement retry for important events
-- Keep event payloads serializable and concise
-- Use clear, descriptive event names with namespacing
+The system automatically:
 
-### 5. Resource Management
+- Detects and prevents circular dependencies
+- Calculates optimal initialization order
+- Handles missing weak dependencies gracefully
+- Provides detailed error messages for resolution failures
 
-- Implement PreCleanup and Cleanup
-- Close connections properly
-- Clear caches when needed
-- Handle timeouts appropriately
-- Release resources in error cases
+Extensions with weak dependencies should handle missing services:
+
+```go
+func (m *MyExtension) PostInit() error {
+    if userService, err := m.manager.GetServiceByName("user"); err == nil {
+        m.userService = userService
+    } else {
+        log.Warn("User service unavailable, limited functionality")
+    }
+    return nil
+}
+```
+
+## Service Communication
+
+### Service Calling Strategies
+
+```go
+// Default local-first strategy
+result, err := manager.CallService(ctx, "user-service", "GetUser", userID)
+
+// Explicit strategy
+result, err := manager.CallServiceWithOptions(ctx, "user-service", "GetUser", userID, 
+    &types.CallOptions{
+        Strategy: types.LocalFirst,  // LocalFirst, RemoteFirst, LocalOnly, RemoteOnly
+        Timeout:  30 * time.Second,
+    })
+```
+
+**Strategy Behavior**:
+
+- `LocalFirst`: Try local service, fallback to gRPC
+- `RemoteFirst`: Try gRPC service, fallback to local
+- `LocalOnly`: Local service only, fail if unavailable
+- `RemoteOnly`: gRPC service only, fail if unavailable
+
+### Cross-Service Access
+
+```go
+// Direct service access
+userService, err := manager.GetServiceByName("user")
+
+// Cross-service field access
+authService, err := manager.GetCrossService("auth", "TokenManager")
+```
+
+## Event System
+
+### Event Targets
+
+The event system supports multiple transport mechanisms:
+
+- `EventTargetMemory`: In-memory, single instance, high performance
+- `EventTargetQueue`: Message queue (RabbitMQ/Kafka), distributed, persistent
+- `EventTargetAll`: Both targets simultaneously
+
+### Event Operations
+
+```go
+// Subscribe (auto-selects best transport)
+manager.SubscribeEvent("user.created", func(data any) {
+    eventData := data.(types.EventData)
+    // Handle event
+})
+
+// Subscribe to specific transport
+manager.SubscribeEvent("user.created", handler, types.EventTargetMemory)
+
+// Publish (auto-selects best transport)
+manager.PublishEvent("user.created", userData)
+
+// Publish with retry for critical events
+manager.PublishEventWithRetry("payment.failed", paymentData, 3)
+```
+
+### Event Data Structure
+
+```go
+type EventData struct {
+    Time      time.Time `json:"time"`
+    Source    string    `json:"source"`
+    EventType string    `json:"event_type"`
+    Data      any       `json:"data"`
+}
+```
 
 ## Configuration
 
-Example configuration:
+```yaml
+extension:
+  path: "./plugins"          # Plugin directory
+  mode: "file"              # "file" or "c2hlbgo" (built-in)
+  includes: ["auth", "user"] # Include specific plugins
+  excludes: ["debug"]       # Exclude plugins
+
+consul:
+  address: "localhost:8500"  # Consul server
+  scheme: "http"
+  discovery:
+    health_check: true       # Enable health checks
+    check_interval: "10s"    # Health check interval
+    timeout: "3s"           # Health check timeout
+
+grpc:
+  enabled: true             # Enable gRPC support
+  host: "localhost"
+  port: 9090
+```
+
+## Advanced Features
+
+### gRPC Integration
+
+Extensions can provide gRPC services:
 
 ```go
-type Config struct {
-  Extension struct {
-    Path     string   // Plugin directory path
-    Mode     string   // Plugin mode
-    Includes []string // Included plugins
-    Excludes []string // Excluded plugins
-    HotReload bool    // Enable hot reloading
-  }
-  Consul *struct {
-    Address    string // Consul address
-    Scheme     string // HTTP/HTTPS
-    Discovery struct {
-      HealthCheck   bool
-      CheckInterval string
-      Timeout       string
-    }
-  }
+func (m *MyExtension) RegisterGRPCServices(server *grpc.Server) {
+    pb.RegisterMyServiceServer(server, m.grpcService)
 }
 ```
 
-## Monitoring
+### Service Discovery
 
-### Metrics Available
-
-- Event processing stats
-- Service health status
-- Cache hit rates
-- Circuit breaker states
-- Plugin loading status
-
-Example:
+Extensions can register with service discovery:
 
 ```go
-// Get event metrics
-eventMetrics := manager.GetEventBusMetrics()
+func (m *MyExtension) NeedServiceDiscovery() bool { return true }
 
-// Get cache stats
-cacheStats := manager.GetServiceCacheStats()
+func (m *MyExtension) GetServiceInfo() *types.ServiceInfo {
+    return &types.ServiceInfo{
+        Address: "localhost:8080",
+        Tags:    []string{"api", "v1"},
+        Meta:    map[string]string{"version": "1.0"},
+    }
+}
 ```
+
+### Circuit Breaker
+
+Protect against service failures:
+
+```go
+result, err := manager.ExecuteWithCircuitBreaker("external-service", func() (any, error) {
+    return callExternalAPI()
+})
+```
+
+### Plugin Loading Modes
+
+**File Mode**: Load plugins from filesystem
+
+- Supports `.so` files on Linux, `.dll` on Windows
+- Hot reload capability
+- Include/exclude filtering
+
+**Built-in Mode**: Use statically compiled extensions
+
+- Better performance and security
+- No filesystem dependencies
+- Compile-time dependency resolution
+
+## Management API
+
+REST endpoints for runtime management:
+
+- `GET /exts` - List all extensions with metadata
+- `GET /exts/status` - Get extension status and health
+- `POST /exts/load?name=plugin` - Load specific plugin
+- `POST /exts/unload?name=plugin` - Unload plugin
+- `POST /exts/reload?name=plugin` - Reload plugin
+- `GET /exts/metrics` - System metrics and performance data
+
+## Performance Considerations
+
+- **Service Discovery**: Use appropriate cache TTL (default 30s)
+- **Event Transport**: Choose memory for high-frequency, queue for reliability
+- **Circuit Breaker**: Monitor failure rates and adjust thresholds
+- **Plugin Loading**: Prefer built-in mode for production environments
+
+## Troubleshooting
+
+### Common Issues
+
+**Circular Dependencies**
+
+```
+Error: cyclic dependency detected in extensions: [module-a, module-b]
+```
+
+*Solution*: Convert one dependency to weak dependency type
+
+**Service Not Found**
+
+```
+Error: extension 'user-service' not found
+```  
+
+*Solution*: Check extension registration and initialization order
+
+**gRPC Connection Failed**
+
+```
+Error: failed to get gRPC connection for service-name  
+```
+
+*Solution*: Verify service discovery configuration and network connectivity

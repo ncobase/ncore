@@ -1,6 +1,7 @@
 package types
 
 import (
+	"context"
 	"reflect"
 	"time"
 
@@ -12,67 +13,183 @@ import (
 // Handler represents the handler for an extension
 type Handler any
 
-// HandlerImpl represents the default implementation of the Handler interface
-type HandlerImpl struct{}
-
 // Service represents the service for an extension
 type Service any
 
-// ServiceImpl represents the default implementation of the Service interface
-type ServiceImpl struct{}
-
-// Interface defines the structure for an extension (Plugin / Module)
+// Interface defines the core structure for an extension
 type Interface interface {
-	// Name returns the name of the extension
+	// Core methods
+
 	Name() string
-	// Init initializes the extension with the given config
-	Init(conf *config.Config, m ManagerInterface) error
-	// GetHandlers returns the handlers for the extension
-	GetHandlers() Handler
-	// GetServices returns the services for the extension
-	GetServices() Service
-	// GetMetadata returns the metadata of the extension
-	GetMetadata() Metadata
-	// Version returns the version of the extension
 	Version() string
-	// Dependencies returns the strong dependencies of the extension
+	Init(conf *config.Config, m ManagerInterface) error
+	GetMetadata() Metadata
+
+	// Resource methods
+
+	GetHandlers() Handler
+	GetServices() Service
+
+	// Dependency methods
+
 	Dependencies() []string
-	// OptionalMethods returns the optional methods of the extension
+
+	// Optional methods interface
+
 	OptionalMethods
 }
 
-// OptionalMethods represents the optional methods for an extension
+// OptionalMethods represents optional methods for an extension
 type OptionalMethods interface {
-	// GetAllDependencies returns all dependencies with their types (Optional)
-	GetAllDependencies() []DependencyEntry
-	// PreInit performs any necessary setup before initialization
+	// Lifecycle methods
+
 	PreInit() error
-	// PostInit performs any necessary setup after initialization
 	PostInit() error
-	// RegisterRoutes registers routes for the extension (optional)
-	RegisterRoutes(router *gin.RouterGroup)
-	// GetPublisher returns an event publisher interface if the module supports publishing events
-	GetPublisher() any
-	// GetSubscriber returns an event subscriber interface if the module supports subscribing to events
-	GetSubscriber() any
-	// PreCleanup performs any necessary cleanup before the main cleanup
 	PreCleanup() error
-	// Cleanup cleans up the extension
 	Cleanup() error
-	// Status returns the status of the extension
+
+	// Status and health
+
 	Status() string
-	// NeedServiceDiscovery returns if the extension needs to be registered as a service
+
+	// Dependency management
+
+	GetAllDependencies() []DependencyEntry
+
+	// Service discovery
+
 	NeedServiceDiscovery() bool
-	// GetServiceInfo returns service registration info if NeedServiceDiscovery returns true
 	GetServiceInfo() *ServiceInfo
+
+	// Event handling
+
+	GetPublisher() any
+	GetSubscriber() any
+
+	// HTTP routing
+
+	RegisterRoutes(router *gin.RouterGroup)
 }
 
 // Wrapper wraps an Interface instance with its metadata
 type Wrapper struct {
-	// Metadata is the metadata of the extension
-	Metadata Metadata `json:"metadata"`
-	// Instance is the instance of the extension
+	Metadata Metadata  `json:"metadata"`
 	Instance Interface `json:"instance,omitempty"`
+}
+
+// CallStrategy defines service calling strategy
+type CallStrategy int
+
+const (
+	LocalFirst  CallStrategy = iota // Try local first, fallback to remote
+	RemoteFirst                     // Try remote first, fallback to local
+	LocalOnly                       // Local only
+	RemoteOnly                      // Remote only
+)
+
+// CallOptions defines options for service calls
+type CallOptions struct {
+	Strategy CallStrategy
+	Timeout  time.Duration
+}
+
+// CallResult represents service call result
+type CallResult struct {
+	Response any
+	Error    error
+	IsLocal  bool
+	IsRemote bool
+	Duration time.Duration
+}
+
+// ManagerInterface defines the interface for extension manager operations
+type ManagerInterface interface {
+	// Configuration
+
+	GetConfig() *config.Config
+
+	// Extension management
+
+	InitExtensions() error
+	RegisterExtension(ext Interface) error
+	GetExtensionByName(name string) (Interface, error)
+	ListExtensions() map[string]*Wrapper
+
+	// Handler and Service access
+
+	GetHandlerByName(name string) (Handler, error)
+	ListHandlers() map[string]Handler
+	GetServiceByName(name string) (Service, error)
+	ListServices() map[string]Service
+
+	// Cross-service methods
+
+	GetCrossService(extensionName, servicePath string) (any, error)
+	RegisterCrossService(key string, service any)
+
+	// Service calling methods
+
+	CallService(ctx context.Context, serviceName, methodName string, req any) (*CallResult, error)
+	CallServiceWithOptions(ctx context.Context, serviceName, methodName string, req any, opts *CallOptions) (*CallResult, error)
+
+	// Plugin management
+
+	LoadPlugins() error
+	LoadPlugin(path string) error
+	ReloadPlugin(name string) error
+	UnloadPlugin(name string) error
+
+	// Event handling
+
+	GetExtensionPublisher(name string, publisherType reflect.Type) (any, error)
+	GetExtensionSubscriber(name string, subscriberType reflect.Type) (any, error)
+	PublishEvent(eventName string, data any, target ...EventTarget)
+	PublishEventWithRetry(eventName string, data any, maxRetries int, target ...EventTarget)
+	SubscribeEvent(eventName string, handler func(any), source ...EventTarget)
+
+	// Service discovery
+
+	RegisterConsulService(name string, info *ServiceInfo) error
+	DeregisterConsulService(name string) error
+	GetConsulService(name string) (*api.AgentService, error)
+	CheckServiceHealth(name string) string
+	GetHealthyServices(name string) ([]*api.ServiceEntry, error)
+	GetServiceCacheStats() map[string]any
+
+	// HTTP routing
+
+	RegisterRoutes(router *gin.Engine)
+	ManageRoutes(router *gin.RouterGroup)
+
+	// Circuit breaker
+
+	ExecuteWithCircuitBreaker(extensionName string, fn func() (any, error)) (any, error)
+
+	// Message queue
+
+	PublishMessage(exchange, routingKey string, body []byte) error
+	SubscribeToMessages(queue string, handler func([]byte) error) error
+
+	// Metrics and status
+
+	GetMetadata() map[string]Metadata
+	GetStatus() map[string]string
+	GetEventsMetrics() map[string]any
+
+	// Cleanup
+
+	Cleanup()
+
+	// Backward compatibility - deprecated methods
+
+	Register(ext Interface) error                     // deprecated: use RegisterExtension
+	GetExtension(name string) (Interface, error)      // deprecated: use GetExtensionByName
+	GetExtensions() map[string]*Wrapper               // deprecated: use ListExtensions
+	GetHandler(name string) (Handler, error)          // deprecated: use GetHandlerByName
+	GetHandlers() map[string]Handler                  // deprecated: use ListHandlers
+	GetService(extensionName string) (Service, error) // deprecated: use GetServiceByName
+	GetServices() map[string]Service                  // deprecated: use ListServices
+	RefreshCrossServices()                            // deprecated: automatic refresh
 }
 
 // PluginLoaderInterface defines the interface for plugin loading/unloading
@@ -113,71 +230,3 @@ const (
 	EventTargetQueue                                                     // Message queue (RabbitMQ/Kafka)
 	EventTargetAll    = EventTargetMemory | EventTargetQueue             // All available targets
 )
-
-// ManagerInterface defines the interface for extension manager operations
-type ManagerInterface interface {
-	GetConfig() *config.Config
-	Register(ext Interface) error
-	InitExtensions() error
-	GetExtension(name string) (Interface, error)
-	GetExtensions() map[string]*Wrapper
-	Cleanup()
-
-	// Handler & Service access
-
-	GetHandler(name string) (Handler, error)
-	GetHandlers() map[string]Handler
-	GetService(name string) (Service, error)
-	GetServices() map[string]Service
-	GetMetadata() map[string]Metadata
-	GetStatus() map[string]string
-
-	// Cross service methods
-
-	GetCrossService(extensionName, servicePath string) (any, error)
-	RegisterCrossService(key string, service any)
-	RefreshCrossServices()
-
-	// Plugin management
-
-	LoadPlugins() error
-	LoadPlugin(path string) error
-	ReloadPlugin(name string) error
-	UnloadPlugin(name string) error
-	ReloadPlugins() error
-
-	// Events
-
-	GetExtensionPublisher(name string, publisherType reflect.Type) (any, error)
-	GetExtensionSubscriber(name string, subscriberType reflect.Type) (any, error)
-	PublishEvent(eventName string, data any, target ...EventTarget)
-	PublishEventWithRetry(eventName string, data any, maxRetries int, target ...EventTarget)
-	SubscribeEvent(eventName string, handler func(any), source ...EventTarget)
-
-	// Service discovery
-
-	RegisterConsulService(name string, info *ServiceInfo) error
-	DeregisterConsulService(name string) error
-	GetConsulService(name string) (*api.AgentService, error)
-	CheckServiceHealth(name string) string
-	GetHealthyServices(name string) ([]*api.ServiceEntry, error)
-	GetServiceCacheStats() map[string]any
-
-	// HTTP
-
-	RegisterRoutes(router *gin.Engine)
-	ManageRoutes(router *gin.RouterGroup)
-
-	// Circuit breaker
-
-	ExecuteWithCircuitBreaker(extensionName string, fn func() (any, error)) (any, error)
-
-	// Message queue
-
-	PublishMessage(exchange, routingKey string, body []byte) error
-	SubscribeToMessages(queue string, handler func([]byte) error) error
-
-	// Metrics
-
-	GetEventBusMetrics() map[string]any
-}
