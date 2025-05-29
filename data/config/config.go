@@ -6,16 +6,16 @@ import (
 
 // Config data config struct
 type Config struct {
-	Environment string `json:"environment"`
-	*Database
-	*Redis
-	*Meilisearch
-	*Elasticsearch
-	*OpenSearch
-	*MongoDB
-	*Neo4j
-	*RabbitMQ
-	*Kafka
+	Environment    string `yaml:"environment" json:"environment"`
+	*Database      `yaml:"database" json:"database"`
+	*Redis         `yaml:"redis" json:"redis"`
+	*Meilisearch   `yaml:"meilisearch" json:"meilisearch"`
+	*Elasticsearch `yaml:"elasticsearch" json:"elasticsearch"`
+	*OpenSearch    `yaml:"opensearch" json:"opensearch"`
+	*MongoDB       `yaml:"mongodb" json:"mongodb"`
+	*Neo4j         `yaml:"neo4j" json:"neo4j"`
+	*RabbitMQ      `yaml:"rabbitmq" json:"rabbitmq"`
+	*Kafka         `yaml:"kafka" json:"kafka"`
 }
 
 // GetConfig returns data config

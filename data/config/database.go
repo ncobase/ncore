@@ -9,22 +9,22 @@ import (
 
 // Database database config struct
 type Database struct {
-	Master   *DBNode   `json:"master"`
-	Slaves   []*DBNode `json:"slaves"`
-	Migrate  bool      `json:"migrate"`
-	Strategy string    `json:"strategy"`
-	MaxRetry int       `json:"max_retry"`
+	Master   *DBNode   `json:"master" yaml:"master"`
+	Slaves   []*DBNode `json:"slaves" yaml:"slaves"`
+	Migrate  bool      `json:"migrate" yaml:"migrate"`
+	Strategy string    `json:"strategy" yaml:"strategy"`
+	MaxRetry int       `json:"max_retry" yaml:"max_retry"`
 }
 
 // DBNode represents a single database node configuration
 type DBNode struct {
-	Driver          string        `json:"driver"`
-	Source          string        `json:"source"`
-	Logging         bool          `json:"logging"`
-	MaxIdleConn     int           `json:"max_idle_conn"`
-	MaxOpenConn     int           `json:"max_open_conn"`
-	ConnMaxLifeTime time.Duration `json:"conn_max_life_time"`
-	Weight          int           `json:"weight"`
+	Driver          string        `json:"driver" yaml:"driver"`
+	Source          string        `json:"source" yaml:"source"`
+	Logging         bool          `json:"logging" yaml:"logging"`
+	MaxIdleConn     int           `json:"max_idle_conn" yaml:"max_idle_conn"`
+	MaxOpenConn     int           `json:"max_open_conn" yaml:"max_open_conn"`
+	ConnMaxLifeTime time.Duration `json:"conn_max_life_time" yaml:"conn_max_life_time"`
+	Weight          int           `json:"weight" yaml:"weight"`
 }
 
 // getDatabaseConfig reads database configurations

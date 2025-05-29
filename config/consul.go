@@ -4,15 +4,15 @@ import "github.com/spf13/viper"
 
 // Consul config struct
 type Consul struct {
-	Address   string `json:"address"`
-	Scheme    string `json:"scheme"`
+	Address   string `yaml:"address" json:"address"`
+	Scheme    string `yaml:"scheme" json:"scheme"`
 	Discovery struct {
-		DefaultTags   []string          `json:"default_tags"`
-		DefaultMeta   map[string]string `json:"default_meta"`
-		HealthCheck   bool              `json:"health_check"`
-		CheckInterval string            `json:"check_interval"`
-		Timeout       string            `json:"timeout"`
-	} `json:"discovery"`
+		DefaultTags   []string          `yaml:"default_tags" json:"default_tags"`
+		DefaultMeta   map[string]string `yaml:"default_meta" json:"default_meta"`
+		HealthCheck   bool              `yaml:"health_check" json:"health_check"`
+		CheckInterval string            `yaml:"check_interval" json:"check_interval"`
+		Timeout       string            `yaml:"timeout" json:"timeout"`
+	} `yaml:"discovery" json:"discovery"`
 }
 
 // getConsulConfig get consul config

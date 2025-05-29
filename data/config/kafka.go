@@ -8,13 +8,13 @@ import (
 
 // Kafka kafka config struct
 type Kafka struct {
-	Brokers        []string
-	ClientID       string
-	ConsumerGroup  string
-	Topic          string
-	ReadTimeout    time.Duration
-	WriteTimeout   time.Duration
-	ConnectTimeout time.Duration
+	Brokers        []string      `json:"brokers" yaml:"brokers"`
+	ClientID       string        `json:"client_id" yaml:"client_id"`
+	ConsumerGroup  string        `json:"consumer_group" yaml:"consumer_group"`
+	Topic          string        `json:"topic" yaml:"topic"`
+	ReadTimeout    time.Duration `json:"read_timeout" yaml:"read_timeout"`
+	WriteTimeout   time.Duration `json:"write_timeout" yaml:"write_timeout"`
+	ConnectTimeout time.Duration `json:"connect_timeout" yaml:"connect_timeout"`
 }
 
 // getKafkaConfigs reads Kafka configurations

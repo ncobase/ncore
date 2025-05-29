@@ -8,17 +8,17 @@ import (
 
 // MongoDB mongodb config struct
 type MongoDB struct {
-	Master   *MongoNode   `json:"master"`
-	Slaves   []*MongoNode `json:"slaves"`
-	Strategy string       `json:"strategy"`
-	MaxRetry int          `json:"max_retry"`
+	Master   *MongoNode   `json:"master" yaml:"master"`
+	Slaves   []*MongoNode `json:"slaves" yaml:"slaves"`
+	Strategy string       `json:"strategy" yaml:"strategy"`
+	MaxRetry int          `json:"max_retry" yaml:"max_retry"`
 }
 
 // MongoNode mongodb node config
 type MongoNode struct {
-	URI     string `json:"uri"`
-	Logging bool   `json:"logging"`
-	Weight  int    `json:"weight"`
+	URI     string `json:"uri" yaml:"uri"`
+	Logging bool   `json:"logging" yaml:"logging"`
+	Weight  int    `json:"weight" yaml:"weight"`
 }
 
 // getMongoDBConfigs reads MongoDB configurations

@@ -22,23 +22,24 @@ var (
 
 // Config represents the configuration implementation.
 type Config struct {
-	AppName   string
-	RunMode   string
-	Protocol  string
-	Domain    string
-	Host      string
-	Port      int
-	Consul    *Consul
-	Observes  *Observes
-	Extension *Extension
-	Frontend  *Frontend
-	Logger    *Logger
-	Data      *Data
-	Auth      *Auth
-	Storage   *Storage
-	OAuth     *OAuth
-	Email     *Email
-	Viper     *viper.Viper
+	AppName   string       `yaml:"app_name" json:"app_name"`
+	RunMode   string       `yaml:"run_mode" json:"run_mode"`
+	Protocol  string       `yaml:"protocol" json:"protocol"`
+	Domain    string       `yaml:"domain" json:"domain"`
+	Host      string       `yaml:"host" json:"host"`
+	Port      int          `yaml:"port" json:"port"`
+	GRPC      *GRPC        `yaml:"grpc" json:"grpc"`
+	Consul    *Consul      `yaml:"consul" json:"consul"`
+	Observes  *Observes    `yaml:"observes" json:"observes"`
+	Extension *Extension   `yaml:"extension" json:"extension"`
+	Frontend  *Frontend    `yaml:"frontend" json:"frontend"`
+	Logger    *Logger      `yaml:"logger" json:"logger"`
+	Data      *Data        `yaml:"data" json:"data"`
+	Auth      *Auth        `yaml:"auth" json:"auth"`
+	Storage   *Storage     `yaml:"storage" json:"storage"`
+	OAuth     *OAuth       `yaml:"oauth" json:"oauth"`
+	Email     *Email       `yaml:"email" json:"email"`
+	Viper     *viper.Viper `yaml:"-" json:"-"`
 }
 
 func init() {
@@ -110,6 +111,7 @@ func LoadConfig(configPath string) (*Config, error) {
 		Domain:    v.GetString("server.domain"),
 		Host:      v.GetString("server.host"),
 		Port:      v.GetInt("server.port"),
+		GRPC:      getGRPCConfig(v),
 		Consul:    getConsulConfig(v),
 		Observes:  getObservesConfig(v),
 		Extension: getExtensionConfig(v),

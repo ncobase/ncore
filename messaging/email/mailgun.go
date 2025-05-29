@@ -21,13 +21,13 @@ type MailgunSender struct {
 	Config *MailgunConfig
 }
 
-func (s *MailgunSender) SendTemplateEmail(recipientEmail string, template EmailTemplate) (string, error) {
+func (s *MailgunSender) SendTemplateEmail(recipientEmail string, template Template) (string, error) {
 	mg := mailgun.NewMailgun(s.Config.Domain, s.Config.Key)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	message := mg.NewMessage(s.Config.From, template.Subject, "")
+	message := mailgun.NewMessage(s.Config.From, template.Subject, "")
 	message.SetTemplate(template.Template)
 	_ = message.AddRecipient(recipientEmail)
 	message.AddVariable("keyword", template.Keyword)

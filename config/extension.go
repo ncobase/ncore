@@ -4,11 +4,11 @@ import "github.com/spf13/viper"
 
 // Extension extension config struct
 type Extension struct {
-	Mode      string
-	Path      string
-	Includes  []string
-	Excludes  []string
-	HotReload bool
+	Mode      string   `json:"mode" yaml:"mode"`
+	Path      string   `json:"path" yaml:"path"`
+	Includes  []string `json:"includes" yaml:"includes"`
+	Excludes  []string `json:"excludes" yaml:"excludes"`
+	HotReload bool     `json:"hot_reload" yaml:"hot_reload"`
 }
 
 // getExtensionConfig returns the extension config

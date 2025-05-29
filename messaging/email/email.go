@@ -6,17 +6,17 @@ import (
 
 // Email holds the configuration for all email providers
 type Email struct {
-	Provider     string
-	Mailgun      *MailgunConfig
-	Aliyun       *AliyunConfig
-	NetEase      *NetEaseConfig
-	SendGrid     *SendGridConfig
-	SMTP         *SMTPConfig
-	TencentCloud *TencentCloudConfig
+	Provider     string              `json:"provider" yaml:"provider"`
+	Mailgun      *MailgunConfig      `json:"mailgun" yaml:"mailgun"`
+	Aliyun       *AliyunConfig       `json:"aliyun" yaml:"aliyun"`
+	NetEase      *NetEaseConfig      `json:"netease" yaml:"netease"`
+	SendGrid     *SendGridConfig     `json:"sendgrid" yaml:"sendgrid"`
+	SMTP         *SMTPConfig         `json:"smtp" yaml:"smtp"`
+	TencentCloud *TencentCloudConfig `json:"tencent_cloud" yaml:"tencent_cloud"`
 }
 
-// EmailTemplate represents the email template
-type EmailTemplate struct {
+// Template represents the email template
+type Template struct {
 	Subject  string `json:"subject"`
 	Template string `json:"template"`
 	Keyword  string `json:"keyword"`
@@ -29,7 +29,7 @@ type Config any
 
 // Sender is a generic interface for sending emails
 type Sender interface {
-	SendTemplateEmail(recipientEmail string, template EmailTemplate) (string, error)
+	SendTemplateEmail(recipientEmail string, template Template) (string, error)
 }
 
 // validateEmailConfig validates the common email configuration

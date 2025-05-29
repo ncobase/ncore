@@ -4,9 +4,9 @@ import "github.com/spf13/viper"
 
 // Elasticsearch elasticsearch config struct
 type Elasticsearch struct {
-	Addresses []string `json:"addresses"`
-	Username  string   `json:"username"`
-	Password  string   `json:"password"`
+	Addresses []string `json:"addresses" yaml:"addresses"`
+	Username  string   `json:"username" yaml:"username"`
+	Password  string   `json:"password" yaml:"password"`
 }
 
 // getElasticsearchConfigs reads Elasticsearch configurations

@@ -8,12 +8,12 @@ import (
 
 // RabbitMQ rabbitmq config struct
 type RabbitMQ struct {
-	URL               string
-	Username          string
-	Password          string
-	Vhost             string
-	ConnectionTimeout time.Duration
-	HeartbeatInterval time.Duration
+	URL               string        `json:"url" yaml:"url"`
+	Username          string        `json:"username" yaml:"username"`
+	Password          string        `json:"password" yaml:"password"`
+	Vhost             string        `json:"vhost" yaml:"vhost"`
+	ConnectionTimeout time.Duration `json:"connection_timeout" yaml:"connection_timeout"`
+	HeartbeatInterval time.Duration `json:"heartbeat_interval" yaml:"heartbeat_interval"`
 }
 
 // getRabbitMQConfigs reads RabbitMQ configurations

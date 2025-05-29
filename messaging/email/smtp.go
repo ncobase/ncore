@@ -21,7 +21,7 @@ type LocalSMTPSender struct {
 	Config *SMTPConfig
 }
 
-func (s *LocalSMTPSender) SendTemplateEmail(recipientEmail string, template EmailTemplate) (string, error) {
+func (s *LocalSMTPSender) SendTemplateEmail(recipientEmail string, template Template) (string, error) {
 	auth := smtp.PlainAuth("", s.Config.Username, s.Config.Password, s.Config.SMTPHost)
 	to := []string{recipientEmail}
 	msg := []byte(fmt.Sprintf("To: %s\r\nSubject: %s\r\n\r\n%s", recipientEmail, template.Subject, fmt.Sprintf("Keyword: %s\nURL: %s", template.Keyword, template.URL)))

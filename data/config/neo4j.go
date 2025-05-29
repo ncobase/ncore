@@ -4,9 +4,9 @@ import "github.com/spf13/viper"
 
 // Neo4j neo4j config struct
 type Neo4j struct {
-	URI      string
-	Username string
-	Password string
+	URI      string `json:"uri" yaml:"uri"`
+	Username string `json:"username" yaml:"username"`
+	Password string `json:"password" yaml:"password"`
 }
 
 // getNeo4jConfigs reads Neo4j configurations

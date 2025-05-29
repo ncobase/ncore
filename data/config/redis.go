@@ -8,13 +8,13 @@ import (
 
 // Redis redis config struct
 type Redis struct {
-	Addr         string
-	Username     string
-	Password     string
-	Db           int
-	ReadTimeout  time.Duration
-	WriteTimeout time.Duration
-	DialTimeout  time.Duration
+	Addr         string        `json:"addr" yaml:"addr"`
+	Username     string        `json:"username" yaml:"username"`
+	Password     string        `json:"password" yaml:"password"`
+	Db           int           `json:"db" yaml:"db"`
+	ReadTimeout  time.Duration `json:"read_timeout" yaml:"read_timeout"`
+	WriteTimeout time.Duration `json:"write_timeout" yaml:"write_timeout"`
+	DialTimeout  time.Duration `json:"dial_timeout" yaml:"dial_timeout"`
 }
 
 // getRedisConfigs reads Redis configurations

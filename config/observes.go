@@ -4,7 +4,7 @@ import "github.com/spf13/viper"
 
 // Sentry config struct
 type Sentry struct {
-	Endpoint string
+	Endpoint string `json:"endpoint" yaml:"endpoint"`
 }
 
 // getSentryConfig get sentry config

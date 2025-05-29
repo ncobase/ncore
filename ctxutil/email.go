@@ -52,7 +52,7 @@ func GetEmailSender(ctx context.Context) (email.Sender, error) {
 }
 
 // SendEmailWithTemplate sends an email with a template
-func SendEmailWithTemplate(ctx context.Context, recipientEmail string, template email.EmailTemplate) (string, error) {
+func SendEmailWithTemplate(ctx context.Context, recipientEmail string, template email.Template) (string, error) {
 	sender, err := GetEmailSender(ctx)
 	if err != nil {
 		return "", err

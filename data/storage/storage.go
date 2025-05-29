@@ -9,12 +9,12 @@ import (
 
 // Config config
 type Config struct {
-	Provider string
-	ID       string
-	Secret   string
-	Region   string
-	Bucket   string
-	Endpoint string
+	Provider string `json:"provider" yaml:"provider"`
+	ID       string `json:"id" yaml:"id"`
+	Secret   string `json:"secret" yaml:"secret"`
+	Region   string `json:"region" yaml:"region"`
+	Bucket   string `json:"bucket" yaml:"bucket"`
+	Endpoint string `json:"endpoint" yaml:"endpoint"`
 }
 
 // NewStorage new storage
