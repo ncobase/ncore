@@ -99,7 +99,7 @@ func extractFromData(data any) (*map[string]any, error) {
 	return &result, nil
 }
 
-// SafeGet safely extracts a value from a payload with type assertion
+// SafeGet safely extracts a value from a payload
 // Usage: value := SafeGet[string](payload, "key")
 // Returns zero value of T if key doesn't exist or value can't be converted to T
 func SafeGet[T any](payload *map[string]any, key string) T {

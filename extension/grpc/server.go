@@ -14,7 +14,7 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-// Server wraps gRPC server with extension support
+// Server wraps gRPC server
 type Server struct {
 	server   *grpc.Server
 	listener net.Listener

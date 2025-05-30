@@ -158,7 +158,7 @@ func NewServiceDiscovery(config *ConsulConfig) (*ServiceDiscovery, error) {
 	}, nil
 }
 
-// RegisterService registers a service with Consul
+// RegisterService registers a service
 func (sd *ServiceDiscovery) RegisterService(name string, info *types.ServiceInfo) error {
 	if sd.consul == nil {
 		return nil

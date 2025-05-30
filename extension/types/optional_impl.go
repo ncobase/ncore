@@ -53,7 +53,7 @@ func (o *OptionalImpl) GetServiceInfo() *ServiceInfo {
 	return nil
 }
 
-// GetAllDependencies returns all dependencies with their types
+// GetAllDependencies returns all dependencies
 func (o *OptionalImpl) GetAllDependencies() []DependencyEntry {
 	return []DependencyEntry{}
 }

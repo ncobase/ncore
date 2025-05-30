@@ -3,12 +3,11 @@ package manager
 import (
 	"fmt"
 
-	"github.com/ncobase/ncore/extension/types"
-
 	"github.com/hashicorp/consul/api"
+	"github.com/ncobase/ncore/extension/types"
 )
 
-// RegisterConsulService registers a service with Consul
+// RegisterConsulService registers a service
 func (m *Manager) RegisterConsulService(name string, info *types.ServiceInfo) error {
 	if m.serviceDiscovery == nil {
 		return nil
@@ -48,7 +47,7 @@ func (m *Manager) GetHealthyServices(name string) ([]*api.ServiceEntry, error) {
 	return m.serviceDiscovery.GetHealthyServices(name)
 }
 
-// GetServiceCacheStats returns comprehensive service cache statistics
+// GetServiceCacheStats returns service cache statistics
 func (m *Manager) GetServiceCacheStats() map[string]any {
 	if m.serviceDiscovery == nil {
 		return map[string]any{

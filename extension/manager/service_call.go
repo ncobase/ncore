@@ -10,6 +10,7 @@ import (
 
 	"github.com/ncobase/ncore/extension/types"
 	"github.com/ncobase/ncore/logging/logger"
+	"github.com/sony/gobreaker"
 )
 
 // DefaultCallOptions returns default call options
@@ -25,7 +26,7 @@ func (m *Manager) CallService(ctx context.Context, serviceName, methodName strin
 	return m.CallServiceWithOptions(ctx, serviceName, methodName, req, DefaultCallOptions())
 }
 
-// CallServiceWithOptions calls service with specific options
+// CallServiceWithOptions calls service
 func (m *Manager) CallServiceWithOptions(ctx context.Context, serviceName, methodName string, req any, opts *types.CallOptions) (*types.CallResult, error) {
 	if opts == nil {
 		opts = DefaultCallOptions()
@@ -39,19 +40,27 @@ func (m *Manager) CallServiceWithOptions(ctx context.Context, serviceName, metho
 	}
 
 	start := time.Now()
+	var result *types.CallResult
+	var err error
 
 	switch opts.Strategy {
 	case types.LocalFirst:
-		return m.callLocalFirst(ctx, serviceName, methodName, req, start)
+		result, err = m.callLocalFirst(ctx, serviceName, methodName, req, start)
 	case types.RemoteFirst:
-		return m.callRemoteFirst(ctx, serviceName, methodName, req, start)
+		result, err = m.callRemoteFirst(ctx, serviceName, methodName, req, start)
 	case types.LocalOnly:
-		return m.callLocalOnly(ctx, serviceName, methodName, req, start)
+		result, err = m.callLocalOnly(ctx, serviceName, methodName, req, start)
 	case types.RemoteOnly:
-		return m.callRemoteOnly(ctx, serviceName, methodName, req, start)
+		result, err = m.callRemoteOnly(ctx, serviceName, methodName, req, start)
 	default:
-		return m.callLocalFirst(ctx, serviceName, methodName, req, start)
+		result, err = m.callLocalFirst(ctx, serviceName, methodName, req, start)
 	}
+
+	// Track service call metrics
+	duration := time.Since(start)
+	m.trackServiceCall(serviceName, methodName, duration, err)
+
+	return result, err
 }
 
 // callLocalFirst attempts local first, fallback to gRPC
@@ -164,7 +173,6 @@ func (m *Manager) callRemote(ctx context.Context, serviceName, methodName string
 	logger.Debugf(ctx, "gRPC call: %s.%s", serviceName, methodName)
 
 	// In a real implementation, this would make actual gRPC call
-	// For now, return a placeholder response
 	return map[string]any{
 		"service": serviceName,
 		"method":  methodName,
@@ -294,72 +302,6 @@ func (m *Manager) RegisterCrossService(key string, service any) {
 	logger.Debugf(nil, "Cross service registered: %s", key)
 }
 
-// refreshCrossServices clears and re-registers all services
-func (m *Manager) refreshCrossServices() {
-	m.mu.Lock()
-	m.crossServices = make(map[string]any)
-	m.mu.Unlock()
-
-	// Re-register all extension services
-	for name := range m.extensions {
-		m.autoRegisterExtensionServices(name)
-	}
-}
-
-// autoRegisterExtensionServices auto-registers services from an extension
-func (m *Manager) autoRegisterExtensionServices(extensionName string) {
-	extensionService, err := m.GetServiceByName(extensionName)
-	if err != nil {
-		return
-	}
-
-	if extensionService == nil {
-		return
-	}
-
-	m.discoverAndRegisterServices(extensionName, extensionService)
-}
-
-// discoverAndRegisterServices uses reflection to find and register service fields
-func (m *Manager) discoverAndRegisterServices(extensionName string, service any) {
-	serviceValue := reflect.ValueOf(service)
-
-	if serviceValue.Kind() == reflect.Ptr {
-		if serviceValue.IsNil() {
-			return
-		}
-		serviceValue = serviceValue.Elem()
-	}
-
-	if serviceValue.Kind() != reflect.Struct {
-		return
-	}
-
-	serviceType := serviceValue.Type()
-
-	for i := 0; i < serviceValue.NumField(); i++ {
-		field := serviceValue.Field(i)
-		fieldType := serviceType.Field(i)
-
-		if !field.CanInterface() {
-			continue
-		}
-
-		if field.Kind() == reflect.Ptr || field.Kind() == reflect.Interface {
-			if field.IsNil() {
-				continue
-			}
-		}
-
-		fieldName := fieldType.Name
-		serviceKey := fmt.Sprintf("%s.%s", extensionName, fieldName)
-
-		m.mu.Lock()
-		m.crossServices[serviceKey] = field.Interface()
-		m.mu.Unlock()
-	}
-}
-
 // extractServiceByPath extracts service by path
 func (m *Manager) extractServiceByPath(service any, path string) (any, error) {
 	parts := strings.Split(path, ".")
@@ -376,34 +318,28 @@ func (m *Manager) extractServiceByPath(service any, path string) (any, error) {
 	return current, nil
 }
 
-// ExecuteWithCircuitBreaker executes a function with circuit breaker protection
+// ExecuteWithCircuitBreaker executes a function
 func (m *Manager) ExecuteWithCircuitBreaker(extensionName string, fn func() (any, error)) (any, error) {
 	cb, ok := m.circuitBreakers[extensionName]
 	if !ok {
 		return nil, fmt.Errorf("circuit breaker not found for extension %s", extensionName)
 	}
-	return cb.Execute(fn)
-}
 
-// removeCrossServicesForExtension removes all cross services for an extension
-func (m *Manager) removeCrossServicesForExtension(extensionName string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	result, err := cb.Execute(fn)
 
-	keysToRemove := make([]string, 0)
-	prefix := extensionName + "."
-
-	for key := range m.crossServices {
-		if strings.HasPrefix(key, prefix) {
-			keysToRemove = append(keysToRemove, key)
+	// Track circuit breaker events
+	if cb.State() != gobreaker.StateClosed {
+		if m.metricsManager != nil {
+			m.metricsManager.CircuitBreakerTripped(extensionName)
 		}
 	}
 
-	for _, key := range keysToRemove {
-		delete(m.crossServices, key)
-	}
+	return result, err
+}
 
-	if len(keysToRemove) > 0 {
-		logger.Debugf(nil, "Removed %d cross services for extension %s", len(keysToRemove), extensionName)
+// trackServiceCall tracks service call metrics
+func (m *Manager) trackServiceCall(serviceName, methodName string, duration time.Duration, err error) {
+	if m.metricsManager != nil {
+		m.metricsManager.ServiceCall(serviceName, methodName, duration, err)
 	}
 }

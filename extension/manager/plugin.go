@@ -1,11 +1,14 @@
 package manager
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/ncobase/ncore/extension/plugin"
+	"github.com/ncobase/ncore/extension/security"
 	"github.com/ncobase/ncore/extension/types"
 	"github.com/ncobase/ncore/logging/logger"
 	"github.com/ncobase/ncore/utils"
@@ -19,7 +22,7 @@ func (m *Manager) LoadPlugins() error {
 	return m.loadFilePlugins()
 }
 
-// loadFilePlugins loads plugins from files (production mode)
+// loadFilePlugins loads plugins from files
 func (m *Manager) loadFilePlugins() error {
 	basePath := m.conf.Extension.Path
 	if basePath == "" {
@@ -27,10 +30,10 @@ func (m *Manager) loadFilePlugins() error {
 		return nil
 	}
 
-	// Search for plugin files in multiple locations
+	// Search for plugin files
 	searchPaths := []string{
-		filepath.Join(basePath, "*"+utils.GetPlatformExt()),            // extension/*
-		filepath.Join(basePath, "plugins", "*"+utils.GetPlatformExt()), // extension/plugins/*
+		filepath.Join(basePath, "*"+utils.GetPlatformExt()),
+		filepath.Join(basePath, "plugins", "*"+utils.GetPlatformExt()),
 	}
 
 	var loaded []string
@@ -59,7 +62,7 @@ func (m *Manager) loadFilePlugins() error {
 	}
 
 	if len(loaded) > 0 {
-		logger.Infof(nil, "Loaded %d file plugins: %v", len(loaded), loaded)
+		logger.Debugf(nil, "Loaded %d file plugins: %v", len(loaded), loaded)
 	}
 
 	return nil
@@ -88,15 +91,86 @@ func (m *Manager) loadBuiltInPlugins() error {
 	}
 
 	if len(loaded) > 0 {
-		logger.Infof(nil, "Loaded %d built-in plugins: %v", len(loaded), loaded)
+		logger.Debugf(nil, "Loaded %d built-in plugins: %v", len(loaded), loaded)
 	}
 
 	return nil
 }
 
-// LoadPlugin loads a single plugin from file
+// LoadPlugin loads a single plugin from file with security checks and metrics
 func (m *Manager) LoadPlugin(path string) error {
-	name := strings.TrimSuffix(filepath.Base(path), utils.GetPlatformExt())
+	ctx := context.Background()
+	start := time.Now()
+	pluginName := extractPluginName(path)
+
+	// Security validation if sandbox enabled
+	if m.sandbox != nil {
+		if err := m.sandbox.ValidatePluginPath(path); err != nil {
+			m.trackPluginLoadAttempt(pluginName, false)
+			return fmt.Errorf("security validation failed: %v", err)
+		}
+		if err := m.sandbox.ValidatePluginSignature(path); err != nil {
+			m.trackPluginLoadAttempt(pluginName, false)
+			return fmt.Errorf("signature validation failed: %v", err)
+		}
+	}
+
+	// Resource limit check if monitoring enabled
+	if m.resourceMonitor != nil {
+		if err := m.resourceMonitor.CheckResourceLimits(pluginName); err != nil {
+			m.trackPluginLoadAttempt(pluginName, false)
+			return fmt.Errorf("resource limit check failed: %v", err)
+		}
+	}
+
+	// Plugin limit check
+	if m.pm != nil {
+		currentCount := len(m.extensions)
+		if err := m.pm.ValidatePluginLimit(currentCount); err != nil {
+			m.trackPluginLoadAttempt(pluginName, false)
+			return err
+		}
+	}
+
+	// Load plugin with timeout if available
+	loadFunc := func(timeoutCtx context.Context) error {
+		return m.loadPluginInternal(path)
+	}
+
+	var err error
+	if m.timeoutManager != nil {
+		err = m.timeoutManager.WithLoadTimeout(ctx, loadFunc)
+	} else {
+		err = loadFunc(ctx)
+	}
+
+	duration := time.Since(start)
+
+	if err != nil {
+		m.trackPluginLoadAttempt(pluginName, false)
+		return fmt.Errorf("plugin loading failed: %v", err)
+	}
+
+	// Track successful load
+	m.trackPluginLoadAttempt(pluginName, true)
+	m.trackExtensionLoaded(pluginName, duration)
+
+	// Record metrics if monitoring enabled
+	if m.resourceMonitor != nil {
+		metrics := &security.PluginMetrics{
+			LoadTime:   duration,
+			LastAccess: time.Now(),
+		}
+		m.resourceMonitor.RecordPluginMetrics(pluginName, metrics)
+	}
+
+	logger.Infof(ctx, "plugin loaded: %s (took %v)", pluginName, duration)
+	return nil
+}
+
+// loadPluginInternal performs the actual plugin loading
+func (m *Manager) loadPluginInternal(path string) error {
+	name := extractPluginName(path)
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -170,38 +244,18 @@ func (m *Manager) UnloadPlugin(name string) error {
 		}
 	}
 
+	// Cleanup optional components
+	if m.resourceMonitor != nil {
+		m.resourceMonitor.Cleanup(name)
+	}
+	if m.pm != nil {
+		m.pm.RemovePluginConfig(name)
+	}
+
+	// Track unload
+	m.trackExtensionUnloaded(name)
+
 	logger.Infof(nil, "Plugin %s unloaded successfully", name)
-	return nil
-}
-
-// ReloadPlugins reloads all plugins
-func (m *Manager) ReloadPlugins() error {
-	basePath := m.conf.Extension.Path
-	if basePath == "" {
-		return fmt.Errorf("no plugin path configured")
-	}
-
-	files, err := filepath.Glob(filepath.Join(basePath, "*"+utils.GetPlatformExt()))
-	if err != nil {
-		return fmt.Errorf("failed to list plugin files: %v", err)
-	}
-
-	var reloaded []string
-	for _, filePath := range files {
-		pluginName := strings.TrimSuffix(filepath.Base(filePath), utils.GetPlatformExt())
-
-		if err := m.ReloadPlugin(pluginName); err != nil {
-			logger.Errorf(nil, "Failed to reload plugin %s: %v", pluginName, err)
-			continue
-		}
-
-		reloaded = append(reloaded, pluginName)
-	}
-
-	if len(reloaded) > 0 {
-		logger.Infof(nil, "Reloaded %d plugins: %v", len(reloaded), reloaded)
-	}
-
 	return nil
 }
 
@@ -253,4 +307,52 @@ func (m *Manager) shouldLoadPlugin(name string) bool {
 // isBuiltInMode checks if we're in built-in plugin mode
 func (m *Manager) isBuiltInMode() bool {
 	return m.conf.Extension.Mode == "c2hlbgo" // built-in mode
+}
+
+// removeCrossServicesForExtension removes all cross services for an extension
+func (m *Manager) removeCrossServicesForExtension(extensionName string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	keysToRemove := make([]string, 0)
+	prefix := extensionName + "."
+
+	for key := range m.crossServices {
+		if strings.HasPrefix(key, prefix) {
+			keysToRemove = append(keysToRemove, key)
+		}
+	}
+
+	for _, key := range keysToRemove {
+		delete(m.crossServices, key)
+	}
+
+	if len(keysToRemove) > 0 {
+		logger.Debugf(nil, "Removed %d cross services for extension %s", len(keysToRemove), extensionName)
+	}
+}
+
+// Metrics tracking helper methods (delegate to metrics manager if available)
+
+func (m *Manager) trackExtensionLoaded(name string, duration time.Duration) {
+	if m.metricsManager != nil {
+		m.metricsManager.ExtensionLoaded(name, duration)
+	}
+}
+
+func (m *Manager) trackExtensionUnloaded(name string) {
+	if m.metricsManager != nil {
+		m.metricsManager.ExtensionUnloaded(name)
+	}
+}
+
+func (m *Manager) trackPluginLoadAttempt(name string, success bool) {
+	if m.metricsManager != nil {
+		m.metricsManager.PluginLoadAttempt(name, success)
+	}
+}
+
+// extractPluginName extracts plugin name from path
+func extractPluginName(path string) string {
+	return filepath.Base(strings.TrimSuffix(path, filepath.Ext(path)))
 }

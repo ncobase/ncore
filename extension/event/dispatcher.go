@@ -42,7 +42,7 @@ func (d *Dispatcher) Subscribe(eventName string, handler func(any)) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	// Wrap handler with metrics
+	// Wrap handler
 	wrappedHandler := d.wrapHandler(handler)
 	d.subscribers[eventName] = append(d.subscribers[eventName], wrappedHandler)
 	d.metrics.totalSubscribers.Add(1)
@@ -75,7 +75,7 @@ func (d *Dispatcher) Publish(eventName string, data any) {
 	}
 }
 
-// PublishWithRetry publishes event with retry mechanism
+// PublishWithRetry publishes event with retry
 func (d *Dispatcher) PublishWithRetry(eventName string, data any, maxRetries int) {
 	d.mu.RLock()
 	handlers, exists := d.subscribers[eventName]
@@ -105,7 +105,7 @@ func (d *Dispatcher) PublishWithRetry(eventName string, data any, maxRetries int
 	d.metrics.failed.Add(1)
 }
 
-// wrapHandler wraps user handler with metrics and error handling
+// wrapHandler wraps user handler with metrics
 func (d *Dispatcher) wrapHandler(handler func(any)) func(any) {
 	return func(data any) {
 		d.metrics.activeHandlers.Add(1)

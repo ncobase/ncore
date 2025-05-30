@@ -1,8 +1,9 @@
 package manager
 
 import (
+	"context"
 	"fmt"
-	"reflect"
+	"runtime"
 	"sync"
 	"time"
 
@@ -11,7 +12,9 @@ import (
 	"github.com/ncobase/ncore/extension/discovery"
 	"github.com/ncobase/ncore/extension/event"
 	"github.com/ncobase/ncore/extension/grpc"
-	"github.com/ncobase/ncore/extension/registry"
+	"github.com/ncobase/ncore/extension/plugin"
+	"github.com/ncobase/ncore/extension/security"
+	"github.com/ncobase/ncore/extension/timeout"
 	"github.com/ncobase/ncore/extension/types"
 	"github.com/ncobase/ncore/logging/logger"
 	"github.com/sony/gobreaker"
@@ -19,10 +22,15 @@ import (
 
 // Manager manages extensions and provides unified service access
 type Manager struct {
-	extensions       map[string]*types.Wrapper
-	conf             *config.Config
-	mu               sync.RWMutex
-	initialized      bool
+	// Core components
+	extensions  map[string]*types.Wrapper
+	conf        *config.Config
+	mu          sync.RWMutex
+	initialized bool
+	ctx         context.Context
+	cancel      context.CancelFunc
+
+	// Service components
 	eventDispatcher  *event.Dispatcher
 	serviceDiscovery *discovery.ServiceDiscovery
 	grpcServer       *grpc.Server
@@ -30,56 +38,172 @@ type Manager struct {
 	circuitBreakers  map[string]*gobreaker.CircuitBreaker
 	crossServices    map[string]any
 	data             *data.Data
-	mqMetrics        *MessageQueueMetrics
+
+	// Metrics system
+	metricsManager *MetricsManager
+
+	// Optional components
+	sandbox         *security.Sandbox
+	resourceMonitor *security.ResourceMonitor
+	timeoutManager  *timeout.Manager
+	pm              *plugin.Manager
+	gcTicker        *time.Ticker
 }
 
 // NewManager creates a new extension manager
 func NewManager(conf *config.Config) (*Manager, error) {
-	d, cleanup, err := data.New(conf.Data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create data connections: %v", err)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	m := &Manager{
+		extensions:      make(map[string]*types.Wrapper),
+		conf:            conf,
+		eventDispatcher: event.NewEventDispatcher(),
+		circuitBreakers: make(map[string]*gobreaker.CircuitBreaker),
+		crossServices:   make(map[string]any),
+		ctx:             ctx,
+		cancel:          cancel,
 	}
 
-	defer func() {
-		if err != nil {
-			cleanup()
-		}
-	}()
-
-	var svcDiscovery *discovery.ServiceDiscovery
-	if conf.Consul != nil {
-		consulConfig := &discovery.ConsulConfig{
-			Address: conf.Consul.Address,
-			Scheme:  conf.Consul.Scheme,
-			Discovery: struct {
-				HealthCheck   bool
-				CheckInterval string
-				Timeout       string
-			}{
-				HealthCheck:   conf.Consul.Discovery.HealthCheck,
-				CheckInterval: conf.Consul.Discovery.CheckInterval,
-				Timeout:       conf.Consul.Discovery.Timeout,
-			},
-		}
-
-		svcDiscovery, err = discovery.NewServiceDiscovery(consulConfig)
-		if err != nil {
-			cleanup()
-			return nil, fmt.Errorf("failed to create service discovery: %v", err)
-		}
+	// Initialize all subsystems
+	if err := m.initSubsystems(); err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed to initialize subsystems: %v", err)
 	}
 
-	return &Manager{
-		extensions:       make(map[string]*types.Wrapper),
-		conf:             conf,
-		eventDispatcher:  event.NewEventDispatcher(),
-		serviceDiscovery: svcDiscovery,
-		circuitBreakers:  make(map[string]*gobreaker.CircuitBreaker),
-		crossServices:    make(map[string]any),
-		data:             d,
-		mqMetrics:        NewMessageQueueMetrics(),
-	}, nil
+	return m, nil
 }
+
+// initSubsystems initializes all manager subsystems
+func (m *Manager) initSubsystems() error {
+	// 1. Initialize metrics system first
+	if err := m.initMetricsSystem(); err != nil {
+		return fmt.Errorf("failed to initialize metrics: %v", err)
+	}
+
+	// 2. Initialize data layer
+	if err := m.initDataLayer(); err != nil {
+		return fmt.Errorf("failed to initialize data layer: %v", err)
+	}
+
+	// 3. Initialize service discovery
+	if err := m.initServiceDiscovery(); err != nil {
+		return fmt.Errorf("failed to initialize service discovery: %v", err)
+	}
+
+	// 4. Initialize optional components
+	if err := m.initOptionalComponents(); err != nil {
+		return fmt.Errorf("failed to initialize optional components: %v", err)
+	}
+
+	return nil
+}
+
+// initMetricsSystem initializes the metrics system
+func (m *Manager) initMetricsSystem() error {
+	extConf := m.conf.Extension
+	enabled := extConf.Performance != nil && extConf.Performance.EnableMetrics
+
+	if !enabled {
+		return nil
+	}
+
+	retention := 24 * time.Hour
+	if extConf.Performance.MetricsInterval != "" {
+		if parsed, err := time.ParseDuration(extConf.Performance.MetricsInterval); err == nil {
+			retention = parsed * 48
+		}
+	}
+
+	m.metricsManager = NewMetricsManager(m.ctx, enabled, retention)
+	return nil
+}
+
+// initDataLayer initializes the data layer
+func (m *Manager) initDataLayer() error {
+	var dataOpts []data.Option
+	if m.metricsManager != nil && m.metricsManager.IsEnabled() {
+		dataOpts = append(dataOpts, data.WithExtensionCollector(m.metricsManager))
+	}
+
+	d, _, err := data.NewWithOptions(m.conf.Data, dataOpts...)
+	if err != nil {
+		return err
+	}
+
+	m.data = d
+
+	// Upgrade metrics to Redis storage if available
+	if m.metricsManager != nil && m.metricsManager.IsEnabled() {
+		if redis := m.data.GetRedis(); redis != nil {
+			m.metricsManager.UpgradeToRedisStorage(redis, "ncore:extension")
+		}
+	}
+
+	return nil
+}
+
+// initServiceDiscovery initializes service discovery
+func (m *Manager) initServiceDiscovery() error {
+	if m.conf.Consul == nil {
+		return nil
+	}
+
+	consulConfig := &discovery.ConsulConfig{
+		Address: m.conf.Consul.Address,
+		Scheme:  m.conf.Consul.Scheme,
+		Discovery: struct {
+			HealthCheck   bool
+			CheckInterval string
+			Timeout       string
+		}{
+			HealthCheck:   m.conf.Consul.Discovery.HealthCheck,
+			CheckInterval: m.conf.Consul.Discovery.CheckInterval,
+			Timeout:       m.conf.Consul.Discovery.Timeout,
+		},
+	}
+
+	var err error
+	m.serviceDiscovery, err = discovery.NewServiceDiscovery(consulConfig)
+	return err
+}
+
+// initOptionalComponents initializes optional components
+func (m *Manager) initOptionalComponents() error {
+	extConf := m.conf.Extension
+
+	// Initialize security sandbox
+	if extConf.Security != nil && extConf.Security.EnableSandbox {
+		m.sandbox = security.NewSandbox(extConf.Security)
+	}
+
+	// Initialize resource monitor
+	if extConf.Performance != nil && extConf.Performance.EnableMetrics {
+		m.resourceMonitor = security.NewResourceMonitor(extConf.Performance)
+	}
+
+	// Initialize timeout manager
+	if extConf.LoadTimeout != "" || extConf.InitTimeout != "" || extConf.DependencyTimeout != "" {
+		var err error
+		m.timeoutManager, err = timeout.NewManager(extConf)
+		if err != nil {
+			return fmt.Errorf("failed to create timeout manager: %v", err)
+		}
+	}
+
+	// Initialize plugin manager
+	m.pm = plugin.NewManager(extConf)
+
+	// Start garbage collection if enabled
+	if extConf.Performance != nil && extConf.Performance.GarbageCollectInterval != "" {
+		if err := m.startGarbageCollection(extConf.Performance.GarbageCollectInterval); err != nil {
+			logger.Warnf(nil, "failed to start garbage collection: %v", err)
+		}
+	}
+
+	return nil
+}
+
+// Core interface methods
 
 // GetConfig returns the manager's config
 func (m *Manager) GetConfig() *config.Config {
@@ -104,71 +228,6 @@ func (m *Manager) RegisterExtension(ext types.Interface) error {
 		Metadata: ext.GetMetadata(),
 		Instance: ext,
 	}
-	return nil
-}
-
-// InitExtensions initializes all registered extensions
-func (m *Manager) InitExtensions() error {
-	m.mu.Lock()
-	if m.initialized {
-		m.mu.Unlock()
-		return fmt.Errorf("extensions already initialized")
-	}
-
-	// Get registered extensions and their dependency graph
-	registeredExtensions, dependencyGraph := registry.GetExtensionsAndDependencies()
-
-	// Add registered extensions to the manager
-	for name, ext := range registeredExtensions {
-		if _, exists := m.extensions[name]; !exists {
-			m.extensions[name] = &types.Wrapper{
-				Metadata: ext.GetMetadata(),
-				Instance: ext,
-			}
-		}
-	}
-
-	// Check dependencies and get initialization order
-	if err := m.checkDependencies(); err != nil {
-		m.mu.Unlock()
-		return err
-	}
-
-	initOrder, err := getInitOrder(m.extensions, dependencyGraph)
-	if err != nil {
-		logger.Errorf(nil, "failed to determine initialization order: %v", err)
-		m.mu.Unlock()
-		return err
-	}
-	m.mu.Unlock()
-
-	// Initialize extensions in phases
-	if err := m.initializeExtensionsInPhases(initOrder); err != nil {
-		return err
-	}
-
-	// Initialize gRPC if enabled
-	if err := m.initGRPCSupport(); err != nil {
-		return fmt.Errorf("failed to initialize gRPC: %v", err)
-	}
-
-	// Register services with service discovery
-	m.registerServicesWithDiscovery()
-
-	// Auto-register cross-module services
-	m.refreshCrossServices()
-
-	m.mu.Lock()
-	m.initialized = true
-	m.mu.Unlock()
-
-	// Publish initialization complete event
-	m.PublishEvent("exts.all.initialized", map[string]any{
-		"status": "completed",
-		"count":  len(m.extensions),
-	})
-
-	logger.Infof(nil, "Successfully initialized %d extensions", len(m.extensions))
 	return nil
 }
 
@@ -261,48 +320,6 @@ func (m *Manager) ListServices() map[string]types.Service {
 	return services
 }
 
-// GetExtensionPublisher returns a specific extension publisher
-func (m *Manager) GetExtensionPublisher(name string, publisherType reflect.Type) (any, error) {
-	ext, err := m.GetExtensionByName(name)
-	if err != nil {
-		return nil, err
-	}
-
-	publisher := ext.GetPublisher()
-	if publisher == nil {
-		return nil, fmt.Errorf("extension %s does not provide a publisher", name)
-	}
-
-	pubValue := reflect.ValueOf(publisher)
-	if !pubValue.Type().ConvertibleTo(publisherType) {
-		return nil, fmt.Errorf("extension %s publisher type %s is not compatible with requested type %s",
-			name, pubValue.Type().String(), publisherType.String())
-	}
-
-	return publisher, nil
-}
-
-// GetExtensionSubscriber returns a specific extension subscriber
-func (m *Manager) GetExtensionSubscriber(name string, subscriberType reflect.Type) (any, error) {
-	ext, err := m.GetExtensionByName(name)
-	if err != nil {
-		return nil, err
-	}
-
-	subscriber := ext.GetSubscriber()
-	if subscriber == nil {
-		return nil, fmt.Errorf("extension %s does not provide a subscriber", name)
-	}
-
-	subValue := reflect.ValueOf(subscriber)
-	if !subValue.Type().ConvertibleTo(subscriberType) {
-		return nil, fmt.Errorf("extension %s subscriber type %s is not compatible with requested type %s",
-			name, subValue.Type().String(), subscriberType.String())
-	}
-
-	return subscriber, nil
-}
-
 // GetMetadata returns the metadata of all registered extensions
 func (m *Manager) GetMetadata() map[string]types.Metadata {
 	m.mu.RLock()
@@ -327,42 +344,27 @@ func (m *Manager) GetStatus() map[string]string {
 	return status
 }
 
+// GetData returns the data layer instance
+func (m *Manager) GetData() *data.Data {
+	return m.data
+}
+
 // Cleanup cleans up all loaded extensions
 func (m *Manager) Cleanup() {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	start := time.Now()
 
-	// Clear service cache
-	if m.serviceDiscovery != nil {
-		m.serviceDiscovery.ClearCache()
+	// Cancel context
+	if m.cancel != nil {
+		m.cancel()
 	}
 
-	// Stop gRPC server
-	if m.grpcServer != nil {
-		m.grpcServer.Stop(5 * time.Second)
+	// Stop garbage collection
+	if m.gcTicker != nil {
+		m.gcTicker.Stop()
 	}
 
-	// Close gRPC registry
-	if m.grpcRegistry != nil {
-		m.grpcRegistry.Close()
-	}
-
-	// Cleanup extensions
-	for _, ext := range m.extensions {
-		if err := ext.Instance.PreCleanup(); err != nil {
-			logger.Errorf(nil, "failed pre-cleanup of extension %s: %v", ext.Metadata.Name, err)
-		}
-		if err := ext.Instance.Cleanup(); err != nil {
-			logger.Errorf(nil, "failed to cleanup extension %s: %v", ext.Metadata.Name, err)
-		}
-
-		// Deregister from service discovery
-		if m.serviceDiscovery != nil && ext.Instance.NeedServiceDiscovery() {
-			if err := m.serviceDiscovery.DeregisterService(ext.Metadata.Name); err != nil {
-				logger.Errorf(nil, "failed to deregister service %s: %v", ext.Metadata.Name, err)
-			}
-		}
-	}
+	// Cleanup subsystems in reverse order
+	m.cleanupSubsystems()
 
 	// Reset state
 	m.extensions = make(map[string]*types.Wrapper)
@@ -374,90 +376,93 @@ func (m *Manager) Cleanup() {
 	if errs := m.data.Close(); len(errs) > 0 {
 		logger.Errorf(nil, "errors closing data connections: %v", errs)
 	}
+
+	duration := time.Since(start)
+	logger.Infof(nil, "Manager cleanup completed in %v", duration)
 }
 
-// checkDependencies checks if all dependencies are loaded
-func (m *Manager) checkDependencies() error {
-	for name, ext := range m.extensions {
-		for _, dep := range ext.Instance.Dependencies() {
-			if _, ok := m.extensions[dep]; !ok {
-				return fmt.Errorf("extension '%s' depends on '%s', which is not available", name, dep)
-			}
+// cleanupSubsystems cleans up all subsystems
+func (m *Manager) cleanupSubsystems() {
+	// Cleanup optional components
+	if m.resourceMonitor != nil && m.pm != nil {
+		for pluginName := range m.extensions {
+			m.resourceMonitor.Cleanup(pluginName)
+			m.pm.RemovePluginConfig(pluginName)
 		}
 	}
-	return nil
+
+	// Clear service cache
+	if m.serviceDiscovery != nil {
+		m.serviceDiscovery.ClearCache()
+	}
+
+	// Stop gRPC server
+	if m.grpcServer != nil {
+		_ = m.grpcServer.Stop(5 * time.Second)
+	}
+
+	// Close gRPC registry
+	if m.grpcRegistry != nil {
+		m.grpcRegistry.Close()
+	}
+
+	// Cleanup extensions
+	m.cleanupExtensions()
+
+	// Cleanup metrics manager
+	if m.metricsManager != nil {
+		m.metricsManager.Cleanup()
+	}
 }
 
-// initializeExtensionsInPhases initializes extensions in three phases
-func (m *Manager) initializeExtensionsInPhases(initOrder []string) error {
-	var initErrors []error
-	var successfulExtensions []string
-
-	// Phase 1: Pre-initialization
-	for _, name := range initOrder {
-		ext := m.extensions[name]
-		if err := ext.Instance.PreInit(); err != nil {
-			logger.Errorf(nil, "failed pre-initialization of extension %s: %v", name, err)
-			initErrors = append(initErrors, fmt.Errorf("pre-initialization of extension %s failed: %w", name, err))
+// cleanupExtensions cleans up all loaded extensions
+func (m *Manager) cleanupExtensions() {
+	cleanupCount := 0
+	for _, ext := range m.extensions {
+		if err := ext.Instance.PreCleanup(); err != nil {
+			logger.Errorf(nil, "failed pre-cleanup of extension %s: %v", ext.Metadata.Name, err)
 		}
-	}
-
-	// Phase 2: Initialization
-	for _, name := range initOrder {
-		ext := m.extensions[name]
-		err := ext.Instance.Init(m.conf, m)
-		if err != nil {
-			logger.Errorf(nil, "failed to initialize extension %s: %v", name, err)
-			initErrors = append(initErrors, fmt.Errorf("initialization of extension %s failed: %w", name, err))
-		}
-	}
-
-	// Phase 3: Post-initialization
-	for _, name := range initOrder {
-		ext := m.extensions[name]
-		err := ext.Instance.PostInit()
-		if err != nil {
-			logger.Errorf(nil, "failed post-initialization of extension %s: %v", name, err)
-			initErrors = append(initErrors, fmt.Errorf("post-initialization of extension %s failed: %w", name, err))
+		if err := ext.Instance.Cleanup(); err != nil {
+			logger.Errorf(nil, "failed to cleanup extension %s: %v", ext.Metadata.Name, err)
 		} else {
-			successfulExtensions = append(successfulExtensions, name)
-			m.PublishEvent(fmt.Sprintf("exts.%s.ready", name), map[string]any{
-				"name":     name,
-				"status":   "ready",
-				"metadata": ext.Instance.GetMetadata(),
-			})
+			cleanupCount++
+		}
+
+		// Deregister from service discovery
+		if m.serviceDiscovery != nil && ext.Instance.NeedServiceDiscovery() {
+			if err := m.serviceDiscovery.DeregisterService(ext.Metadata.Name); err != nil {
+				logger.Errorf(nil, "failed to deregister service %s: %v", ext.Metadata.Name, err)
+			}
 		}
 	}
 
-	if len(initErrors) > 0 {
-		return fmt.Errorf("failed to initialize extensions: %v", initErrors)
+	logger.Infof(nil, "Cleaned up %d extensions", cleanupCount)
+}
+
+// startGarbageCollection starts periodic garbage collection
+func (m *Manager) startGarbageCollection(interval string) error {
+	gcInterval, err := time.ParseDuration(interval)
+	if err != nil {
+		return fmt.Errorf("invalid GC interval: %v", err)
 	}
 
-	logger.Debugf(nil, "Successfully initialized %d extensions: %s",
-		len(successfulExtensions), successfulExtensions)
+	m.gcTicker = time.NewTicker(gcInterval)
+	go func() {
+		for range m.gcTicker.C {
+			before := getMemStats()
+			runtime.GC()
+			after := getMemStats()
+
+			if m.conf.Extension.Performance.EnableMetrics {
+				logger.Debugf(nil, "garbage collection completed: freed %dKB", (before-after)/1024)
+			}
+		}
+	}()
 
 	return nil
 }
 
-// registerServicesWithDiscovery registers services with service discovery
-func (m *Manager) registerServicesWithDiscovery() {
-	if m.serviceDiscovery == nil {
-		return
-	}
-
-	for name, ext := range m.extensions {
-		if ext.Instance.NeedServiceDiscovery() {
-			svcInfo := ext.Instance.GetServiceInfo()
-			if svcInfo != nil {
-				if err := m.serviceDiscovery.RegisterService(name, svcInfo); err != nil {
-					logger.Warnf(nil, "failed to register extension %s with service discovery: %v", name, err)
-				}
-			}
-		}
-	}
-}
-
-// Deprecated methods for backward compatibility - will be removed in future versions
+// Deprecated methods for backward compatibility
 
 // Register is deprecated, use RegisterExtension instead
 func (m *Manager) Register(ext types.Interface) error {
@@ -496,63 +501,5 @@ func (m *Manager) GetServices() map[string]types.Service {
 
 // RefreshCrossServices is deprecated, automatic refresh
 func (m *Manager) RefreshCrossServices() {
-	m.RefreshCrossServices()
-}
-
-// GetExtensionMetrics returns detailed extension metrics
-func (m *Manager) GetExtensionMetrics() map[string]any {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	metrics := map[string]any{
-		"total":            len(m.extensions),
-		"initialized":      m.initialized,
-		"by_status":        make(map[string]int),
-		"by_group":         make(map[string]int),
-		"by_type":          make(map[string]int),
-		"cross_services":   len(m.crossServices),
-		"circuit_breakers": len(m.circuitBreakers),
-	}
-
-	// Count by status, group, and type
-	statusCount := make(map[string]int)
-	groupCount := make(map[string]int)
-	typeCount := make(map[string]int)
-
-	for _, ext := range m.extensions {
-		// Count by status
-		status := ext.Instance.Status()
-		statusCount[status]++
-
-		// Count by group
-		group := ext.Metadata.Group
-		if group == "" {
-			group = "default"
-		}
-		groupCount[group]++
-
-		// Count by type
-		extType := ext.Metadata.Type
-		if extType == "" {
-			extType = "unknown"
-		}
-		typeCount[extType]++
-	}
-
-	metrics["by_status"] = statusCount
-	metrics["by_group"] = groupCount
-	metrics["by_type"] = typeCount
-
-	return metrics
-}
-
-// GetSystemMetrics returns comprehensive system metrics
-func (m *Manager) GetSystemMetrics() map[string]any {
-	return map[string]any{
-		"events":        m.GetEventsMetrics(),
-		"service_cache": m.GetServiceCacheStats(),
-		"extensions":    m.GetExtensionMetrics(),
-		"messaging":     m.getMessagingHealthStatus(),
-		"timestamp":     time.Now(),
-	}
+	m.refreshCrossServices()
 }

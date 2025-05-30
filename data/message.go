@@ -4,12 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-)
-
-var (
-	ErrRabbitMQNotInitialized = errors.New("RabbitMQ service not initialized")
-	ErrKafkaNotInitialized    = errors.New("kafka service not initialized")
-	ErrConnectionUnavailable  = errors.New("messaging service connection unavailable")
+	"time"
 )
 
 // IsMessagingAvailable checks if any messaging system is available and properly connected
@@ -18,54 +13,116 @@ func (d *Data) IsMessagingAvailable() bool {
 		(d.Kafka != nil && d.Kafka.IsConnected())
 }
 
-// PublishToRabbitMQ publishes message to RabbitMQ
+// PublishToRabbitMQ publishes message to RabbitMQ with metrics
 func (d *Data) PublishToRabbitMQ(exchange, routingKey string, body []byte) error {
-	if d.RabbitMQ == nil {
-		return ErrRabbitMQNotInitialized
+	start := time.Now()
+	err := errors.New("RabbitMQ service not initialized")
+
+	if d.RabbitMQ != nil {
+		if !d.RabbitMQ.IsConnected() {
+			err = fmt.Errorf("RabbitMQ connection is not active")
+		} else {
+			err = d.RabbitMQ.PublishMessage(exchange, routingKey, body)
+		}
 	}
 
-	if !d.RabbitMQ.IsConnected() {
-		return fmt.Errorf("%w: RabbitMQ connection is not active", ErrConnectionUnavailable)
+	duration := time.Since(start)
+	d.collector.MQPublish("rabbitmq", err)
+
+	// Track slow publishing
+	if duration > 5*time.Second {
+		d.collector.MQPublish("rabbitmq", errors.New("slow_publish"))
 	}
 
-	return d.RabbitMQ.PublishMessage(exchange, routingKey, body)
+	return err
 }
 
-// ConsumeFromRabbitMQ consumes messages from RabbitMQ
+// ConsumeFromRabbitMQ consumes messages from RabbitMQ with metrics
 func (d *Data) ConsumeFromRabbitMQ(queue string, handler func([]byte) error) error {
 	if d.RabbitMQ == nil {
-		return ErrRabbitMQNotInitialized
+		err := errors.New("RabbitMQ service not initialized")
+		d.collector.MQConsume("rabbitmq", err)
+		return err
 	}
 
 	if !d.RabbitMQ.IsConnected() {
-		return fmt.Errorf("%w: RabbitMQ connection is not active", ErrConnectionUnavailable)
+		err := fmt.Errorf("RabbitMQ connection is not active")
+		d.collector.MQConsume("rabbitmq", err)
+		return err
 	}
 
-	return d.RabbitMQ.ConsumeMessages(queue, handler)
+	// Wrap handler with metrics
+	wrappedHandler := func(data []byte) error {
+		start := time.Now()
+		err := handler(data)
+		duration := time.Since(start)
+
+		d.collector.MQConsume("rabbitmq", err)
+
+		// Track slow message processing
+		if duration > 10*time.Second {
+			d.collector.MQConsume("rabbitmq", errors.New("slow_consume"))
+		}
+
+		return err
+	}
+
+	return d.RabbitMQ.ConsumeMessages(queue, wrappedHandler)
 }
 
-// PublishToKafka publishes message to Kafka
+// PublishToKafka publishes message to Kafka with metrics
 func (d *Data) PublishToKafka(ctx context.Context, topic string, key, value []byte) error {
-	if d.Kafka == nil {
-		return ErrKafkaNotInitialized
+	start := time.Now()
+	err := errors.New("kafka service not initialized")
+
+	if d.Kafka != nil {
+		if !d.Kafka.IsConnected() {
+			err = fmt.Errorf("kafka connection is not active")
+		} else {
+			err = d.Kafka.PublishMessage(ctx, topic, key, value)
+		}
 	}
 
-	if !d.Kafka.IsConnected() {
-		return fmt.Errorf("%w: Kafka connection is not active", ErrConnectionUnavailable)
+	duration := time.Since(start)
+	d.collector.MQPublish("kafka", err)
+
+	// Track slow publishing
+	if duration > 5*time.Second {
+		d.collector.MQPublish("kafka", errors.New("slow_publish"))
 	}
 
-	return d.Kafka.PublishMessage(ctx, topic, key, value)
+	return err
 }
 
-// ConsumeFromKafka consumes messages from Kafka
+// ConsumeFromKafka consumes messages from Kafka with metrics
 func (d *Data) ConsumeFromKafka(ctx context.Context, topic, groupID string, handler func([]byte) error) error {
 	if d.Kafka == nil {
-		return ErrKafkaNotInitialized
+		err := errors.New("kafka service not initialized")
+		d.collector.MQConsume("kafka", err)
+		return err
 	}
 
 	if !d.Kafka.IsConnected() {
-		return fmt.Errorf("%w: Kafka connection is not active", ErrConnectionUnavailable)
+		err := fmt.Errorf("kafka connection is not active")
+		d.collector.MQConsume("kafka", err)
+		return err
 	}
 
-	return d.Kafka.ConsumeMessages(ctx, topic, groupID, handler)
+	// Wrap handler with metrics
+	wrappedHandler := func(data []byte) error {
+		start := time.Now()
+		err := handler(data)
+		duration := time.Since(start)
+
+		d.collector.MQConsume("kafka", err)
+
+		// Track slow message processing
+		if duration > 10*time.Second {
+			d.collector.MQConsume("kafka", errors.New("slow_consume"))
+		}
+
+		return err
+	}
+
+	return d.Kafka.ConsumeMessages(ctx, topic, groupID, wrappedHandler)
 }

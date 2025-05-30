@@ -51,6 +51,11 @@ func InternalServer(message string, data ...any) *Exception {
 	return newResponse(http.StatusInternalServerError, ecode.ServerErr, message, data...)
 }
 
+// ServiceUnavailable indicates a service is unavailable.
+func ServiceUnavailable(message string, data ...any) *Exception {
+	return newResponse(http.StatusServiceUnavailable, ecode.ServiceUnavailable, message, data...)
+}
+
 // Conflict indicates a conflict error.
 func Conflict(message string, data ...any) *Exception {
 	return newResponse(http.StatusConflict, ecode.Conflict, message, data...)

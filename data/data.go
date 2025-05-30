@@ -1,15 +1,16 @@
 package data
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/ncobase/ncore/data/config"
 	"github.com/ncobase/ncore/data/connection"
 	"github.com/ncobase/ncore/data/messaging/kafka"
 	"github.com/ncobase/ncore/data/messaging/rabbitmq"
+	"github.com/ncobase/ncore/data/metrics"
 	"github.com/ncobase/ncore/data/search/elastic"
 	"github.com/ncobase/ncore/data/search/meili"
 	"github.com/ncobase/ncore/data/search/opensearch"
@@ -19,24 +20,42 @@ import (
 type ContextKey string
 
 const (
-	// ContextKeyTransaction is context key
 	ContextKeyTransaction ContextKey = "tx"
 )
 
-var (
-	// sharedInstance is shared instance
-	sharedInstance *Data
-)
+var sharedInstance *Data
 
 // Data represents the data layer implementation
 type Data struct {
 	Conn     *connection.Connections
 	RabbitMQ *rabbitmq.RabbitMQ
 	Kafka    *kafka.Kafka
+
+	collector      metrics.Collector
+	redisCollector *metrics.CacheCollector
+	healthMonitor  *metrics.HealthMonitor
 }
 
-// Option function type for configuring Connections
+// Option function type for configuring Data
 type Option func(*Data)
+
+// WithMetricsCollector sets the metrics collector
+func WithMetricsCollector(collector metrics.Collector) Option {
+	return func(d *Data) {
+		if collector != nil {
+			d.collector = collector
+		}
+	}
+}
+
+// WithExtensionCollector sets extension layer collector using adapter
+func WithExtensionCollector(collector metrics.ExtensionCollector) Option {
+	return func(d *Data) {
+		if collector != nil {
+			d.collector = metrics.NewExtensionCollectorAdapter(collector)
+		}
+	}
+}
 
 // New creates new data layer
 func New(cfg *config.Config, createNewInstance ...bool) (*Data, func(name ...string), error) {
@@ -45,6 +64,7 @@ func New(cfg *config.Config, createNewInstance ...bool) (*Data, func(name ...str
 		createNew = createNewInstance[0]
 	}
 
+	// If not creating new and shared instance exists, return it
 	if !createNew && sharedInstance != nil {
 		cleanup := func(name ...string) {
 			if errs := sharedInstance.Close(); len(errs) > 0 {
@@ -60,11 +80,16 @@ func New(cfg *config.Config, createNewInstance ...bool) (*Data, func(name ...str
 	}
 
 	d := &Data{
-		Conn:     conn,
-		RabbitMQ: rabbitmq.NewRabbitMQ(conn.RMQ),
-		Kafka:    kafka.New(conn.KFK),
+		Conn:      conn,
+		RabbitMQ:  rabbitmq.NewRabbitMQ(conn.RMQ),
+		Kafka:     kafka.New(conn.KFK),
+		collector: metrics.NoOpCollector{}, // Default no-op collector
 	}
 
+	// Initialize metrics components
+	d.initMetricsComponents()
+
+	// Set as shared instance if not creating new
 	if !createNew {
 		sharedInstance = d
 	}
@@ -78,60 +103,114 @@ func New(cfg *config.Config, createNewInstance ...bool) (*Data, func(name ...str
 	return d, cleanup, nil
 }
 
-// GetTx retrieves transaction from context
-func GetTx(ctx context.Context) (*sql.Tx, error) {
-	tx, ok := ctx.Value(ContextKeyTransaction).(*sql.Tx)
-	if !ok {
-		return nil, errors.New("transaction not found in context")
-	}
-	return tx, nil
+// NewWithOptions creates new data layer with options
+func NewWithOptions(cfg *config.Config, opts ...Option) (*Data, func(name ...string), error) {
+	// Default to shared instance for options-based creation
+	return NewWithCreateNewAndOptions(cfg, false, opts...)
 }
 
-// WithTx wraps function within transaction
-func (d *Data) WithTx(ctx context.Context, fn func(ctx context.Context) error) error {
-	db := d.DB()
-	if db == nil {
-		return errors.New("database connection is nil")
-	}
-
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	err = fn(context.WithValue(ctx, ContextKeyTransaction, tx))
-	if err != nil {
-		if rbErr := tx.Rollback(); rbErr != nil {
-			return fmt.Errorf("tx err: %v, rollback err: %v", err, rbErr)
+// NewWithCreateNewAndOptions creates new data layer with explicit control and options
+func NewWithCreateNewAndOptions(cfg *config.Config, createNewInstance bool, opts ...Option) (*Data, func(name ...string), error) {
+	// If not creating new and shared instance exists, return it
+	if !createNewInstance && sharedInstance != nil {
+		cleanup := func(name ...string) {
+			if errs := sharedInstance.Close(); len(errs) > 0 {
+				fmt.Printf("cleanup errors: %v\n", errs)
+			}
 		}
-		return err
+		return sharedInstance, cleanup, nil
 	}
 
-	return tx.Commit()
+	conn, err := connection.New(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	d := &Data{
+		Conn:      conn,
+		RabbitMQ:  rabbitmq.NewRabbitMQ(conn.RMQ),
+		Kafka:     kafka.New(conn.KFK),
+		collector: metrics.NoOpCollector{}, // Default no-op collector
+	}
+
+	// Apply options
+	for _, opt := range opts {
+		opt(d)
+	}
+
+	// Initialize metrics components
+	d.initMetricsComponents()
+
+	// Set as shared instance if not creating new
+	if !createNewInstance {
+		sharedInstance = d
+	}
+
+	cleanup := func(name ...string) {
+		if errs := d.Close(); len(errs) > 0 {
+			fmt.Printf("cleanup errors: %v\n", errs)
+		}
+	}
+
+	return d, cleanup, nil
 }
 
-// WithTxRead wraps function within read-only transaction
-func (d *Data) WithTxRead(ctx context.Context, fn func(ctx context.Context) error) error {
-	dbRead, err := d.GetSlaveDB()
-	if err != nil {
-		return err
+// initMetricsComponents initializes components with metrics collection
+func (d *Data) initMetricsComponents() {
+	// Wrap Redis client with metrics collector
+	if d.Conn != nil && d.Conn.RC != nil {
+		d.redisCollector = metrics.NewCacheCollector(d.Conn.RC, d.collector)
 	}
 
-	tx, err := dbRead.BeginTx(ctx, &sql.TxOptions{
-		ReadOnly: true,
-	})
-	if err != nil {
-		return err
+	// Initialize health monitor
+	d.healthMonitor = metrics.NewHealthMonitor(d.collector)
+
+	// Register health checkers
+	d.registerHealthCheckers()
+}
+
+// registerHealthCheckers registers components for health monitoring
+func (d *Data) registerHealthCheckers() {
+	if d.healthMonitor == nil {
+		return
 	}
 
-	if err = fn(context.WithValue(ctx, ContextKeyTransaction, tx)); err != nil {
-		if rbErr := tx.Rollback(); rbErr != nil {
-			return fmt.Errorf("tx err: %v, rollback err: %v", err, rbErr)
+	// Database health checker
+	if d.Conn != nil && d.Conn.DBM != nil {
+		d.healthMonitor.RegisterComponent(&DatabaseHealthChecker{data: d})
+	}
+
+	// Redis health checker
+	if d.redisCollector != nil {
+		d.healthMonitor.RegisterComponent(&RedisHealthChecker{collector: d.redisCollector})
+	}
+
+	// MongoDB health checker
+	if d.Conn != nil && d.Conn.MGM != nil {
+		d.healthMonitor.RegisterComponent(&MongoHealthChecker{data: d})
+	}
+
+	// Messaging health checkers
+	if d.RabbitMQ != nil && d.RabbitMQ.IsConnected() {
+		d.healthMonitor.RegisterComponent(&RabbitMQHealthChecker{rabbitmq: d.RabbitMQ})
+	}
+
+	if d.Kafka != nil && d.Kafka.IsConnected() {
+		d.healthMonitor.RegisterComponent(&KafkaHealthChecker{kafka: d.Kafka})
+	}
+
+	// Search engine health checkers
+	if d.Conn != nil {
+		if d.Conn.ES != nil {
+			d.healthMonitor.RegisterComponent(&ElasticsearchHealthChecker{client: d.Conn.ES})
 		}
-		return err
+		if d.Conn.OS != nil {
+			d.healthMonitor.RegisterComponent(&OpenSearchHealthChecker{client: d.Conn.OS})
+		}
+		if d.Conn.MS != nil {
+			d.healthMonitor.RegisterComponent(&MeilisearchHealthChecker{client: d.Conn.MS})
+		}
 	}
-
-	return tx.Commit()
 }
 
 // GetDBManager returns the database manager
@@ -170,55 +249,17 @@ func (d *Data) DBRead() (*sql.DB, error) {
 	return d.GetSlaveDB()
 }
 
-// GetDatabaseNodes returns information about all database nodes (master and slaves)
-func (d *Data) GetDatabaseNodes() (master *sql.DB, slaves []*sql.DB, err error) {
-	if d.Conn == nil || d.Conn.DBM == nil {
-		return nil, nil, errors.New("no database manager available")
-	}
-
-	master = d.Conn.DBM.Master()
-
-	// Get all slave connections by repeatedly calling Slave() method
-	// This is a bit hacky but works with the current DBManager interface
-	slavesMap := make(map[*sql.DB]bool)
-	for i := 0; i < 10; i++ { // Try up to 10 times to get different slaves
-		slave, err := d.Conn.DBM.Slave()
-		if err != nil {
-			break
-		}
-		if slave != master { // Only add if it's not the master
-			slavesMap[slave] = true
-		}
-	}
-
-	for slave := range slavesMap {
-		slaves = append(slaves, slave)
-	}
-
-	return master, slaves, nil
-}
-
-// IsReadOnlyMode checks if the system is in read-only mode (only slaves available)
-func (d *Data) IsReadOnlyMode(ctx context.Context) bool {
-	if d.Conn == nil || d.Conn.DBM == nil {
-		return false
-	}
-
-	master := d.Conn.DBM.Master()
-	if master == nil {
-		return true
-	}
-
-	// Check if master is healthy
-	if err := master.PingContext(ctx); err != nil {
-		return true
-	}
-
-	return false
-}
-
-// GetRedis returns the Redis client
+// GetRedis returns the Redis client with metrics
 func (d *Data) GetRedis() *redis.Client {
+	if d.redisCollector != nil {
+		// Update connection metrics
+		stats := d.redisCollector.PoolStats()
+		if stats != nil {
+			d.collector.RedisConnections(int(stats.TotalConns))
+		}
+		return d.redisCollector.GetClient()
+	}
+
 	if d.Conn != nil {
 		return d.Conn.RC
 	}
@@ -257,12 +298,26 @@ func (d *Data) GetMongoManager() *connection.MongoManager {
 	return nil
 }
 
-// Ping checks all database connections
-func (d *Data) Ping(ctx context.Context) error {
-	if d.Conn != nil {
-		return d.Conn.Ping(ctx)
+// GetRedisCollector returns the Redis collector for direct metrics-aware operations
+func (d *Data) GetRedisCollector() *metrics.CacheCollector {
+	return d.redisCollector
+}
+
+// GetMetricsCollector returns the metrics collector
+func (d *Data) GetMetricsCollector() metrics.Collector {
+	return d.collector
+}
+
+// GetStats returns data layer statistics
+func (d *Data) GetStats() map[string]any {
+	if defaultCollector, ok := d.collector.(*metrics.DefaultCollector); ok {
+		return defaultCollector.GetStats()
 	}
-	return errors.New("no connection manager available")
+
+	return map[string]any{
+		"status":    "metrics_unavailable",
+		"timestamp": time.Now(),
+	}
 }
 
 // Close closes all data connections

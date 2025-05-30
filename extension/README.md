@@ -1,6 +1,6 @@
 # NCore Extension System
 
-A flexible and robust extension system that provides dynamic loading, lifecycle management, dependency handling, and inter-service communication capabilities.
+A flexible and robust extension system that provides dynamic loading, lifecycle management, dependency handling, inter-service communication, and enterprise-grade security features.
 
 ## Features
 
@@ -12,6 +12,10 @@ A flexible and robust extension system that provides dynamic loading, lifecycle 
 - **Circuit Breaker**: Built-in fault tolerance for service calls
 - **Hot Reload**: Runtime plugin loading and unloading
 - **Cross-Service Calls**: Unified local and remote service calling interface
+- **Security Sandbox**: Plugin path validation, signature verification, trusted source validation
+- **Resource Monitoring**: Memory and CPU usage limits, performance metrics collection
+- **Timeout Control**: Load, initialization, and dependency resolution timeout protection
+- **Plugin Configuration**: Personalized configuration management for each plugin
 
 ## Basic Usage
 
@@ -195,6 +199,48 @@ type EventData struct {
 }
 ```
 
+## Security & Performance Features
+
+### Security Sandbox
+
+The system provides comprehensive security controls:
+
+```go
+// Plugin configuration management
+config := map[string]any{
+    "cache_ttl": "1h",
+    "max_connections": 100,
+}
+manager.SetPluginConfig("my-plugin", config)
+
+// Get plugin configuration
+if cfg, exists := manager.GetPluginConfig("my-plugin"); exists {
+    // Use configuration
+}
+```
+
+### Resource Monitoring
+
+```go
+// Get resource usage metrics
+metrics := manager.GetResourceMetrics()
+for pluginName, metric := range metrics {
+    fmt.Printf("Plugin %s: memory=%fMB, cpu=%f%%, load_time=%v\n", 
+        pluginName, metric.MemoryUsageMB, metric.CPUUsagePercent, metric.LoadTime)
+}
+
+// Get security status
+securityStatus := manager.GetSecurityStatus()
+fmt.Printf("Security status: %+v\n", securityStatus)
+```
+
+### Enhanced Metrics
+
+```go
+// Get comprehensive metrics including security, performance, and system info
+enhancedMetrics := manager.GetEnhancedMetrics()
+```
+
 ## Configuration
 
 ```yaml
@@ -203,6 +249,43 @@ extension:
   mode: "file"              # "file" or "c2hlbgo" (built-in)
   includes: ["auth", "user"] # Include specific plugins
   excludes: ["debug"]       # Exclude plugins
+  hot_reload: true          # Hot reload support
+  
+  # Advanced configuration
+  max_plugins: 50           # Maximum number of plugins
+  load_timeout: "30s"       # Plugin loading timeout
+  init_timeout: "60s"       # Initialization timeout
+  dependency_timeout: "10s" # Dependency resolution timeout
+  
+  # Security configuration
+  security:
+    enable_sandbox: true    # Enable security sandbox
+    allowed_paths:          # Allowed plugin paths
+      - "/opt/plugins"
+      - "/usr/local/plugins"
+    blocked_extensions:     # Blocked file extensions
+      - ".exe"
+      - ".bat"
+    trusted_sources:        # Trusted plugin sources
+      - "company.com"
+      - "verified.org"
+    require_signature: true # Require plugin signature
+  
+  # Performance configuration
+  performance:
+    max_memory_mb: 512      # Maximum memory usage (MB)
+    max_cpu_percent: 80     # Maximum CPU usage (%)
+    enable_metrics: true    # Enable performance metrics
+    metrics_interval: "30s" # Metrics collection interval
+    enable_profiling: false # Enable performance profiling
+    gc_interval: "5m"       # Garbage collection interval
+  
+  # Plugin-specific configuration
+  plugin_config:
+    auth_plugin:
+      oauth_providers: ["google", "github"]
+    user_plugin:
+      cache_ttl: "1h"
 
 consul:
   address: "localhost:8500"  # Consul server
@@ -263,6 +346,7 @@ result, err := manager.ExecuteWithCircuitBreaker("external-service", func() (any
 - Supports `.so` files on Linux, `.dll` on Windows
 - Hot reload capability
 - Include/exclude filtering
+- Security sandbox protection
 
 **Built-in Mode**: Use statically compiled extensions
 
@@ -280,6 +364,8 @@ REST endpoints for runtime management:
 - `POST /exts/unload?name=plugin` - Unload plugin
 - `POST /exts/reload?name=plugin` - Reload plugin
 - `GET /exts/metrics` - System metrics and performance data
+- `GET /exts/metrics/security` - Security status metrics
+- `GET /exts/metrics/performance` - Performance monitoring metrics
 
 ## Performance Considerations
 
@@ -287,6 +373,8 @@ REST endpoints for runtime management:
 - **Event Transport**: Choose memory for high-frequency, queue for reliability
 - **Circuit Breaker**: Monitor failure rates and adjust thresholds
 - **Plugin Loading**: Prefer built-in mode for production environments
+- **Resource Monitoring**: Enable performance metrics collection as needed
+- **Security Checks**: Balance security requirements with performance needs
 
 ## Troubleshooting
 
@@ -315,3 +403,27 @@ Error: failed to get gRPC connection for service-name
 ```
 
 *Solution*: Verify service discovery configuration and network connectivity
+
+**Security Validation Failed**
+
+```
+Error: security validation failed: path /tmp/plugin.so is not in allowed paths
+```
+
+*Solution*: Check allowed paths configuration in security settings
+
+**Resource Limit Exceeded**
+
+```
+Error: resource limit check failed: insufficient memory: would exceed limit of 512MB
+```
+
+*Solution*: Adjust resource limits in performance configuration or optimize plugin memory usage
+
+**Plugin Signature Validation Failed**
+
+```
+Error: signature validation failed: plugin signature not found
+```
+
+*Solution*: Ensure plugin file has corresponding .sig signature file or disable signature verification

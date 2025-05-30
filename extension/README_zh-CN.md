@@ -1,6 +1,6 @@
 # NCore 扩展系统
 
-一个灵活且强大的扩展系统，提供动态加载、生命周期管理、依赖处理和服务间通信功能。
+一个灵活且强大的扩展系统，提供动态加载、生命周期管理、依赖处理、服务间通信和企业级安全功能。
 
 ## 特性
 
@@ -12,6 +12,10 @@
 - **熔断器**: 内置容错机制保护服务调用
 - **热重载**: 运行时插件加载和卸载
 - **跨服务调用**: 统一的本地和远程服务调用接口
+- **安全沙盒**: 插件路径验证、签名检查、源信任验证
+- **资源监控**: 内存和 CPU 使用限制、性能指标收集
+- **超时控制**: 加载、初始化、依赖解析的超时保护
+- **插件配置**: 每个插件的个性化配置管理
 
 ## 基本使用
 
@@ -195,6 +199,48 @@ type EventData struct {
 }
 ```
 
+## 安全与性能功能
+
+### 安全沙盒
+
+系统提供全面的安全控制：
+
+```go
+// 插件配置管理
+config := map[string]any{
+    "cache_ttl": "1h",
+    "max_connections": 100,
+}
+manager.SetPluginConfig("my-plugin", config)
+
+// 获取插件配置
+if cfg, exists := manager.GetPluginConfig("my-plugin"); exists {
+    // 使用配置
+}
+```
+
+### 资源监控
+
+```go
+// 获取资源使用指标
+metrics := manager.GetResourceMetrics()
+for pluginName, metric := range metrics {
+    fmt.Printf("插件 %s: 内存=%fMB, CPU=%f%%, 加载时间=%v\n", 
+        pluginName, metric.MemoryUsageMB, metric.CPUUsagePercent, metric.LoadTime)
+}
+
+// 获取安全状态
+securityStatus := manager.GetSecurityStatus()
+fmt.Printf("安全状态：%+v\n", securityStatus)
+```
+
+### 综合指标
+
+```go
+// 获取包含安全、性能、系统信息的完整指标
+enhancedMetrics := manager.GetEnhancedMetrics()
+```
+
 ## 配置
 
 ```yaml
@@ -203,6 +249,43 @@ extension:
   mode: "file"              # "file" 或 "c2hlbgo"（内置）
   includes: ["auth", "user"] # 包含特定插件
   excludes: ["debug"]       # 排除插件
+  hot_reload: true          # 热重载支持
+  
+  # 高级配置
+  max_plugins: 50           # 最大插件数量
+  load_timeout: "30s"       # 加载超时
+  init_timeout: "60s"       # 初始化超时
+  dependency_timeout: "10s" # 依赖解析超时
+  
+  # 安全配置
+  security:
+    enable_sandbox: true    # 启用安全沙盒
+    allowed_paths:          # 允许的插件路径
+      - "/opt/plugins"
+      - "/usr/local/plugins"
+    blocked_extensions:     # 阻止的文件扩展名
+      - ".exe"
+      - ".bat"
+    trusted_sources:        # 信任的插件源
+      - "company.com"
+      - "verified.org"
+    require_signature: true # 要求插件签名
+  
+  # 性能配置
+  performance:
+    max_memory_mb: 512      # 最大内存使用 (MB)
+    max_cpu_percent: 80     # 最大 CPU 使用率 (%)
+    enable_metrics: true    # 启用性能指标
+    metrics_interval: "30s" # 指标收集间隔
+    enable_profiling: false # 启用性能分析
+    gc_interval: "5m"       # 垃圾回收间隔
+  
+  # 插件特定配置
+  plugin_config:
+    auth_plugin:
+      oauth_providers: ["google", "github"]
+    user_plugin:
+      cache_ttl: "1h"
 
 consul:
   address: "localhost:8500"  # Consul 服务器
@@ -263,6 +346,7 @@ result, err := manager.ExecuteWithCircuitBreaker("external-service", func() (any
 - 支持 Linux 上的 `.so` 文件，Windows 上的 `.dll`
 - 热重载能力
 - 包含/排除过滤
+- 安全沙盒保护
 
 **内置模式**: 使用静态编译的扩展
 
@@ -280,6 +364,8 @@ result, err := manager.ExecuteWithCircuitBreaker("external-service", func() (any
 - `POST /exts/unload?name=plugin` - 卸载插件
 - `POST /exts/reload?name=plugin` - 重载插件
 - `GET /exts/metrics` - 系统指标和性能数据
+- `GET /exts/metrics/security` - 安全状态指标
+- `GET /exts/metrics/performance` - 性能监控指标
 
 ## 性能考量
 
@@ -287,6 +373,8 @@ result, err := manager.ExecuteWithCircuitBreaker("external-service", func() (any
 - **事件传输**: 高频率选择内存，可靠性选择队列
 - **熔断器**: 监控失败率并调整阈值
 - **插件加载**: 生产环境优选内置模式
+- **资源监控**: 根据需要启用性能指标收集
+- **安全检查**: 平衡安全性和性能需求
 
 ## 故障排除
 
@@ -315,3 +403,27 @@ result, err := manager.ExecuteWithCircuitBreaker("external-service", func() (any
 ```
 
 *解决方案*: 验证服务发现配置和网络连接
+
+**安全验证失败**
+
+```
+错误: security validation failed: path /tmp/plugin.so is not in allowed paths
+```
+
+*解决方案*: 检查安全配置中的允许路径设置
+
+**资源限制超出**
+
+```
+错误: resource limit check failed: insufficient memory: would exceed limit of 512MB
+```
+
+*解决方案*: 调整性能配置中的资源限制或优化插件内存使用
+
+**插件签名验证失败**
+
+```
+错误: signature validation failed: plugin signature not found
+```
+
+*解决方案*: 确保插件文件有对应的 .sig 签名文件或禁用签名验证

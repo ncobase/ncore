@@ -71,7 +71,7 @@ type OptionalMethods interface {
 	RegisterRoutes(router *gin.RouterGroup)
 }
 
-// Wrapper wraps an Interface instance with its metadata
+// Wrapper wraps an Interface instance
 type Wrapper struct {
 	Metadata Metadata  `json:"metadata"`
 	Instance Interface `json:"instance,omitempty"`

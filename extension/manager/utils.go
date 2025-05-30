@@ -8,24 +8,8 @@ import (
 )
 
 // getInitOrder returns the initialization order based on dependencies
-//
-// noDeps - modules with no dependencies, first to initialize
-// withDeps - modules with dependencies
-// special - special modules that should be ordered last
 func getInitOrder(extensions map[string]*types.Wrapper, dependencyGraph map[string][]string) ([]string, error) {
-	var noDeps, withDeps, special []string
-	// Exclude these modules from dependency check, adjust as needed
-	var specialModules []string
-	// Example of how to add modules dynamically
-	// specialModules = append(specialModules, "relation", "relations", "linker", "linkers")
-	specialSet := make(map[string]bool)
-	if len(specialModules) > 0 {
-		specialModules = append(specialModules, specialModules...)
-		for _, m := range specialModules {
-			specialSet[m] = true
-		}
-	}
-
+	var noDeps, withDeps []string
 	initialized := make(map[string]bool)
 
 	// If no dependency graph is provided, build one from extension metadata
@@ -38,11 +22,6 @@ func getInitOrder(extensions map[string]*types.Wrapper, dependencyGraph map[stri
 
 	// Classify modules based on dependencies
 	for name := range extensions {
-		if specialSet[name] {
-			special = append(special, name)
-			continue
-		}
-
 		deps := dependencyGraph[name]
 		if len(deps) == 0 {
 			noDeps = append(noDeps, name)
@@ -87,9 +66,6 @@ func getInitOrder(extensions map[string]*types.Wrapper, dependencyGraph map[stri
 
 		withDeps = remainingDeps
 	}
-
-	// Add special modules
-	order = append(order, special...)
 
 	return order, nil
 }
