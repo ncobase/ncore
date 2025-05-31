@@ -16,7 +16,6 @@ func (d *Data) GetDatabaseNodes() (master *sql.DB, slaves []*sql.DB, err error) 
 	master = d.Conn.DBM.Master()
 
 	// Get all slave connections by repeatedly calling Slave() method
-	// This is a bit hacky but works with the current DBManager interface
 	slavesMap := make(map[*sql.DB]bool)
 	for i := 0; i < 10; i++ { // Try up to 10 times to get different slaves
 		slave, err := d.Conn.DBM.Slave()
@@ -68,23 +67,6 @@ func (d *Data) Ping(ctx context.Context) error {
 	duration := time.Since(start)
 	d.collector.DBQuery(duration, err)
 	d.collector.HealthCheck("database", err == nil)
-
-	// Collect connection metrics
-	if d.Conn != nil && d.Conn.DBM != nil {
-		master, slaves, dbErr := d.GetDatabaseNodes()
-		if dbErr == nil {
-			totalConns := 0
-			if master != nil {
-				totalConns += master.Stats().OpenConnections
-			}
-			for _, slave := range slaves {
-				if slave != nil {
-					totalConns += slave.Stats().OpenConnections
-				}
-			}
-			d.collector.DBConnections(totalConns)
-		}
-	}
 
 	return err
 }

@@ -351,8 +351,6 @@ func (m *Manager) GetData() *data.Data {
 
 // Cleanup cleans up all loaded extensions
 func (m *Manager) Cleanup() {
-	start := time.Now()
-
 	// Cancel context
 	if m.cancel != nil {
 		m.cancel()
@@ -376,9 +374,6 @@ func (m *Manager) Cleanup() {
 	if errs := m.data.Close(); len(errs) > 0 {
 		logger.Errorf(nil, "errors closing data connections: %v", errs)
 	}
-
-	duration := time.Since(start)
-	logger.Infof(nil, "Manager cleanup completed in %v", duration)
 }
 
 // cleanupSubsystems cleans up all subsystems
@@ -417,15 +412,12 @@ func (m *Manager) cleanupSubsystems() {
 
 // cleanupExtensions cleans up all loaded extensions
 func (m *Manager) cleanupExtensions() {
-	cleanupCount := 0
 	for _, ext := range m.extensions {
 		if err := ext.Instance.PreCleanup(); err != nil {
 			logger.Errorf(nil, "failed pre-cleanup of extension %s: %v", ext.Metadata.Name, err)
 		}
 		if err := ext.Instance.Cleanup(); err != nil {
 			logger.Errorf(nil, "failed to cleanup extension %s: %v", ext.Metadata.Name, err)
-		} else {
-			cleanupCount++
 		}
 
 		// Deregister from service discovery
@@ -435,8 +427,6 @@ func (m *Manager) cleanupExtensions() {
 			}
 		}
 	}
-
-	logger.Infof(nil, "Cleaned up %d extensions", cleanupCount)
 }
 
 // startGarbageCollection starts periodic garbage collection
@@ -446,6 +436,7 @@ func (m *Manager) startGarbageCollection(interval string) error {
 		return fmt.Errorf("invalid GC interval: %v", err)
 	}
 
+	// Start garbage collection
 	m.gcTicker = time.NewTicker(gcInterval)
 	go func() {
 		for range m.gcTicker.C {

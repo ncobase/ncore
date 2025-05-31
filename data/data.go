@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/ncobase/ncore/data/config"
@@ -11,6 +12,7 @@ import (
 	"github.com/ncobase/ncore/data/messaging/kafka"
 	"github.com/ncobase/ncore/data/messaging/rabbitmq"
 	"github.com/ncobase/ncore/data/metrics"
+	"github.com/ncobase/ncore/data/search"
 	"github.com/ncobase/ncore/data/search/elastic"
 	"github.com/ncobase/ncore/data/search/meili"
 	"github.com/ncobase/ncore/data/search/opensearch"
@@ -27,13 +29,12 @@ var sharedInstance *Data
 
 // Data represents the data layer implementation
 type Data struct {
-	Conn     *connection.Connections
-	RabbitMQ *rabbitmq.RabbitMQ
-	Kafka    *kafka.Kafka
-
-	collector      metrics.Collector
-	redisCollector *metrics.CacheCollector
-	healthMonitor  *metrics.HealthMonitor
+	Conn         *connection.Connections
+	RabbitMQ     *rabbitmq.RabbitMQ
+	Kafka        *kafka.Kafka
+	searchClient *search.Client
+	collector    metrics.Collector
+	searchOnce   sync.Once
 }
 
 // Option function type for configuring Data
@@ -64,7 +65,7 @@ func New(cfg *config.Config, createNewInstance ...bool) (*Data, func(name ...str
 		createNew = createNewInstance[0]
 	}
 
-	// If not creating new and shared instance exists, return it
+	// Return shared instance if exists and not creating new
 	if !createNew && sharedInstance != nil {
 		cleanup := func(name ...string) {
 			if errs := sharedInstance.Close(); len(errs) > 0 {
@@ -83,11 +84,8 @@ func New(cfg *config.Config, createNewInstance ...bool) (*Data, func(name ...str
 		Conn:      conn,
 		RabbitMQ:  rabbitmq.NewRabbitMQ(conn.RMQ),
 		Kafka:     kafka.New(conn.KFK),
-		collector: metrics.NoOpCollector{}, // Default no-op collector
+		collector: metrics.NoOpCollector{},
 	}
-
-	// Initialize metrics components
-	d.initMetricsComponents()
 
 	// Set as shared instance if not creating new
 	if !createNew {
@@ -105,22 +103,6 @@ func New(cfg *config.Config, createNewInstance ...bool) (*Data, func(name ...str
 
 // NewWithOptions creates new data layer with options
 func NewWithOptions(cfg *config.Config, opts ...Option) (*Data, func(name ...string), error) {
-	// Default to shared instance for options-based creation
-	return NewWithCreateNewAndOptions(cfg, false, opts...)
-}
-
-// NewWithCreateNewAndOptions creates new data layer with explicit control and options
-func NewWithCreateNewAndOptions(cfg *config.Config, createNewInstance bool, opts ...Option) (*Data, func(name ...string), error) {
-	// If not creating new and shared instance exists, return it
-	if !createNewInstance && sharedInstance != nil {
-		cleanup := func(name ...string) {
-			if errs := sharedInstance.Close(); len(errs) > 0 {
-				fmt.Printf("cleanup errors: %v\n", errs)
-			}
-		}
-		return sharedInstance, cleanup, nil
-	}
-
 	conn, err := connection.New(cfg)
 	if err != nil {
 		return nil, nil, err
@@ -130,20 +112,12 @@ func NewWithCreateNewAndOptions(cfg *config.Config, createNewInstance bool, opts
 		Conn:      conn,
 		RabbitMQ:  rabbitmq.NewRabbitMQ(conn.RMQ),
 		Kafka:     kafka.New(conn.KFK),
-		collector: metrics.NoOpCollector{}, // Default no-op collector
+		collector: metrics.NoOpCollector{},
 	}
 
 	// Apply options
 	for _, opt := range opts {
 		opt(d)
-	}
-
-	// Initialize metrics components
-	d.initMetricsComponents()
-
-	// Set as shared instance if not creating new
-	if !createNewInstance {
-		sharedInstance = d
 	}
 
 	cleanup := func(name ...string) {
@@ -155,63 +129,25 @@ func NewWithCreateNewAndOptions(cfg *config.Config, createNewInstance bool, opts
 	return d, cleanup, nil
 }
 
-// initMetricsComponents initializes components with metrics collection
-func (d *Data) initMetricsComponents() {
-	// Wrap Redis client with metrics collector
-	if d.Conn != nil && d.Conn.RC != nil {
-		d.redisCollector = metrics.NewCacheCollector(d.Conn.RC, d.collector)
-	}
-
-	// Initialize health monitor
-	d.healthMonitor = metrics.NewHealthMonitor(d.collector)
-
-	// Register health checkers
-	d.registerHealthCheckers()
+// initSearchClient initializes search client lazily and safely
+func (d *Data) initSearchClient() {
+	d.searchOnce.Do(func() {
+		d.searchClient = search.NewClient(
+			d.GetElasticsearch(),
+			d.GetOpenSearch(),
+			d.GetMeilisearch(),
+			d.collector,
+		)
+	})
 }
 
-// registerHealthCheckers registers components for health monitoring
-func (d *Data) registerHealthCheckers() {
-	if d.healthMonitor == nil {
-		return
-	}
-
-	// Database health checker
-	if d.Conn != nil && d.Conn.DBM != nil {
-		d.healthMonitor.RegisterComponent(&DatabaseHealthChecker{data: d})
-	}
-
-	// Redis health checker
-	if d.redisCollector != nil {
-		d.healthMonitor.RegisterComponent(&RedisHealthChecker{collector: d.redisCollector})
-	}
-
-	// MongoDB health checker
-	if d.Conn != nil && d.Conn.MGM != nil {
-		d.healthMonitor.RegisterComponent(&MongoHealthChecker{data: d})
-	}
-
-	// Messaging health checkers
-	if d.RabbitMQ != nil && d.RabbitMQ.IsConnected() {
-		d.healthMonitor.RegisterComponent(&RabbitMQHealthChecker{rabbitmq: d.RabbitMQ})
-	}
-
-	if d.Kafka != nil && d.Kafka.IsConnected() {
-		d.healthMonitor.RegisterComponent(&KafkaHealthChecker{kafka: d.Kafka})
-	}
-
-	// Search engine health checkers
-	if d.Conn != nil {
-		if d.Conn.ES != nil {
-			d.healthMonitor.RegisterComponent(&ElasticsearchHealthChecker{client: d.Conn.ES})
-		}
-		if d.Conn.OS != nil {
-			d.healthMonitor.RegisterComponent(&OpenSearchHealthChecker{client: d.Conn.OS})
-		}
-		if d.Conn.MS != nil {
-			d.healthMonitor.RegisterComponent(&MeilisearchHealthChecker{client: d.Conn.MS})
-		}
-	}
+// getSearchClient returns initialized search client
+func (d *Data) getSearchClient() *search.Client {
+	d.initSearchClient()
+	return d.searchClient
 }
+
+// Database Access Methods
 
 // GetDBManager returns the database manager
 func (d *Data) GetDBManager() *connection.DBManager {
@@ -237,34 +173,21 @@ func (d *Data) GetSlaveDB() (*sql.DB, error) {
 	return nil, errors.New("no database connection available")
 }
 
-// DB returns the master database connection for write operations
-// Deprecated: Use GetMasterDB() for better clarity
-func (d *Data) DB() *sql.DB {
-	return d.GetMasterDB()
-}
+// Cache Access Methods
 
-// DBRead returns slave database connection for read operations
-// Deprecated: Use GetSlaveDB() for better clarity
-func (d *Data) DBRead() (*sql.DB, error) {
-	return d.GetSlaveDB()
-}
-
-// GetRedis returns the Redis client with metrics
+// GetRedis returns the Redis client
 func (d *Data) GetRedis() *redis.Client {
-	if d.redisCollector != nil {
-		// Update connection metrics
-		stats := d.redisCollector.PoolStats()
-		if stats != nil {
-			d.collector.RedisConnections(int(stats.TotalConns))
-		}
-		return d.redisCollector.GetClient()
-	}
-
 	if d.Conn != nil {
+		// Update connection metrics
+		if d.Conn.RC != nil {
+			d.collector.RedisConnections(int(d.Conn.RC.PoolStats().TotalConns))
+		}
 		return d.Conn.RC
 	}
 	return nil
 }
+
+// Search Engine Access Methods
 
 // GetMeilisearch returns the Meilisearch client
 func (d *Data) GetMeilisearch() *meili.Client {
@@ -290,7 +213,9 @@ func (d *Data) GetOpenSearch() *opensearch.Client {
 	return nil
 }
 
-// GetMongoManager returns the MongoDB client
+// MongoDB Access Methods
+
+// GetMongoManager returns the MongoDB manager
 func (d *Data) GetMongoManager() *connection.MongoManager {
 	if d.Conn != nil {
 		return d.Conn.MGM
@@ -298,10 +223,7 @@ func (d *Data) GetMongoManager() *connection.MongoManager {
 	return nil
 }
 
-// GetRedisCollector returns the Redis collector for direct metrics-aware operations
-func (d *Data) GetRedisCollector() *metrics.CacheCollector {
-	return d.redisCollector
-}
+// Metrics Access Methods
 
 // GetMetricsCollector returns the metrics collector
 func (d *Data) GetMetricsCollector() metrics.Collector {
@@ -324,7 +246,6 @@ func (d *Data) GetStats() map[string]any {
 func (d *Data) Close() []error {
 	var errs []error
 
-	// Close connections
 	if d.Conn != nil {
 		if connErrs := d.Conn.Close(); len(connErrs) > 0 {
 			errs = append(errs, connErrs...)
@@ -333,3 +254,13 @@ func (d *Data) Close() []error {
 
 	return errs
 }
+
+// Deprecated methods for backward compatibility
+
+// DB returns the master database connection
+// Deprecated: Use GetMasterDB() for better clarity
+func (d *Data) DB() *sql.DB { return d.GetMasterDB() }
+
+// DBRead returns a slave database connection
+// Deprecated: Use GetSlaveDB() for better clarity
+func (d *Data) DBRead() (*sql.DB, error) { return d.GetSlaveDB() }

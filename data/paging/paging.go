@@ -7,6 +7,10 @@ import (
 	"strings"
 )
 
+var (
+	ErrInvalidCursor = fmt.Errorf("invalid cursor")
+)
+
 type CursorProvider interface {
 	GetCursorValue() string
 }
