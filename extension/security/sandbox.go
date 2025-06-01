@@ -80,6 +80,11 @@ func (s *Sandbox) ValidatePluginSignature(path string) error {
 		return nil
 	}
 
+	// Allow unsafe mode in development
+	if s.config.AllowUnsafe {
+		return nil
+	}
+
 	// Basic signature validation placeholder
 	// In production, implement actual signature verification
 	signaturePath := path + ".sig"

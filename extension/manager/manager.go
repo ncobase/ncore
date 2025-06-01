@@ -193,7 +193,7 @@ func (m *Manager) initOptionalComponents() error {
 	// Initialize plugin manager
 	m.pm = plugin.NewManager(extConf)
 
-	// Start garbage collection if enabled
+	// Start garbage collection if enabled and interval is configured
 	if extConf.Performance != nil && extConf.Performance.GarbageCollectInterval != "" {
 		if err := m.startGarbageCollection(extConf.Performance.GarbageCollectInterval); err != nil {
 			logger.Warnf(nil, "failed to start garbage collection: %v", err)

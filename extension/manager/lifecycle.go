@@ -276,6 +276,7 @@ func (m *Manager) getSecurityStatus() map[string]any {
 		status["trusted_sources"] = len(m.conf.Extension.Security.TrustedSources)
 		status["allowed_paths"] = len(m.conf.Extension.Security.AllowedPaths)
 		status["blocked_extensions"] = len(m.conf.Extension.Security.BlockedExtensions)
+		status["allow_unsafe"] = m.conf.Extension.Security.AllowUnsafe
 	}
 
 	return status

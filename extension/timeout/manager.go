@@ -17,19 +17,31 @@ type Manager struct {
 
 // NewManager creates a new timeout manager
 func NewManager(cfg *config.Config) (*Manager, error) {
-	loadTimeout, err := time.ParseDuration(cfg.LoadTimeout)
-	if err != nil {
-		return nil, fmt.Errorf("invalid load timeout: %v", err)
+	loadTimeout := 30 * time.Second // default
+	if cfg.LoadTimeout != "" {
+		if parsed, err := time.ParseDuration(cfg.LoadTimeout); err != nil {
+			return nil, fmt.Errorf("invalid load timeout: %v", err)
+		} else {
+			loadTimeout = parsed
+		}
 	}
 
-	initTimeout, err := time.ParseDuration(cfg.InitTimeout)
-	if err != nil {
-		return nil, fmt.Errorf("invalid init timeout: %v", err)
+	initTimeout := 60 * time.Second // default
+	if cfg.InitTimeout != "" {
+		if parsed, err := time.ParseDuration(cfg.InitTimeout); err != nil {
+			return nil, fmt.Errorf("invalid init timeout: %v", err)
+		} else {
+			initTimeout = parsed
+		}
 	}
 
-	dependencyTimeout, err := time.ParseDuration(cfg.DependencyTimeout)
-	if err != nil {
-		return nil, fmt.Errorf("invalid dependency timeout: %v", err)
+	dependencyTimeout := 15 * time.Second // default
+	if cfg.DependencyTimeout != "" {
+		if parsed, err := time.ParseDuration(cfg.DependencyTimeout); err != nil {
+			return nil, fmt.Errorf("invalid dependency timeout: %v", err)
+		} else {
+			dependencyTimeout = parsed
+		}
 	}
 
 	return &Manager{
