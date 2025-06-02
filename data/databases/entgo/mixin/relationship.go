@@ -49,7 +49,7 @@ var (
 	GroupID        = IDMixin{Field: "group_id", Comment: "group id", MaxLen: consts.PrimaryKeySize}
 	TenantID       = IDMixin{Field: "tenant_id", Comment: "tenant id", MaxLen: consts.PrimaryKeySize}
 	DictionaryID   = IDMixin{Field: "dictionary_id", Comment: "dictionary id", MaxLen: consts.PrimaryKeySize}
-	OptionsID      = IDMixin{Field: "options_id", Comment: "options id", MaxLen: consts.PrimaryKeySize}
+	OptionID       = IDMixin{Field: "option_id", Comment: "option id", MaxLen: consts.PrimaryKeySize}
 	MenuID         = IDMixin{Field: "menu_id", Comment: "menu id", MaxLen: consts.PrimaryKeySize}
 	OrganizationID = IDMixin{Field: "organization_id", Comment: "organization id", MaxLen: consts.PrimaryKeySize}
 	ParentID       = IDMixin{Field: "parent_id", Comment: "parent id", MaxLen: consts.PrimaryKeySize}
