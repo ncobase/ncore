@@ -1,6 +1,7 @@
 # ncore/logger
 
-A powerful logging system built on [logrus](https://github.com/sirupsen/logrus) with multi-output support, search engine integrations, and data desensitization.
+A powerful logging system built on [logrus](https://github.com/sirupsen/logrus) with multi-output support, search engine
+integrations, and data desensitization.
 
 ## Features
 
@@ -198,12 +199,12 @@ func EnsureTraceID(ctx context.Context) (context.Context, string)
 
 ## Log Levels
 
-| Level | Value | Usage |
-|-------|-------|-------|
-| Trace | 6 | Detailed debugging |
-| Debug | 5 | Debug information |
-| Info  | 4 | General information |
-| Warn  | 3 | Warnings |
-| Error | 2 | Errors |
-| Fatal | 1 | Critical errors |
-| Panic | 0 | System panic |
+| Level | Value | Usage               |
+|-------|-------|---------------------|
+| Trace | 6     | Detailed debugging  |
+| Debug | 5     | Debug information   |
+| Info  | 4     | General information |
+| Warn  | 3     | Warnings            |
+| Error | 2     | Errors              |
+| Fatal | 1     | Critical errors     |
+| Panic | 0     | System panic        |

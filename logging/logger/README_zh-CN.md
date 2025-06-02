@@ -198,12 +198,12 @@ func EnsureTraceID(ctx context.Context) (context.Context, string)
 
 ## 日志级别
 
-| 级别 | 值 | 用途 |
-|------|----|----|
+| 级别    | 值 | 用途   |
+|-------|---|------|
 | Trace | 6 | 详细调试 |
 | Debug | 5 | 调试信息 |
 | Info  | 4 | 一般信息 |
-| Warn  | 3 | 警告 |
-| Error | 2 | 错误 |
+| Warn  | 3 | 警告   |
+| Error | 2 | 错误   |
 | Fatal | 1 | 严重错误 |
 | Panic | 0 | 系统崩溃 |

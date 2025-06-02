@@ -127,8 +127,8 @@ func (c *Client) IndexWith(ctx context.Context, engine Engine, req *IndexRequest
 	case OpenSearch:
 		err = c.opensearch.IndexDocument(ctx, req.Index, req.DocumentID, req.Document)
 	case Meilisearch:
-		documents := []interface{}{req.Document}
-		if docMap, ok := req.Document.(map[string]interface{}); ok && req.DocumentID != "" {
+		documents := []any{req.Document}
+		if docMap, ok := req.Document.(map[string]any); ok && req.DocumentID != "" {
 			docMap["id"] = req.DocumentID
 		}
 		err = c.meilisearch.IndexDocuments(req.Index, documents)
@@ -304,9 +304,9 @@ func (c *Client) searchElasticsearch(ctx context.Context, req *Request) (*Respon
 				Value int64 `json:"value"`
 			} `json:"total"`
 			Hits []struct {
-				ID     string                 `json:"_id"`
-				Score  float64                `json:"_score"`
-				Source map[string]interface{} `json:"_source"`
+				ID     string         `json:"_id"`
+				Score  float64        `json:"_score"`
+				Source map[string]any `json:"_source"`
 			} `json:"hits"`
 		} `json:"hits"`
 	}
@@ -390,7 +390,7 @@ func (c *Client) searchMeilisearch(ctx context.Context, req *Request) (*Response
 
 	hits := make([]Hit, len(msResp.Hits))
 	for i, hit := range msResp.Hits {
-		if hitMap, ok := hit.(map[string]interface{}); ok {
+		if hitMap, ok := hit.(map[string]any); ok {
 			var id string
 			if idVal, exists := hitMap["id"]; exists {
 				id = fmt.Sprintf("%v", idVal)
@@ -780,13 +780,13 @@ func (c *Client) createMeilisearchIndex(ctx context.Context, indexName string) e
 
 	// For Meilisearch, we create index by indexing a dummy document
 	// This is because Meilisearch creates indexes automatically when documents are added
-	dummyDoc := map[string]interface{}{
+	dummyDoc := map[string]any{
 		"id":    "init_doc_" + indexName,
 		"_init": true,
 		"type":  "initialization",
 	}
 
-	err := c.meilisearch.IndexDocuments(indexName, []interface{}{dummyDoc}, "id")
+	err := c.meilisearch.IndexDocuments(indexName, []any{dummyDoc}, "id")
 	if err != nil {
 		return fmt.Errorf("failed to create meilisearch index: %w", err)
 	}

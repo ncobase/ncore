@@ -1,6 +1,7 @@
 # NCore Extension System
 
-A flexible and robust extension system that provides dynamic loading, lifecycle management, dependency handling, inter-service communication, and enterprise-grade security features.
+A flexible and robust extension system that provides dynamic loading, lifecycle management, dependency handling,
+inter-service communication, and enterprise-grade security features.
 
 ## Features
 
