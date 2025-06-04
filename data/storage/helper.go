@@ -37,7 +37,7 @@ type FileHeader struct {
 }
 
 // GetFileHeader gets file header data and handles file renaming to ensure uniqueness
-func GetFileHeader(f *multipart.FileHeader, prefix ...string) *FileHeader {
+func GetFileHeader(f *multipart.FileHeader, pathPrefix ...string) *FileHeader {
 	file := &FileHeader{}
 
 	fullName := path.Base(f.Filename)
@@ -53,8 +53,8 @@ func GetFileHeader(f *multipart.FileHeader, prefix ...string) *FileHeader {
 	file.Name = fmt.Sprintf("%s-%s", originalName, uniqueSuffix)
 	file.Path = fmt.Sprintf("%s%s", file.Name, file.Ext)
 
-	if len(prefix) > 0 && prefix[0] != "" {
-		file.Path = path.Join(prefix[0], file.Path)
+	if len(pathPrefix) > 0 && pathPrefix[0] != "" {
+		file.Path = path.Join(pathPrefix[0], file.Path)
 	}
 
 	// TODO get image exif data
