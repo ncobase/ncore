@@ -2,13 +2,12 @@ package storage
 
 import (
 	aws3 "github.com/aws/aws-sdk-go/service/s3"
-	"github.com/casdoor/oss"
 	"github.com/casdoor/oss/s3"
 )
 
-// NewMinio new minio
-func NewMinio(c *Config) oss.StorageInterface {
-	return s3.New(&s3.Config{
+// NewMinio creates new minio client
+func NewMinio(c *Config) Interface {
+	client := s3.New(&s3.Config{
 		AccessID:         c.ID,
 		AccessKey:        c.Secret,
 		Region:           c.Region,
@@ -18,4 +17,5 @@ func NewMinio(c *Config) oss.StorageInterface {
 		ACL:              aws3.BucketCannedACLPublicRead,
 		S3ForcePathStyle: true,
 	})
+	return NewOSSAdapter(client)
 }
