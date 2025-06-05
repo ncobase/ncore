@@ -1,8 +1,6 @@
 package mixin
 
 import (
-	"github.com/ncobase/ncore/consts"
-
 	"entgo.io/ent"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
@@ -43,22 +41,22 @@ var _ ent.Mixin = (*IDMixin)(nil)
 
 // Specific mixins can be created using the generic IDMixin.
 var (
-	UserID         = IDMixin{Field: "user_id", Comment: "user id", MaxLen: consts.PrimaryKeySize}
-	RoleID         = IDMixin{Field: "role_id", Comment: "role id", MaxLen: consts.PrimaryKeySize}
-	PermissionID   = IDMixin{Field: "permission_id", Comment: "permission id", MaxLen: consts.PrimaryKeySize}
-	GroupID        = IDMixin{Field: "group_id", Comment: "group id", MaxLen: consts.PrimaryKeySize}
-	TenantID       = IDMixin{Field: "tenant_id", Comment: "tenant id", MaxLen: consts.PrimaryKeySize}
-	DictionaryID   = IDMixin{Field: "dictionary_id", Comment: "dictionary id", MaxLen: consts.PrimaryKeySize}
-	OptionID       = IDMixin{Field: "option_id", Comment: "option id", MaxLen: consts.PrimaryKeySize}
-	MenuID         = IDMixin{Field: "menu_id", Comment: "menu id", MaxLen: consts.PrimaryKeySize}
-	OrganizationID = IDMixin{Field: "organization_id", Comment: "organization id", MaxLen: consts.PrimaryKeySize}
-	ParentID       = IDMixin{Field: "parent_id", Comment: "parent id", MaxLen: consts.PrimaryKeySize}
-	TopicID        = IDMixin{Field: "topic_id", Comment: "topic id", MaxLen: consts.PrimaryKeySize}
-	ReplyToMixin   = IDMixin{Field: "reply_to", Comment: "reply to object id", MaxLen: consts.PrimaryKeySize}
-	TaxonomyID     = IDMixin{Field: "taxonomy_id", Comment: "taxonomy id", MaxLen: consts.PrimaryKeySize}
-	StoreID        = IDMixin{Field: "store_id", Comment: "store id", MaxLen: consts.PrimaryKeySize}
-	CatalogID      = IDMixin{Field: "catalog_id", Comment: "catalog id", MaxLen: consts.PrimaryKeySize}
-	ObjectID       = IDMixin{Field: "object_id", Comment: "object id", MaxLen: consts.PrimaryKeySize}
+	UserID         = IDMixin{Field: "user_id", Comment: "user id"}
+	RoleID         = IDMixin{Field: "role_id", Comment: "role id"}
+	PermissionID   = IDMixin{Field: "permission_id", Comment: "permission id"}
+	GroupID        = IDMixin{Field: "group_id", Comment: "group id"}
+	TenantID       = IDMixin{Field: "tenant_id", Comment: "tenant id"}
+	DictionaryID   = IDMixin{Field: "dictionary_id", Comment: "dictionary id"}
+	OptionID       = IDMixin{Field: "option_id", Comment: "option id"}
+	MenuID         = IDMixin{Field: "menu_id", Comment: "menu id"}
+	OrganizationID = IDMixin{Field: "organization_id", Comment: "organization id"}
+	ParentID       = IDMixin{Field: "parent_id", Comment: "parent id"}
+	TopicID        = IDMixin{Field: "topic_id", Comment: "topic id"}
+	ReplyToMixin   = IDMixin{Field: "reply_to", Comment: "reply to object id"}
+	TaxonomyID     = IDMixin{Field: "taxonomy_id", Comment: "taxonomy id"}
+	StoreID        = IDMixin{Field: "store_id", Comment: "store id"}
+	CatalogID      = IDMixin{Field: "catalog_id", Comment: "catalog id"}
+	ObjectID       = IDMixin{Field: "object_id", Comment: "object id"}
 	OAuthID        = IDMixin{Field: "oauth_id", Comment: "oauth id"}
-	ChannelID      = IDMixin{Field: "channel_id", Comment: "channel id", MaxLen: consts.PrimaryKeySize}
+	ChannelID      = IDMixin{Field: "channel_id", Comment: "channel id"}
 )

@@ -3,8 +3,6 @@ package mixin
 import (
 	"regexp"
 
-	"github.com/ncobase/ncore/consts"
-
 	"entgo.io/ent"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
@@ -154,9 +152,9 @@ var (
 	V5             = StringMixin{Field: "v5", Comment: "version 5", Optional: true}
 	V6             = StringMixin{Field: "v6", Comment: "version 6", Optional: true}
 	V7             = StringMixin{Field: "v7", Comment: "version 7", Optional: true}
-	CreatedBy      = StringMixin{Field: "created_by", Comment: "id of the creator", Optional: true, MaxLen: consts.PrimaryKeySize}
-	UpdatedBy      = StringMixin{Field: "updated_by", Comment: "id of the last updater", Optional: true, MaxLen: consts.PrimaryKeySize}
-	DeletedBy      = StringMixin{Field: "deleted_by", Comment: "id of the deleter", Optional: true, MaxLen: consts.PrimaryKeySize}
+	CreatedBy      = StringMixin{Field: "created_by", Comment: "id of the creator", Optional: true}
+	UpdatedBy      = StringMixin{Field: "updated_by", Comment: "id of the last updater", Optional: true}
+	DeletedBy      = StringMixin{Field: "deleted_by", Comment: "id of the deleter", Optional: true}
 	Details        = StringMixin{Field: "details", Comment: "details", Optional: true}
 )
 
