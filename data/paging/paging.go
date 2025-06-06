@@ -22,13 +22,13 @@ type Params struct {
 }
 
 type Result[T CursorProvider] struct {
-	Items       []T    `json:"items"`
-	Total       int    `json:"total"`
-	Cursor      string `json:"cursor,omitempty"`
-	NextCursor  string `json:"next_cursor,omitempty"`
-	PrevCursor  string `json:"prev_cursor,omitempty"`
-	HasNextPage bool   `json:"has_next_page"`
-	HasPrevPage bool   `json:"has_prev_page"`
+	Items      []T    `json:"items"`
+	Total      int    `json:"total"`
+	Cursor     string `json:"cursor,omitempty"`
+	NextCursor string `json:"next_cursor,omitempty"`
+	PrevCursor string `json:"prev_cursor,omitempty"`
+	HasNext    bool   `json:"has_next"`
+	HasPrev    bool   `json:"has_prev"`
 }
 
 func NormalizeParams(params Params) Params {
@@ -102,11 +102,11 @@ func Paginate[T CursorProvider](params Params, paginateFunc PagingFunc[T]) (Resu
 	}
 
 	return Result[T]{
-		Items:       items,
-		Total:       total,
-		NextCursor:  nextCursor,
-		PrevCursor:  prevCursor,
-		HasNextPage: hasNextPage,
-		HasPrevPage: hasPrevPage,
+		Items:      items,
+		Total:      total,
+		NextCursor: nextCursor,
+		PrevCursor: prevCursor,
+		HasNext:    hasNextPage,
+		HasPrev:    hasPrevPage,
 	}, nil
 }
