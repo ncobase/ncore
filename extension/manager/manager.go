@@ -3,7 +3,6 @@ package manager
 import (
 	"context"
 	"fmt"
-	"runtime"
 	"sync"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/ncobase/ncore/extension/discovery"
 	"github.com/ncobase/ncore/extension/event"
 	"github.com/ncobase/ncore/extension/grpc"
+	"github.com/ncobase/ncore/extension/metrics"
 	"github.com/ncobase/ncore/extension/plugin"
 	"github.com/ncobase/ncore/extension/security"
 	"github.com/ncobase/ncore/extension/timeout"
@@ -39,15 +39,14 @@ type Manager struct {
 	crossServices    map[string]any
 	data             *data.Data
 
-	// Metrics system
-	metricsManager *MetricsManager
+	// Simplified metrics system
+	metricsCollector *metrics.Collector
 
 	// Optional components
 	sandbox         *security.Sandbox
 	resourceMonitor *security.ResourceMonitor
 	timeoutManager  *timeout.Manager
 	pm              *plugin.Manager
-	gcTicker        *time.Ticker
 }
 
 // NewManager creates a new extension manager
@@ -103,29 +102,15 @@ func (m *Manager) initMetricsSystem() error {
 	extConf := m.conf.Extension
 	enabled := extConf.Performance != nil && extConf.Performance.EnableMetrics
 
-	if !enabled {
-		return nil
-	}
+	// Initialize with memory storage first
+	m.metricsCollector = metrics.NewCollectorWithMemoryStorage(enabled)
 
-	retention := 24 * time.Hour
-	if extConf.Performance.MetricsInterval != "" {
-		if parsed, err := time.ParseDuration(extConf.Performance.MetricsInterval); err == nil {
-			retention = parsed * 48
-		}
-	}
-
-	m.metricsManager = NewMetricsManager(m.ctx, enabled, retention)
 	return nil
 }
 
 // initDataLayer initializes the data layer
 func (m *Manager) initDataLayer() error {
-	var dataOpts []data.Option
-	if m.metricsManager != nil && m.metricsManager.IsEnabled() {
-		dataOpts = append(dataOpts, data.WithExtensionCollector(m.metricsManager))
-	}
-
-	d, _, err := data.NewWithOptions(m.conf.Data, dataOpts...)
+	d, _, err := data.New(m.conf.Data)
 	if err != nil {
 		return err
 	}
@@ -133,9 +118,19 @@ func (m *Manager) initDataLayer() error {
 	m.data = d
 
 	// Upgrade metrics to Redis storage if available
-	if m.metricsManager != nil && m.metricsManager.IsEnabled() {
-		if redis := m.data.GetRedis(); redis != nil {
-			m.metricsManager.UpgradeToRedisStorage(redis, "ncore:extension")
+	if m.metricsCollector != nil && m.metricsCollector.IsEnabled() {
+		if redisClient := m.data.GetRedis(); redisClient != nil {
+			retention := 7 * 24 * time.Hour // 7 days default
+			if m.conf.Extension.Performance != nil && m.conf.Extension.Performance.MetricsInterval != "" {
+				if parsed, err := time.ParseDuration(m.conf.Extension.Performance.MetricsInterval); err == nil {
+					retention = parsed * 168 // 7 days worth of intervals
+				}
+			}
+
+			// Use Redis client directly from data layer
+			if err := m.metricsCollector.UpgradeToRedisStorage(redisClient, "ncore:extension", retention); err != nil {
+				logger.Warnf(nil, "Failed to upgrade metrics to Redis storage: %v, continuing with memory storage", err)
+			}
 		}
 	}
 
@@ -192,13 +187,6 @@ func (m *Manager) initOptionalComponents() error {
 
 	// Initialize plugin manager
 	m.pm = plugin.NewManager(extConf)
-
-	// Start garbage collection if enabled and interval is configured
-	if extConf.Performance != nil && extConf.Performance.GarbageCollectInterval != "" {
-		if err := m.startGarbageCollection(extConf.Performance.GarbageCollectInterval); err != nil {
-			logger.Warnf(nil, "failed to start garbage collection: %v", err)
-		}
-	}
 
 	return nil
 }
@@ -356,11 +344,6 @@ func (m *Manager) Cleanup() {
 		m.cancel()
 	}
 
-	// Stop garbage collection
-	if m.gcTicker != nil {
-		m.gcTicker.Stop()
-	}
-
 	// Cleanup subsystems in reverse order
 	m.cleanupSubsystems()
 
@@ -371,8 +354,10 @@ func (m *Manager) Cleanup() {
 	m.initialized = false
 
 	// Close data connections
-	if errs := m.data.Close(); len(errs) > 0 {
-		logger.Errorf(nil, "errors closing data connections: %v", errs)
+	if m.data != nil {
+		if errs := m.data.Close(); len(errs) > 0 {
+			logger.Errorf(nil, "errors closing data connections: %v", errs)
+		}
 	}
 }
 
@@ -404,9 +389,10 @@ func (m *Manager) cleanupSubsystems() {
 	// Cleanup extensions
 	m.cleanupExtensions()
 
-	// Cleanup metrics manager
-	if m.metricsManager != nil {
-		m.metricsManager.Cleanup()
+	// Stop and cleanup metrics collector
+	if m.metricsCollector != nil {
+		// Stop background routines gracefully
+		m.metricsCollector.Stop()
 	}
 }
 
@@ -420,6 +406,9 @@ func (m *Manager) cleanupExtensions() {
 			logger.Errorf(nil, "failed to cleanup extension %s: %v", ext.Metadata.Name, err)
 		}
 
+		// Track extension unloading
+		m.trackExtensionUnloaded(ext.Metadata.Name)
+
 		// Deregister from service discovery
 		if m.serviceDiscovery != nil && ext.Instance.NeedServiceDiscovery() {
 			if err := m.serviceDiscovery.DeregisterService(ext.Metadata.Name); err != nil {
@@ -427,30 +416,6 @@ func (m *Manager) cleanupExtensions() {
 			}
 		}
 	}
-}
-
-// startGarbageCollection starts periodic garbage collection
-func (m *Manager) startGarbageCollection(interval string) error {
-	gcInterval, err := time.ParseDuration(interval)
-	if err != nil {
-		return fmt.Errorf("invalid GC interval: %v", err)
-	}
-
-	// Start garbage collection
-	m.gcTicker = time.NewTicker(gcInterval)
-	go func() {
-		for range m.gcTicker.C {
-			before := getMemStats()
-			runtime.GC()
-			after := getMemStats()
-
-			if m.conf.Extension.Performance.EnableMetrics {
-				logger.Debugf(nil, "garbage collection completed: freed %dKB", (before-after)/1024)
-			}
-		}
-	}()
-
-	return nil
 }
 
 // Deprecated methods for backward compatibility

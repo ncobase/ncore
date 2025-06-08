@@ -106,11 +106,9 @@ func (m *Manager) LoadPlugin(path string) error {
 	// Security validation if sandbox enabled
 	if m.sandbox != nil {
 		if err := m.sandbox.ValidatePluginPath(path); err != nil {
-			m.trackPluginLoadAttempt(pluginName, false)
 			return fmt.Errorf("security validation failed: %v", err)
 		}
 		if err := m.sandbox.ValidatePluginSignature(path); err != nil {
-			m.trackPluginLoadAttempt(pluginName, false)
 			return fmt.Errorf("signature validation failed: %v", err)
 		}
 	}
@@ -118,7 +116,6 @@ func (m *Manager) LoadPlugin(path string) error {
 	// Resource limit check if monitoring enabled
 	if m.resourceMonitor != nil {
 		if err := m.resourceMonitor.CheckResourceLimits(pluginName); err != nil {
-			m.trackPluginLoadAttempt(pluginName, false)
 			return fmt.Errorf("resource limit check failed: %v", err)
 		}
 	}
@@ -127,7 +124,6 @@ func (m *Manager) LoadPlugin(path string) error {
 	if m.pm != nil {
 		currentCount := len(m.extensions)
 		if err := m.pm.ValidatePluginLimit(currentCount); err != nil {
-			m.trackPluginLoadAttempt(pluginName, false)
 			return err
 		}
 	}
@@ -147,12 +143,10 @@ func (m *Manager) LoadPlugin(path string) error {
 	duration := time.Since(start)
 
 	if err != nil {
-		m.trackPluginLoadAttempt(pluginName, false)
 		return fmt.Errorf("plugin loading failed: %v", err)
 	}
 
-	// Track successful load
-	m.trackPluginLoadAttempt(pluginName, true)
+	// Track successful load metrics
 	m.trackExtensionLoaded(pluginName, duration)
 
 	// Record metrics if monitoring enabled
@@ -329,26 +323,6 @@ func (m *Manager) removeCrossServicesForExtension(extensionName string) {
 
 	if len(keysToRemove) > 0 {
 		logger.Debugf(nil, "Removed %d cross services for extension %s", len(keysToRemove), extensionName)
-	}
-}
-
-// Metrics tracking helper methods (delegate to metrics manager if available)
-
-func (m *Manager) trackExtensionLoaded(name string, duration time.Duration) {
-	if m.metricsManager != nil {
-		m.metricsManager.ExtensionLoaded(name, duration)
-	}
-}
-
-func (m *Manager) trackExtensionUnloaded(name string) {
-	if m.metricsManager != nil {
-		m.metricsManager.ExtensionUnloaded(name)
-	}
-}
-
-func (m *Manager) trackPluginLoadAttempt(name string, success bool) {
-	if m.metricsManager != nil {
-		m.metricsManager.PluginLoadAttempt(name, success)
 	}
 }
 

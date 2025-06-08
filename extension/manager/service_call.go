@@ -56,9 +56,9 @@ func (m *Manager) CallServiceWithOptions(ctx context.Context, serviceName, metho
 		result, err = m.callLocalFirst(ctx, serviceName, methodName, req, start)
 	}
 
-	// Track service call metrics
-	duration := time.Since(start)
-	m.trackServiceCall(serviceName, methodName, duration, err)
+	// Track service call metrics (simplified)
+	success := err == nil
+	m.trackServiceCall(serviceName, success)
 
 	return result, err
 }
@@ -329,17 +329,8 @@ func (m *Manager) ExecuteWithCircuitBreaker(extensionName string, fn func() (any
 
 	// Track circuit breaker events
 	if cb.State() != gobreaker.StateClosed {
-		if m.metricsManager != nil {
-			m.metricsManager.CircuitBreakerTripped(extensionName)
-		}
+		m.trackCircuitBreakerTripped(extensionName)
 	}
 
 	return result, err
-}
-
-// trackServiceCall tracks service call metrics
-func (m *Manager) trackServiceCall(serviceName, methodName string, duration time.Duration, err error) {
-	if m.metricsManager != nil {
-		m.metricsManager.ServiceCall(serviceName, methodName, duration, err)
-	}
 }

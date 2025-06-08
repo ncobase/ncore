@@ -101,22 +101,15 @@ func (m *Manager) initializeExtensionsInPhases(initOrder []string) error {
 	// Phase 1: Pre-initialization
 	for _, name := range initOrder {
 		ext := m.extensions[name]
-		start := time.Now()
 		err := ext.Instance.PreInit()
-		duration := time.Since(start)
 
 		if err != nil {
 			logger.Errorf(nil, "failed pre-initialization of extension %s: %v", name, err)
 			initErrors = append(initErrors, fmt.Errorf("pre-initialization of extension %s failed: %w", name, err))
 		}
-
-		// Track metrics if available
-		if m.metricsManager != nil {
-			m.metricsManager.ExtensionPhase(name, "pre_init", duration, err)
-		}
 	}
 
-	// Phase 2: Initialization
+	// Phase 2: Main initialization with metrics tracking
 	for _, name := range initOrder {
 		ext := m.extensions[name]
 		start := time.Now()
@@ -128,34 +121,27 @@ func (m *Manager) initializeExtensionsInPhases(initOrder []string) error {
 			initErrors = append(initErrors, fmt.Errorf("initialization of extension %s failed: %w", name, err))
 		}
 
-		// Track metrics if available
-		if m.metricsManager != nil {
-			m.metricsManager.ExtensionInitialized(name, duration, err)
-		}
+		// Track initialization metrics
+		m.trackExtensionInitialized(name, duration, err)
 	}
 
 	// Phase 3: Post-initialization
 	for _, name := range initOrder {
 		ext := m.extensions[name]
-		start := time.Now()
 		err := ext.Instance.PostInit()
-		duration := time.Since(start)
 
 		if err != nil {
 			logger.Errorf(nil, "failed post-initialization of extension %s: %v", name, err)
 			initErrors = append(initErrors, fmt.Errorf("post-initialization of extension %s failed: %w", name, err))
 		} else {
 			successfulExtensions = append(successfulExtensions, name)
+
+			// Publish extension ready event - automatic tracking via event name
 			m.PublishEvent(fmt.Sprintf("exts.%s.ready", name), map[string]any{
 				"name":     name,
 				"status":   "ready",
 				"metadata": ext.Instance.GetMetadata(),
 			})
-		}
-
-		// Track metrics if available
-		if m.metricsManager != nil {
-			m.metricsManager.ExtensionPhase(name, "post_init", duration, err)
 		}
 	}
 
@@ -263,21 +249,4 @@ func (m *Manager) discoverAndRegisterServices(extensionName string, service any)
 		m.crossServices[serviceKey] = field.Interface()
 		m.mu.Unlock()
 	}
-}
-
-// getSecurityStatus returns current security status
-func (m *Manager) getSecurityStatus() map[string]any {
-	status := map[string]any{
-		"sandbox_enabled": m.sandbox != nil,
-	}
-
-	if m.conf.Extension.Security != nil {
-		status["signature_required"] = m.conf.Extension.Security.RequireSignature
-		status["trusted_sources"] = len(m.conf.Extension.Security.TrustedSources)
-		status["allowed_paths"] = len(m.conf.Extension.Security.AllowedPaths)
-		status["blocked_extensions"] = len(m.conf.Extension.Security.BlockedExtensions)
-		status["allow_unsafe"] = m.conf.Extension.Security.AllowUnsafe
-	}
-
-	return status
 }

@@ -176,7 +176,7 @@ func (d *Data) checkSearchHealth(ctx context.Context, services map[string]any) b
 	return overallHealthy
 }
 
-// Helper functions
+// getErrorString returns error string
 func getErrorString(err error) string {
 	if err == nil {
 		return ""
@@ -184,6 +184,7 @@ func getErrorString(err error) string {
 	return err.Error()
 }
 
+// getConnectivityError returns connectivity error
 func getConnectivityError(hasError bool, service string) error {
 	if hasError {
 		return fmt.Errorf("%s connection not available", service)

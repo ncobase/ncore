@@ -1,34 +1,34 @@
 package manager
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/ncobase/ncore/extension/types"
 	"github.com/ncobase/ncore/logging/logger"
 )
 
-// Event management methods
-
 // PublishEvent publishes event
 func (m *Manager) PublishEvent(eventName string, data any, target ...types.EventTarget) {
 	targetFlag := m.determineEventTarget(target...)
 
-	// Track event publication
-	m.trackEventPublished(eventName, targetFlag)
+	// Auto-track event publication by extracting extension name from event name
+	if extensionName := m.extractExtensionFromEventName(eventName); extensionName != "" {
+		m.trackEventPublished(extensionName, eventName)
+	}
 
 	// Publish to memory dispatcher
 	if targetFlag&types.EventTargetMemory != 0 {
 		m.eventDispatcher.Publish(eventName, data)
-		m.trackEventDelivered(eventName, nil) // Assume success for memory events
 	}
 
 	// Publish to message queue
 	if targetFlag&types.EventTargetQueue != 0 && m.isMessagingAvailable() {
-		err := m.publishToQueue(eventName, data)
-		m.trackEventDelivered(eventName, err)
+		_ = m.publishToQueue(eventName, data)
 	}
 }
 
@@ -36,34 +36,42 @@ func (m *Manager) PublishEvent(eventName string, data any, target ...types.Event
 func (m *Manager) PublishEventWithRetry(eventName string, data any, maxRetries int, target ...types.EventTarget) {
 	targetFlag := m.determineEventTarget(target...)
 
-	// Track event publication
-	m.trackEventPublished(eventName, targetFlag)
+	// Auto-track event publication by extracting extension name from event name
+	if extensionName := m.extractExtensionFromEventName(eventName); extensionName != "" {
+		m.trackEventPublished(extensionName, eventName)
+	}
 
 	// Retry for memory dispatcher
 	if targetFlag&types.EventTargetMemory != 0 {
 		m.eventDispatcher.PublishWithRetry(eventName, data, maxRetries)
-		m.trackEventDelivered(eventName, nil) // Assume success for memory events
 	}
 
 	// Retry for message queue
 	if targetFlag&types.EventTargetQueue != 0 && m.isMessagingAvailable() {
-		err := m.publishToQueueWithRetry(eventName, data, maxRetries)
-		m.trackEventDelivered(eventName, err)
+		_ = m.publishToQueueWithRetry(eventName, data, maxRetries)
 	}
 }
 
-// SubscribeEvent subscribes to events from specified sources
+// SubscribeEvent subscribes to events
 func (m *Manager) SubscribeEvent(eventName string, handler func(any), source ...types.EventTarget) {
 	sourceFlag := m.determineEventTarget(source...)
 
+	// Wrap handler to auto-track event reception
+	wrappedHandler := func(data any) {
+		if extensionName := m.extractExtensionFromEventName(eventName); extensionName != "" {
+			m.trackEventReceived(extensionName, eventName)
+		}
+		handler(data)
+	}
+
 	// Subscribe to memory dispatcher
 	if sourceFlag&types.EventTargetMemory != 0 {
-		m.eventDispatcher.Subscribe(eventName, handler)
+		m.eventDispatcher.Subscribe(eventName, wrappedHandler)
 	}
 
 	// Subscribe to message queue
 	if sourceFlag&types.EventTargetQueue != 0 && m.isMessagingAvailable() {
-		m.subscribeToQueue(eventName, handler)
+		m.subscribeToQueue(eventName, wrappedHandler)
 	}
 }
 
@@ -109,67 +117,34 @@ func (m *Manager) GetExtensionSubscriber(name string, subscriberType reflect.Typ
 	return subscriber, nil
 }
 
-// GetEventsMetrics returns event metrics from the metrics system
+// GetEventsMetrics returns event metrics
 func (m *Manager) GetEventsMetrics() map[string]any {
-	if m.metricsManager == nil || !m.metricsManager.IsEnabled() {
+	if m.eventDispatcher == nil {
 		return map[string]any{"status": "disabled"}
 	}
 
-	// Get events collection from metrics system
-	collections := m.metricsManager.GetAllCollections()
-	eventsCollection, exists := collections["events"]
+	// Get metrics from event dispatcher
+	dispatcherMetrics := m.eventDispatcher.GetMetrics()
 
-	if !exists {
-		return map[string]any{
-			"status":    "no_data",
-			"timestamp": time.Now(),
-		}
-	}
-
-	// Process metrics from the events collection
-	metrics := map[string]any{
-		"status":    "active",
-		"timestamp": time.Now(),
-	}
-
-	// Extract specific metrics from the collection
-	var published, delivered, failed, retries int64
-
-	for _, metric := range eventsCollection.Metrics {
-		value := metric.Value.Load()
-		switch metric.Name {
-		case "published_total":
-			if v, ok := value.(int64); ok {
-				published += v
-			}
-		case "delivered_total":
-			if v, ok := value.(int64); ok {
-				delivered += v
-			}
-		case "delivery_errors_total":
-			if v, ok := value.(int64); ok {
-				failed += v
+	// Get extension-specific event metrics from collector
+	extensionEventMetrics := make(map[string]any)
+	if m.metricsCollector != nil && m.metricsCollector.IsEnabled() {
+		extensions := m.metricsCollector.GetAllExtensionMetrics()
+		for name, ext := range extensions {
+			extensionEventMetrics[name] = map[string]any{
+				"published": ext.EventsPublished,
+				"received":  ext.EventsReceived,
 			}
 		}
 	}
 
-	// Calculate success rate
-	var successRate float64
-	if published > 0 {
-		successRate = (float64(delivered) / float64(published)) * 100.0
+	return map[string]any{
+		"dispatcher": dispatcherMetrics,
+		"extensions": extensionEventMetrics,
+		"timestamp":  time.Now(),
+		"status":     "active",
 	}
-
-	metrics["published"] = published
-	metrics["delivered"] = delivered
-	metrics["failed"] = failed
-	metrics["retries"] = retries
-	metrics["success_rate"] = successRate
-	metrics["last_updated"] = eventsCollection.LastUpdated
-
-	return metrics
 }
-
-// Helper methods for event management
 
 // determineEventTarget determines which target to use
 func (m *Manager) determineEventTarget(target ...types.EventTarget) types.EventTarget {
@@ -187,6 +162,38 @@ func (m *Manager) determineEventTarget(target ...types.EventTarget) types.EventT
 // isMessagingAvailable checks if messaging is available
 func (m *Manager) isMessagingAvailable() bool {
 	return m.data != nil && m.data.IsMessagingAvailable()
+}
+
+// extractExtensionFromEventName extracts extension name from event name using simple patterns
+func (m *Manager) extractExtensionFromEventName(eventName string) string {
+	// Event naming patterns:
+	// 1. "extension.event" -> "extension"
+	// 2. "extension.module.event" -> "extension"
+	// 3. "exts.extension.ready" -> "extension"
+	parts := strings.Split(eventName, ".")
+
+	if len(parts) >= 2 {
+		// Handle special system events like "exts.extension.ready"
+		if parts[0] == "exts" && len(parts) >= 3 {
+			if m.isRegisteredExtension(parts[1]) {
+				return parts[1]
+			}
+		}
+		// Standard format: first part is extension name
+		if m.isRegisteredExtension(parts[0]) {
+			return parts[0]
+		}
+	}
+
+	return ""
+}
+
+// isRegisteredExtension checks if the given name is a registered extension
+func (m *Manager) isRegisteredExtension(name string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	_, exists := m.extensions[name]
+	return exists
 }
 
 // publishToQueue publishes single event to queue
@@ -265,48 +272,37 @@ func (m *Manager) subscribeToQueue(eventName string, handler func(any)) {
 	}
 }
 
-// Metrics tracking helper methods
+// Message queue delegation methods
 
-func (m *Manager) trackEventPublished(eventName string, target types.EventTarget) {
-	if m.metricsManager != nil {
-		targetStr := m.getTargetString(target)
-		m.metricsManager.EventPublished(eventName, targetStr)
-	}
-}
-
-func (m *Manager) trackEventDelivered(eventName string, err error) {
-	if m.metricsManager != nil {
-		m.metricsManager.EventDelivered(eventName, err)
-	}
-}
-
-func (m *Manager) getTargetString(target types.EventTarget) string {
-	switch target {
-	case types.EventTargetMemory:
-		return "memory"
-	case types.EventTargetQueue:
-		return "queue"
-	case types.EventTargetAll:
-		return "all"
-	default:
-		return "unknown"
-	}
-}
-
-// Message queue delegation methods (these delegate to data layer)
-
-// PublishMessage publishes message to queue
+// PublishMessage publishes message to available queue system (RabbitMQ or Kafka)
 func (m *Manager) PublishMessage(exchange, routingKey string, body []byte) error {
 	if m.data == nil {
 		return fmt.Errorf("data layer not initialized")
 	}
-	return m.data.PublishToRabbitMQ(exchange, routingKey, body)
+
+	// Try RabbitMQ first (using exchange and routingKey)
+	if err := m.data.PublishToRabbitMQ(exchange, routingKey, body); err != nil {
+		// If RabbitMQ fails, try Kafka (using exchange as topic)
+		if kafkaErr := m.data.PublishToKafka(context.Background(), exchange, []byte(routingKey), body); kafkaErr != nil {
+			return fmt.Errorf("failed to publish to both RabbitMQ (%v) and Kafka (%v)", err, kafkaErr)
+		}
+	}
+	return nil
 }
 
-// SubscribeToMessages subscribes to queue messages
+// SubscribeToMessages subscribes to messages from available queue system
 func (m *Manager) SubscribeToMessages(queue string, handler func([]byte) error) error {
 	if m.data == nil {
 		return fmt.Errorf("data layer not initialized")
 	}
-	return m.data.ConsumeFromRabbitMQ(queue, handler)
+
+	// Try RabbitMQ first
+	if err := m.data.ConsumeFromRabbitMQ(queue, handler); err != nil {
+		// If RabbitMQ fails, try Kafka (using queue as topic and default group)
+		groupID := fmt.Sprintf("ncore-extension-%s", queue)
+		if kafkaErr := m.data.ConsumeFromKafka(context.Background(), queue, groupID, handler); kafkaErr != nil {
+			return fmt.Errorf("failed to subscribe to both RabbitMQ (%v) and Kafka (%v)", err, kafkaErr)
+		}
+	}
+	return nil
 }

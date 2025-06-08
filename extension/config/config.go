@@ -242,8 +242,7 @@ func getMonitoringConfig(v *viper.Viper) *MonitoringConfig {
 	}
 }
 
-// Helper functions
-
+// getDefaultPluginPath returns default plugin path
 func getDefaultPluginPath(isDevelopment bool) string {
 	if isDevelopment {
 		return "./plugins"
@@ -251,6 +250,7 @@ func getDefaultPluginPath(isDevelopment bool) string {
 	return "/opt/ncore/plugins"
 }
 
+// getStringWithDefault returns string value with default
 func getStringWithDefault(v *viper.Viper, key, defaultValue string) string {
 	if v.IsSet(key) {
 		return v.GetString(key)
@@ -258,6 +258,7 @@ func getStringWithDefault(v *viper.Viper, key, defaultValue string) string {
 	return defaultValue
 }
 
+// getIntWithDefault returns int value with default
 func getIntWithDefault(v *viper.Viper, key string, defaultValue int) int {
 	if v.IsSet(key) {
 		return v.GetInt(key)
@@ -265,6 +266,7 @@ func getIntWithDefault(v *viper.Viper, key string, defaultValue int) int {
 	return defaultValue
 }
 
+// getBoolWithDefault returns bool value with default
 func getBoolWithDefault(v *viper.Viper, key string, defaultValue bool) bool {
 	if v.IsSet(key) {
 		return v.GetBool(key)
@@ -272,6 +274,7 @@ func getBoolWithDefault(v *viper.Viper, key string, defaultValue bool) bool {
 	return defaultValue
 }
 
+// getStringSliceWithDefault returns string slice value with default
 func getStringSliceWithDefault(v *viper.Viper, key string, defaultValue []string) []string {
 	if v.IsSet(key) {
 		return v.GetStringSlice(key)

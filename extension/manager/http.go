@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/ncobase/ncore/extension/metrics"
 	"github.com/ncobase/ncore/extension/types"
 	"github.com/ncobase/ncore/net/resp"
 	"github.com/ncobase/ncore/utils"
@@ -17,18 +18,18 @@ import (
 
 // ManageRoutes manages routes for all extensions
 func (m *Manager) ManageRoutes(r *gin.RouterGroup) {
-	// Core extension management routes
-	m.setupCoreRoutes(r)
+	// Extension management routes
+	m.setupExtensionRoutes(r)
 
-	// Metrics-specific routes
+	// Metrics routes
 	m.setupMetricsRoutes(r)
 
 	// Health check routes
 	m.setupHealthRoutes(r)
 }
 
-// setupCoreRoutes sets up core extension management routes
-func (m *Manager) setupCoreRoutes(r *gin.RouterGroup) {
+// setupExtensionRoutes sets up extension management routes
+func (m *Manager) setupExtensionRoutes(r *gin.RouterGroup) {
 	// List all extensions
 	r.GET("/exts", func(c *gin.Context) {
 		extensions := m.ListExtensions()
@@ -55,284 +56,260 @@ func (m *Manager) setupCoreRoutes(r *gin.RouterGroup) {
 	})
 
 	// Plugin management routes
-	r.POST("/exts/load", func(c *gin.Context) {
-		name := c.Query("name")
-		if name == "" {
-			resp.Fail(c.Writer, resp.BadRequest("name is required"))
-			return
-		}
+	pluginGroup := r.Group("/exts/plugins")
+	{
+		pluginGroup.POST("/load", func(c *gin.Context) {
+			name := c.Query("name")
+			if name == "" {
+				resp.Fail(c.Writer, resp.BadRequest("name is required"))
+				return
+			}
 
-		fc := m.conf.Extension
-		fp := filepath.Join(fc.Path, name+utils.GetPlatformExt())
-		if err := m.LoadPlugin(fp); err != nil {
-			resp.Fail(c.Writer, resp.InternalServer("Failed to load extension %s: %v", name, err))
-			return
-		}
-		resp.Success(c.Writer, fmt.Sprintf("%s loaded successfully", name))
-	})
+			fc := m.conf.Extension
+			fp := filepath.Join(fc.Path, name+utils.GetPlatformExt())
+			if err := m.LoadPlugin(fp); err != nil {
+				resp.Fail(c.Writer, resp.InternalServer("Failed to load extension %s: %v", name, err))
+				return
+			}
+			resp.Success(c.Writer, fmt.Sprintf("%s loaded successfully", name))
+		})
 
-	r.POST("/exts/unload", func(c *gin.Context) {
-		name := c.Query("name")
-		if name == "" {
-			resp.Fail(c.Writer, resp.BadRequest("name is required"))
-			return
-		}
+		pluginGroup.POST("/unload", func(c *gin.Context) {
+			name := c.Query("name")
+			if name == "" {
+				resp.Fail(c.Writer, resp.BadRequest("name is required"))
+				return
+			}
 
-		if err := m.UnloadPlugin(name); err != nil {
-			resp.Fail(c.Writer, resp.InternalServer("Failed to unload extension %s: %v", name, err))
-			return
-		}
-		resp.Success(c.Writer, fmt.Sprintf("%s unloaded successfully", name))
-	})
+			if err := m.UnloadPlugin(name); err != nil {
+				resp.Fail(c.Writer, resp.InternalServer("Failed to unload extension %s: %v", name, err))
+				return
+			}
+			resp.Success(c.Writer, fmt.Sprintf("%s unloaded successfully", name))
+		})
 
-	r.POST("/exts/reload", func(c *gin.Context) {
-		name := c.Query("name")
-		if name == "" {
-			resp.Fail(c.Writer, resp.BadRequest("name is required"))
-			return
-		}
+		pluginGroup.POST("/reload", func(c *gin.Context) {
+			name := c.Query("name")
+			if name == "" {
+				resp.Fail(c.Writer, resp.BadRequest("name is required"))
+				return
+			}
 
-		if err := m.ReloadPlugin(name); err != nil {
-			resp.Fail(c.Writer, resp.InternalServer("Failed to reload extension %s: %v", name, err))
-			return
-		}
-		resp.Success(c.Writer, fmt.Sprintf("%s reloaded successfully", name))
-	})
+			if err := m.ReloadPlugin(name); err != nil {
+				resp.Fail(c.Writer, resp.InternalServer("Failed to reload extension %s: %v", name, err))
+				return
+			}
+			resp.Success(c.Writer, fmt.Sprintf("%s reloaded successfully", name))
+		})
+	}
 
 	// Cross services management
-	r.POST("/exts/refresh-cross-services", func(c *gin.Context) {
+	r.POST("/exts/cross-services/refresh", func(c *gin.Context) {
 		m.refreshCrossServices()
 		resp.Success(c.Writer, "Cross services refreshed successfully")
 	})
 }
 
-// setupMetricsRoutes sets up metrics-related routes
+// setupMetricsRoutes sets up metrics routes
 func (m *Manager) setupMetricsRoutes(r *gin.RouterGroup) {
-	// Get comprehensive metrics
-	r.GET("/exts/metrics", func(c *gin.Context) {
-		metrics := m.GetMetrics()
-		resp.Success(c.Writer, metrics)
-	})
-
-	// Get specific metric types
-	r.GET("/exts/metrics/:type", func(c *gin.Context) {
-		metricType := c.Param("type")
-		result := m.GetSpecificMetrics(metricType)
-
-		if errorMsg, hasError := result["error"]; hasError && errorMsg != "" {
-			validTypes := []string{"collections", "storage", "service_cache", "cache", "data", "system", "security", "resource"}
-			resp.Fail(c.Writer, resp.BadRequest("Invalid metric type '%s'. Valid types: %v", metricType, validTypes))
-			return
-		}
-
-		resp.Success(c.Writer, result)
-	})
-
-	// Metrics collections operations
-	r.GET("/exts/metrics/collections", func(c *gin.Context) {
-		if m.metricsManager == nil || !m.metricsManager.IsEnabled() {
-			resp.Success(c.Writer, map[string]any{
-				"collections": []string{},
-				"details":     map[string]any{},
-			})
-			return
-		}
-
-		collections := m.metricsManager.GetAllCollections()
-		collectionNames := make([]string, 0, len(collections))
-		collectionInfo := make(map[string]any)
-
-		for name, collection := range collections {
-			collectionNames = append(collectionNames, name)
-			collectionInfo[name] = map[string]any{
-				"metric_count": len(collection.Metrics),
-				"last_updated": collection.LastUpdated,
-			}
-		}
-
-		resp.Success(c.Writer, map[string]any{
-			"collections": collectionNames,
-			"details":     collectionInfo,
+	metricsGroup := r.Group("/exts/metrics")
+	{
+		// Main metrics endpoint
+		metricsGroup.GET("", func(c *gin.Context) {
+			result := m.GetMetrics()
+			resp.Success(c.Writer, result)
 		})
-	})
 
-	// Get specific collection data
-	r.GET("/exts/metrics/collections/:collection", func(c *gin.Context) {
-		collection := c.Param("collection")
-
-		if m.metricsManager == nil || !m.metricsManager.IsEnabled() {
-			resp.Fail(c.Writer, resp.ServiceUnavailable("Metrics collector not initialized"))
-			return
-		}
-
-		collectionData, exists := m.metricsManager.GetAllCollections()[collection]
-		if !exists {
-			resp.Fail(c.Writer, resp.NotFound("Collection '%s' not found", collection))
-			return
-		}
-
-		snapshots := make([]map[string]any, 0, len(collectionData.Metrics))
-		for _, metric := range collectionData.Metrics {
-			snapshots = append(snapshots, map[string]any{
-				"name":      metric.Name,
-				"type":      m.getMetricTypeString(metric.Type),
-				"value":     metric.Value.Load(),
-				"labels":    metric.Labels,
-				"timestamp": metric.Timestamp,
-				"help":      metric.Help,
-				"unit":      metric.Unit,
-			})
-		}
-
-		resp.Success(c.Writer, map[string]any{
-			"collection":   collection,
-			"metrics":      snapshots,
-			"last_updated": collectionData.LastUpdated,
-		})
-	})
-
-	// Query historical metrics
-	r.GET("/exts/metrics/query/:collection", func(c *gin.Context) {
-		collection := c.Param("collection")
-		startStr := c.Query("start")
-		endStr := c.Query("end")
-		limitStr := c.Query("limit")
-
-		if limitStr != "" {
-			limit := 100
-			if parsed, err := strconv.Atoi(limitStr); err == nil && parsed > 0 && parsed <= 1000 {
-				limit = parsed
-			}
-
-			snapshots, err := m.GetLatestMetrics(collection, limit)
+		// Historical queries
+		metricsGroup.GET("/history", func(c *gin.Context) {
+			opts, err := parseQueryOptions(c)
 			if err != nil {
-				resp.Fail(c.Writer, resp.InternalServer("Failed to query metrics: %v", err))
+				resp.Fail(c.Writer, resp.BadRequest("Invalid query parameters: %v", err))
+				return
+			}
+
+			results, err := m.QueryHistoricalMetrics(opts)
+			if err != nil {
+				resp.Fail(c.Writer, resp.InternalServer("Query failed: %v", err))
 				return
 			}
 
 			resp.Success(c.Writer, map[string]any{
-				"collection": collection,
-				"limit":      limit,
-				"count":      len(snapshots),
-				"data":       snapshots,
+				"query":   opts,
+				"results": results,
+				"count":   len(results),
 			})
-			return
-		}
-
-		if startStr == "" || endStr == "" {
-			resp.Fail(c.Writer, resp.BadRequest("start and end parameters required for time range query, or use limit for latest metrics"))
-			return
-		}
-
-		start, err := time.Parse(time.RFC3339, startStr)
-		if err != nil {
-			resp.Fail(c.Writer, resp.BadRequest("Invalid start time format, use RFC3339"))
-			return
-		}
-
-		end, err := time.Parse(time.RFC3339, endStr)
-		if err != nil {
-			resp.Fail(c.Writer, resp.BadRequest("Invalid end time format, use RFC3339"))
-			return
-		}
-
-		snapshots, err := m.QueryMetrics(collection, start, end)
-		if err != nil {
-			resp.Fail(c.Writer, resp.InternalServer("Failed to query metrics: %v", err))
-			return
-		}
-
-		resp.Success(c.Writer, map[string]any{
-			"collection": collection,
-			"start":      start,
-			"end":        end,
-			"count":      len(snapshots),
-			"data":       snapshots,
 		})
-	})
 
-	// Get metrics snapshot
-	r.GET("/exts/metrics/snapshot", func(c *gin.Context) {
-		if m.metricsManager == nil || !m.metricsManager.IsEnabled() {
-			resp.Fail(c.Writer, resp.ServiceUnavailable("Metrics collector not initialized"))
-			return
-		}
+		// Latest metrics by extension
+		metricsGroup.GET("/latest/:name", func(c *gin.Context) {
+			name := c.Param("name")
+			limitStr := c.DefaultQuery("limit", "100")
 
-		snapshot := m.metricsManager.Snapshot()
-		resp.Success(c.Writer, snapshot)
-	})
+			limit, err := strconv.Atoi(limitStr)
+			if err != nil || limit <= 0 || limit > 1000 {
+				limit = 100
+			}
 
-	// Metrics storage operations
-	r.GET("/exts/metrics/storage", func(c *gin.Context) {
-		stats := m.GetMetricsStats()
-		resp.Success(c.Writer, stats)
-	})
+			snapshots, err := m.GetLatestMetrics(name, limit)
+			if err != nil {
+				resp.Fail(c.Writer, resp.InternalServer("Failed to get latest metrics: %v", err))
+				return
+			}
+
+			resp.Success(c.Writer, map[string]any{
+				"extension": name,
+				"limit":     limit,
+				"count":     len(snapshots),
+				"snapshots": snapshots,
+			})
+		})
+
+		// Specific extension metrics
+		metricsGroup.GET("/extensions/:name", func(c *gin.Context) {
+			name := c.Param("name")
+			result := m.GetExtensionMetrics(name)
+
+			if result == nil {
+				resp.Fail(c.Writer, resp.NotFound("Extension '%s' not found", name))
+				return
+			}
+
+			resp.Success(c.Writer, result)
+		})
+
+		// Events metrics
+		metricsGroup.GET("/events", func(c *gin.Context) {
+			eventMetrics := m.GetEventsMetrics()
+			resp.Success(c.Writer, eventMetrics)
+		})
+
+		// Storage info
+		metricsGroup.GET("/storage", func(c *gin.Context) {
+			stats := m.GetMetricsStorageStats()
+			resp.Success(c.Writer, stats)
+		})
+	}
 }
 
-// setupHealthRoutes sets up health check routes
+// setupHealthRoutes sets up simplified health check routes
 func (m *Manager) setupHealthRoutes(r *gin.RouterGroup) {
-	// Data layer health
-	r.GET("/exts/health/data", func(c *gin.Context) {
-		if m.data == nil {
-			resp.Fail(c.Writer, resp.ServiceUnavailable("Data layer not initialized"))
-			return
-		}
+	healthGroup := r.Group("/exts/health")
+	{
+		// Overall system health
+		healthGroup.GET("", func(c *gin.Context) {
+			health := m.buildSystemHealth(c.Request.Context())
 
-		health := m.data.Health(c.Request.Context())
-		status := health["status"].(string)
-
-		if status == "healthy" {
-			resp.Success(c.Writer, health)
-		} else {
-			resp.Fail(c.Writer, resp.ServiceUnavailable("Data layer unhealthy: %v", health))
-		}
-	})
-
-	// Overall system health
-	r.GET("/exts/health", func(c *gin.Context) {
-		health := m.buildSystemHealth(c.Request.Context())
-
-		status := health["status"].(string)
-		if status == "healthy" {
-			resp.Success(c.Writer, health)
-		} else {
-			c.Writer.WriteHeader(503)
-			resp.Success(c.Writer, health)
-		}
-	})
-
-	// Circuit breaker status
-	r.GET("/exts/health/circuit-breakers", func(c *gin.Context) {
-		breakerStatus := m.getCircuitBreakerStatus()
-		resp.Success(c.Writer, breakerStatus)
-	})
-
-	// Extension status and summary
-	r.GET("/exts/health/extensions", func(c *gin.Context) {
-		extensionStatus := m.GetStatus()
-		summary := map[string]int{
-			"total":  len(extensionStatus),
-			"active": 0,
-			"error":  0,
-			"other":  0,
-		}
-
-		for _, status := range extensionStatus {
-			switch status {
-			case types.StatusActive:
-				summary["active"]++
-			case types.StatusError:
-				summary["error"]++
-			default:
-				summary["other"]++
+			status := health["status"].(string)
+			if status == "healthy" {
+				resp.Success(c.Writer, health)
+			} else {
+				c.Writer.WriteHeader(503)
+				resp.Success(c.Writer, health)
 			}
+		})
+
+		// Extension health summary
+		healthGroup.GET("/extensions", func(c *gin.Context) {
+			extensionStatus := m.GetStatus()
+			summary := map[string]int{
+				"total":  len(extensionStatus),
+				"active": 0,
+				"error":  0,
+				"other":  0,
+			}
+
+			for _, status := range extensionStatus {
+				switch status {
+				case types.StatusActive:
+					summary["active"]++
+				case types.StatusError:
+					summary["error"]++
+				default:
+					summary["other"]++
+				}
+			}
+
+			resp.Success(c.Writer, map[string]any{
+				"summary":    summary,
+				"extensions": extensionStatus,
+			})
+		})
+
+		// Data layer health
+		healthGroup.GET("/data", func(c *gin.Context) {
+			if m.data == nil {
+				resp.Fail(c.Writer, resp.ServiceUnavailable("Data layer not initialized"))
+				return
+			}
+
+			health := m.data.Health(c.Request.Context())
+			status := health["status"].(string)
+
+			if status == "healthy" {
+				resp.Success(c.Writer, health)
+			} else {
+				resp.Fail(c.Writer, resp.ServiceUnavailable("Data layer unhealthy: %v", health))
+			}
+		})
+
+		// Circuit breaker status
+		healthGroup.GET("/circuit-breakers", func(c *gin.Context) {
+			breakerStatus := m.getCircuitBreakerStatus()
+			resp.Success(c.Writer, breakerStatus)
+		})
+	}
+}
+
+// parseQueryOptions parses query parameters into QueryOptions
+func parseQueryOptions(c *gin.Context) (*metrics.QueryOptions, error) {
+	opts := &metrics.QueryOptions{
+		ExtensionName: c.Query("extension"),
+		MetricType:    c.Query("metric_type"),
+		Aggregation:   c.DefaultQuery("aggregation", "raw"),
+		Limit:         100,
+	}
+
+	// Parse time range
+	startStr := c.Query("start")
+	endStr := c.Query("end")
+
+	if startStr == "" || endStr == "" {
+		// Default to last hour
+		opts.EndTime = time.Now()
+		opts.StartTime = opts.EndTime.Add(-time.Hour)
+	} else {
+		var err error
+		opts.StartTime, err = time.Parse(time.RFC3339, startStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid start time format: %v", err)
 		}
 
-		resp.Success(c.Writer, map[string]any{
-			"summary":    summary,
-			"extensions": extensionStatus,
-		})
-	})
+		opts.EndTime, err = time.Parse(time.RFC3339, endStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid end time format: %v", err)
+		}
+	}
+
+	// Parse interval
+	if intervalStr := c.Query("interval"); intervalStr != "" {
+		interval, err := time.ParseDuration(intervalStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid interval format: %v", err)
+		}
+		opts.Interval = interval
+	}
+
+	// Parse limit
+	if limitStr := c.Query("limit"); limitStr != "" {
+		limit, err := strconv.Atoi(limitStr)
+		if err != nil || limit <= 0 || limit > 10000 {
+			return nil, fmt.Errorf("invalid limit: must be 1-10000")
+		}
+		opts.Limit = limit
+	}
+
+	return opts, nil
 }
 
 // buildSystemHealth builds comprehensive system health status
@@ -379,10 +356,10 @@ func (m *Manager) buildSystemHealth(ctx context.Context) map[string]any {
 	}
 
 	// Metrics system health
-	if m.metricsManager != nil && m.metricsManager.IsEnabled() {
+	if m.metricsCollector != nil && m.metricsCollector.IsEnabled() {
 		components["metrics"] = map[string]any{
 			"status": "enabled",
-			"stats":  m.GetMetricsStats(),
+			"stats":  m.GetMetricsStorageStats(),
 		}
 	} else {
 		components["metrics"] = map[string]any{
