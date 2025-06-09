@@ -9,6 +9,13 @@ import (
 
 // GetDatabaseNodes returns information about all database nodes (master and slaves)
 func (d *Data) GetDatabaseNodes() (master *sql.DB, slaves []*sql.DB, err error) {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	if d.closed {
+		return nil, nil, errors.New("data layer is closed")
+	}
+
 	if d.Conn == nil || d.Conn.DBM == nil {
 		return nil, nil, errors.New("no database manager available")
 	}
@@ -36,7 +43,10 @@ func (d *Data) GetDatabaseNodes() (master *sql.DB, slaves []*sql.DB, err error) 
 
 // IsReadOnlyMode checks if the system is in read-only mode (only slaves available)
 func (d *Data) IsReadOnlyMode(ctx context.Context) bool {
-	if d.Conn == nil || d.Conn.DBM == nil {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	if d.closed || d.Conn == nil || d.Conn.DBM == nil {
 		return false
 	}
 
@@ -56,17 +66,25 @@ func (d *Data) IsReadOnlyMode(ctx context.Context) bool {
 // Ping checks all database connections
 func (d *Data) Ping(ctx context.Context) error {
 	start := time.Now()
-	var err error
 
-	if d.Conn != nil {
-		err = d.Conn.Ping(ctx)
+	d.mu.RLock()
+	closed := d.closed
+	conn := d.Conn
+	collector := d.collector
+	d.mu.RUnlock()
+
+	var err error
+	if closed {
+		err = errors.New("data layer is closed")
+	} else if conn != nil {
+		err = conn.Ping(ctx)
 	} else {
 		err = errors.New("no connection manager available")
 	}
 
 	duration := time.Since(start)
-	d.collector.DBQuery(duration, err)
-	d.collector.HealthCheck("database", err == nil)
+	collector.DBQuery(duration, err)
+	collector.HealthCheck("database", err == nil)
 
 	return err
 }

@@ -20,18 +20,30 @@ func GetTx(ctx context.Context) (*sql.Tx, error) {
 // WithTx wraps function within transaction
 func (d *Data) WithTx(ctx context.Context, fn func(ctx context.Context) error) error {
 	start := time.Now()
+
+	d.mu.RLock()
+	closed := d.closed
+	collector := d.collector
+	d.mu.RUnlock()
+
+	if closed {
+		err := errors.New("data layer is closed")
+		collector.DBTransaction(err)
+		return err
+	}
+
 	db := d.GetMasterDB()
 	if db == nil {
 		err := errors.New("database connection is nil")
-		d.collector.DBTransaction(err)
+		collector.DBTransaction(err)
 		return err
 	}
 
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		duration := time.Since(start)
-		d.collector.DBQuery(duration, err)
-		d.collector.DBTransaction(err)
+		collector.DBQuery(duration, err)
+		collector.DBTransaction(err)
 		return err
 	}
 
@@ -40,35 +52,47 @@ func (d *Data) WithTx(ctx context.Context, fn func(ctx context.Context) error) e
 
 	if err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
-			d.collector.DBQuery(duration, rbErr)
-			d.collector.DBTransaction(rbErr)
+			collector.DBQuery(duration, rbErr)
+			collector.DBTransaction(rbErr)
 			return fmt.Errorf("tx err: %v, rollback err: %v", err, rbErr)
 		}
-		d.collector.DBQuery(duration, err)
-		d.collector.DBTransaction(err)
+		collector.DBQuery(duration, err)
+		collector.DBTransaction(err)
 		return err
 	}
 
 	commitErr := tx.Commit()
-	d.collector.DBQuery(duration, commitErr)
-	d.collector.DBTransaction(commitErr)
+	collector.DBQuery(duration, commitErr)
+	collector.DBTransaction(commitErr)
 	return commitErr
 }
 
 // WithTxRead wraps function within read-only transaction
 func (d *Data) WithTxRead(ctx context.Context, fn func(ctx context.Context) error) error {
 	start := time.Now()
+
+	d.mu.RLock()
+	closed := d.closed
+	collector := d.collector
+	d.mu.RUnlock()
+
+	if closed {
+		err := errors.New("data layer is closed")
+		collector.DBTransaction(err)
+		return err
+	}
+
 	dbRead, err := d.GetSlaveDB()
 	if err != nil {
-		d.collector.DBTransaction(err)
+		collector.DBTransaction(err)
 		return err
 	}
 
 	tx, err := dbRead.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
 		duration := time.Since(start)
-		d.collector.DBQuery(duration, err)
-		d.collector.DBTransaction(err)
+		collector.DBQuery(duration, err)
+		collector.DBTransaction(err)
 		return err
 	}
 
@@ -77,17 +101,17 @@ func (d *Data) WithTxRead(ctx context.Context, fn func(ctx context.Context) erro
 
 	if err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
-			d.collector.DBQuery(duration, rbErr)
-			d.collector.DBTransaction(rbErr)
+			collector.DBQuery(duration, rbErr)
+			collector.DBTransaction(rbErr)
 			return fmt.Errorf("tx err: %v, rollback err: %v", err, rbErr)
 		}
-		d.collector.DBQuery(duration, err)
-		d.collector.DBTransaction(err)
+		collector.DBQuery(duration, err)
+		collector.DBTransaction(err)
 		return err
 	}
 
 	commitErr := tx.Commit()
-	d.collector.DBQuery(duration, commitErr)
-	d.collector.DBTransaction(commitErr)
+	collector.DBQuery(duration, commitErr)
+	collector.DBTransaction(commitErr)
 	return commitErr
 }

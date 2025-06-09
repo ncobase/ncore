@@ -7,8 +7,14 @@ import (
 	"time"
 )
 
-// IsMessagingAvailable checks if any messaging system is available and properly connected
+// IsMessagingAvailable checks if messaging services are available
 func (d *Data) IsMessagingAvailable() bool {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	if d.closed {
+		return false
+	}
 	return (d.RabbitMQ != nil && d.RabbitMQ.IsConnected()) ||
 		(d.Kafka != nil && d.Kafka.IsConnected())
 }
@@ -16,13 +22,21 @@ func (d *Data) IsMessagingAvailable() bool {
 // PublishToRabbitMQ publishes message to RabbitMQ with metrics
 func (d *Data) PublishToRabbitMQ(exchange, routingKey string, body []byte) error {
 	start := time.Now()
+
+	d.mu.RLock()
+	closed := d.closed
+	rabbitmq := d.RabbitMQ
+	d.mu.RUnlock()
+
 	err := errors.New("RabbitMQ service not initialized")
 
-	if d.RabbitMQ != nil {
-		if !d.RabbitMQ.IsConnected() {
+	if closed {
+		err = errors.New("data layer is closed")
+	} else if rabbitmq != nil {
+		if !rabbitmq.IsConnected() {
 			err = fmt.Errorf("RabbitMQ connection is not active")
 		} else {
-			err = d.RabbitMQ.PublishMessage(exchange, routingKey, body)
+			err = rabbitmq.PublishMessage(exchange, routingKey, body)
 		}
 	}
 
@@ -39,13 +53,24 @@ func (d *Data) PublishToRabbitMQ(exchange, routingKey string, body []byte) error
 
 // ConsumeFromRabbitMQ consumes messages from RabbitMQ with metrics
 func (d *Data) ConsumeFromRabbitMQ(queue string, handler func([]byte) error) error {
-	if d.RabbitMQ == nil {
+	d.mu.RLock()
+	closed := d.closed
+	rabbitmq := d.RabbitMQ
+	d.mu.RUnlock()
+
+	if closed {
+		err := errors.New("data layer is closed")
+		d.collector.MQConsume("rabbitmq", err)
+		return err
+	}
+
+	if rabbitmq == nil {
 		err := errors.New("RabbitMQ service not initialized")
 		d.collector.MQConsume("rabbitmq", err)
 		return err
 	}
 
-	if !d.RabbitMQ.IsConnected() {
+	if !rabbitmq.IsConnected() {
 		err := fmt.Errorf("RabbitMQ connection is not active")
 		d.collector.MQConsume("rabbitmq", err)
 		return err
@@ -67,19 +92,27 @@ func (d *Data) ConsumeFromRabbitMQ(queue string, handler func([]byte) error) err
 		return err
 	}
 
-	return d.RabbitMQ.ConsumeMessages(queue, wrappedHandler)
+	return rabbitmq.ConsumeMessages(queue, wrappedHandler)
 }
 
 // PublishToKafka publishes message to Kafka with metrics
 func (d *Data) PublishToKafka(ctx context.Context, topic string, key, value []byte) error {
 	start := time.Now()
+
+	d.mu.RLock()
+	closed := d.closed
+	kafka := d.Kafka
+	d.mu.RUnlock()
+
 	err := errors.New("kafka service not initialized")
 
-	if d.Kafka != nil {
-		if !d.Kafka.IsConnected() {
+	if closed {
+		err = errors.New("data layer is closed")
+	} else if kafka != nil {
+		if !kafka.IsConnected() {
 			err = fmt.Errorf("kafka connection is not active")
 		} else {
-			err = d.Kafka.PublishMessage(ctx, topic, key, value)
+			err = kafka.PublishMessage(ctx, topic, key, value)
 		}
 	}
 
@@ -96,13 +129,24 @@ func (d *Data) PublishToKafka(ctx context.Context, topic string, key, value []by
 
 // ConsumeFromKafka consumes messages from Kafka with metrics
 func (d *Data) ConsumeFromKafka(ctx context.Context, topic, groupID string, handler func([]byte) error) error {
-	if d.Kafka == nil {
+	d.mu.RLock()
+	closed := d.closed
+	kafka := d.Kafka
+	d.mu.RUnlock()
+
+	if closed {
+		err := errors.New("data layer is closed")
+		d.collector.MQConsume("kafka", err)
+		return err
+	}
+
+	if kafka == nil {
 		err := errors.New("kafka service not initialized")
 		d.collector.MQConsume("kafka", err)
 		return err
 	}
 
-	if !d.Kafka.IsConnected() {
+	if !kafka.IsConnected() {
 		err := fmt.Errorf("kafka connection is not active")
 		d.collector.MQConsume("kafka", err)
 		return err
@@ -124,5 +168,5 @@ func (d *Data) ConsumeFromKafka(ctx context.Context, topic, groupID string, hand
 		return err
 	}
 
-	return d.Kafka.ConsumeMessages(ctx, topic, groupID, wrappedHandler)
+	return kafka.ConsumeMessages(ctx, topic, groupID, wrappedHandler)
 }
