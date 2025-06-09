@@ -156,6 +156,8 @@ var (
 	UpdatedBy      = StringMixin{Field: "updated_by", Comment: "id of the last updater", Optional: true}
 	DeletedBy      = StringMixin{Field: "deleted_by", Comment: "id of the deleter", Optional: true}
 	Details        = StringMixin{Field: "details", Comment: "details", Optional: true}
+	OwnerType      = StringMixin{Field: "owner_type", Comment: "owner type, like user or group", Optional: true}
+	SpaceType      = StringMixin{Field: "space_type", Comment: "space type, like tenant or space or project", Optional: true}
 )
 
 // DateFormat default date format

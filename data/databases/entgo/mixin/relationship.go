@@ -59,4 +59,6 @@ var (
 	ObjectID       = IDMixin{Field: "object_id", Comment: "object id"}
 	OAuthID        = IDMixin{Field: "oauth_id", Comment: "oauth id"}
 	ChannelID      = IDMixin{Field: "channel_id", Comment: "channel id"}
+	OwnerID        = IDMixin{Field: "owner_id", Comment: "owner id"}
+	SpaceID        = IDMixin{Field: "space_id", Comment: "space id, e.g. tenant id, organization id, store id"}
 )
