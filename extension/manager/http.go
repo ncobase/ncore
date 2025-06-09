@@ -18,106 +18,248 @@ import (
 
 // ManageRoutes manages routes for all extensions
 func (m *Manager) ManageRoutes(r *gin.RouterGroup) {
+	// Create API group
+	apiGroup := r.Group("")
+
 	// Extension management routes
-	m.setupExtensionRoutes(r)
+	m.setupExtensionRoutes(apiGroup)
+
+	// Plugin management routes
+	m.setupPluginRoutes(apiGroup)
 
 	// Metrics routes
-	m.setupMetricsRoutes(r)
+	m.setupMetricsRoutes(apiGroup)
 
 	// Health check routes
-	m.setupHealthRoutes(r)
+	m.setupHealthRoutes(apiGroup)
+
+	// System management routes
+	m.setupSystemRoutes(apiGroup)
 }
 
 // setupExtensionRoutes sets up extension management routes
 func (m *Manager) setupExtensionRoutes(r *gin.RouterGroup) {
-	// List all extensions
-	r.GET("/exts", func(c *gin.Context) {
-		extensions := m.ListExtensions()
-		result := make(map[string]map[string][]any)
-
-		for _, ext := range extensions {
-			group := ext.Metadata.Group
-			if group == "" {
-				group = ext.Metadata.Name
-			}
-			if _, ok := result[group]; !ok {
-				result[group] = make(map[string][]any)
-			}
-			result[group][ext.Metadata.Type] = append(result[group][ext.Metadata.Type], ext.Metadata)
-		}
-
-		resp.Success(c.Writer, result)
-	})
-
-	// Get extension status
-	r.GET("/exts/status", func(c *gin.Context) {
-		status := m.GetStatus()
-		resp.Success(c.Writer, status)
-	})
-
-	// Plugin management routes
-	pluginGroup := r.Group("/exts/plugins")
+	extGroup := r.Group("/extensions")
 	{
+		// List all extensions
+		extGroup.GET("", func(c *gin.Context) {
+			extensions := m.ListExtensions()
+
+			// Group by category for better organization
+			result := make(map[string]map[string][]any)
+			for _, ext := range extensions {
+				group := ext.Metadata.Group
+				if group == "" {
+					group = "default"
+				}
+
+				extType := ext.Metadata.Type
+				if extType == "" {
+					extType = "module"
+				}
+
+				if _, ok := result[group]; !ok {
+					result[group] = make(map[string][]any)
+				}
+
+				result[group][extType] = append(result[group][extType], ext.Metadata)
+			}
+
+			resp.Success(c.Writer, result)
+		})
+
+		// Get extension status
+		extGroup.GET("/status", func(c *gin.Context) {
+			status := m.GetStatus()
+
+			// Add summary information
+			summary := map[string]int{
+				"total":  len(status),
+				"active": 0,
+				"error":  0,
+				"other":  0,
+			}
+
+			for _, s := range status {
+				switch s {
+				case types.StatusActive:
+					summary["active"]++
+				case types.StatusError:
+					summary["error"]++
+				default:
+					summary["other"]++
+				}
+			}
+
+			resp.Success(c.Writer, map[string]any{
+				"summary":    summary,
+				"extensions": status,
+			})
+		})
+
+		// Get specific extension info
+		extGroup.GET("/:name", func(c *gin.Context) {
+			name := c.Param("name")
+			ext, err := m.GetExtensionByName(name)
+			if err != nil {
+				resp.Fail(c.Writer, resp.NotFound("Extension '%s' not found", name))
+				return
+			}
+
+			resp.Success(c.Writer, map[string]any{
+				"metadata": ext.GetMetadata(),
+				"status":   ext.Status(),
+			})
+		})
+
+		// Get extension metadata
+		extGroup.GET("/metadata", func(c *gin.Context) {
+			metadata := m.GetMetadata()
+			resp.Success(c.Writer, metadata)
+		})
+	}
+}
+
+// setupPluginRoutes sets up plugin management routes
+func (m *Manager) setupPluginRoutes(r *gin.RouterGroup) {
+	pluginGroup := r.Group("/plugins")
+	{
+		// Load plugin
 		pluginGroup.POST("/load", func(c *gin.Context) {
 			name := c.Query("name")
 			if name == "" {
-				resp.Fail(c.Writer, resp.BadRequest("name is required"))
+				resp.Fail(c.Writer, resp.BadRequest("Plugin name is required"))
 				return
 			}
 
 			fc := m.conf.Extension
 			fp := filepath.Join(fc.Path, name+utils.GetPlatformExt())
+
 			if err := m.LoadPlugin(fp); err != nil {
-				resp.Fail(c.Writer, resp.InternalServer("Failed to load extension %s: %v", name, err))
+				resp.Fail(c.Writer, resp.InternalServer("Failed to load plugin %s: %v", name, err))
 				return
 			}
-			resp.Success(c.Writer, fmt.Sprintf("%s loaded successfully", name))
+
+			resp.Success(c.Writer, map[string]any{
+				"message": fmt.Sprintf("Plugin %s loaded successfully", name),
+				"plugin":  name,
+			})
 		})
 
+		// Unload plugin
 		pluginGroup.POST("/unload", func(c *gin.Context) {
 			name := c.Query("name")
 			if name == "" {
-				resp.Fail(c.Writer, resp.BadRequest("name is required"))
+				resp.Fail(c.Writer, resp.BadRequest("Plugin name is required"))
 				return
 			}
 
 			if err := m.UnloadPlugin(name); err != nil {
-				resp.Fail(c.Writer, resp.InternalServer("Failed to unload extension %s: %v", name, err))
+				resp.Fail(c.Writer, resp.InternalServer("Failed to unload plugin %s: %v", name, err))
 				return
 			}
-			resp.Success(c.Writer, fmt.Sprintf("%s unloaded successfully", name))
+
+			resp.Success(c.Writer, map[string]any{
+				"message": fmt.Sprintf("Plugin %s unloaded successfully", name),
+				"plugin":  name,
+			})
 		})
 
+		// Reload plugin
 		pluginGroup.POST("/reload", func(c *gin.Context) {
 			name := c.Query("name")
 			if name == "" {
-				resp.Fail(c.Writer, resp.BadRequest("name is required"))
+				resp.Fail(c.Writer, resp.BadRequest("Plugin name is required"))
 				return
 			}
 
 			if err := m.ReloadPlugin(name); err != nil {
-				resp.Fail(c.Writer, resp.InternalServer("Failed to reload extension %s: %v", name, err))
+				resp.Fail(c.Writer, resp.InternalServer("Failed to reload plugin %s: %v", name, err))
 				return
 			}
-			resp.Success(c.Writer, fmt.Sprintf("%s reloaded successfully", name))
+
+			resp.Success(c.Writer, map[string]any{
+				"message": fmt.Sprintf("Plugin %s reloaded successfully", name),
+				"plugin":  name,
+			})
 		})
 	}
-
-	// Cross services management
-	r.POST("/exts/cross-services/refresh", func(c *gin.Context) {
-		m.refreshCrossServices()
-		resp.Success(c.Writer, "Cross services refreshed successfully")
-	})
 }
 
 // setupMetricsRoutes sets up metrics routes
 func (m *Manager) setupMetricsRoutes(r *gin.RouterGroup) {
-	metricsGroup := r.Group("/exts/metrics")
+	metricsGroup := r.Group("/metrics")
 	{
-		// Main metrics endpoint
-		metricsGroup.GET("", func(c *gin.Context) {
+		// Dashboard summary
+		metricsGroup.GET("/summary", func(c *gin.Context) {
+			summary := map[string]any{
+				"timestamp":         time.Now(),
+				"total_extensions":  len(m.extensions),
+				"active_extensions": m.countActiveExtensions(),
+				"data_status":       m.getDataLayerStatus(),
+				"messaging":         m.getMessagingStatus(),
+				"metrics_enabled":   m.metricsCollector != nil && m.metricsCollector.IsEnabled(),
+			}
+
+			if m.serviceDiscovery != nil {
+				cacheStats := m.GetServiceCacheStats()
+				summary["service_discovery"] = map[string]any{
+					"enabled":    true,
+					"cache_hits": cacheStats["cache_hits"],
+					"hit_rate":   cacheStats["hit_rate"],
+				}
+			}
+
+			resp.Success(c.Writer, summary)
+		})
+
+		// System-wide metrics
+		metricsGroup.GET("/system", func(c *gin.Context) {
+			result := m.GetSystemMetrics()
+			resp.Success(c.Writer, result)
+		})
+
+		// Comprehensive metrics
+		metricsGroup.GET("/comprehensive", func(c *gin.Context) {
+			result := m.GetComprehensiveMetrics()
+			resp.Success(c.Writer, result)
+		})
+
+		// Extension metrics
+		metricsGroup.GET("/extensions", func(c *gin.Context) {
 			result := m.GetMetrics()
 			resp.Success(c.Writer, result)
+		})
+
+		// Specific extension metrics
+		metricsGroup.GET("/extensions/:name", func(c *gin.Context) {
+			name := c.Param("name")
+			result := m.GetExtensionMetrics(name)
+
+			if result == nil {
+				resp.Fail(c.Writer, resp.NotFound("Extension '%s' not found", name))
+				return
+			}
+
+			resp.Success(c.Writer, result)
+		})
+
+		// Data layer metrics
+		metricsGroup.GET("/data", func(c *gin.Context) {
+			result := m.GetDataMetrics()
+			resp.Success(c.Writer, result)
+		})
+
+		// Events metrics
+		metricsGroup.GET("/events", func(c *gin.Context) {
+			eventMetrics := m.GetEventsMetrics()
+			resp.Success(c.Writer, eventMetrics)
+		})
+
+		// Service discovery metrics
+		metricsGroup.GET("/service-discovery", func(c *gin.Context) {
+			cacheStats := m.GetServiceCacheStats()
+			resp.Success(c.Writer, cacheStats)
 		})
 
 		// Historical queries
@@ -141,7 +283,7 @@ func (m *Manager) setupMetricsRoutes(r *gin.RouterGroup) {
 			})
 		})
 
-		// Latest metrics by extension
+		// Latest metrics
 		metricsGroup.GET("/latest/:name", func(c *gin.Context) {
 			name := c.Param("name")
 			limitStr := c.DefaultQuery("limit", "100")
@@ -165,25 +307,6 @@ func (m *Manager) setupMetricsRoutes(r *gin.RouterGroup) {
 			})
 		})
 
-		// Specific extension metrics
-		metricsGroup.GET("/extensions/:name", func(c *gin.Context) {
-			name := c.Param("name")
-			result := m.GetExtensionMetrics(name)
-
-			if result == nil {
-				resp.Fail(c.Writer, resp.NotFound("Extension '%s' not found", name))
-				return
-			}
-
-			resp.Success(c.Writer, result)
-		})
-
-		// Events metrics
-		metricsGroup.GET("/events", func(c *gin.Context) {
-			eventMetrics := m.GetEventsMetrics()
-			resp.Success(c.Writer, eventMetrics)
-		})
-
 		// Storage info
 		metricsGroup.GET("/storage", func(c *gin.Context) {
 			stats := m.GetMetricsStorageStats()
@@ -192,9 +315,9 @@ func (m *Manager) setupMetricsRoutes(r *gin.RouterGroup) {
 	}
 }
 
-// setupHealthRoutes sets up simplified health check routes
+// setupHealthRoutes sets up health check routes
 func (m *Manager) setupHealthRoutes(r *gin.RouterGroup) {
-	healthGroup := r.Group("/exts/health")
+	healthGroup := r.Group("/health")
 	{
 		// Overall system health
 		healthGroup.GET("", func(c *gin.Context) {
@@ -209,7 +332,7 @@ func (m *Manager) setupHealthRoutes(r *gin.RouterGroup) {
 			}
 		})
 
-		// Extension health summary
+		// Extension health
 		healthGroup.GET("/extensions", func(c *gin.Context) {
 			extensionStatus := m.GetStatus()
 			summary := map[string]int{
@@ -249,7 +372,8 @@ func (m *Manager) setupHealthRoutes(r *gin.RouterGroup) {
 			if status == "healthy" {
 				resp.Success(c.Writer, health)
 			} else {
-				resp.Fail(c.Writer, resp.ServiceUnavailable("Data layer unhealthy: %v", health))
+				c.Writer.WriteHeader(503)
+				resp.Success(c.Writer, health)
 			}
 		})
 
@@ -260,6 +384,57 @@ func (m *Manager) setupHealthRoutes(r *gin.RouterGroup) {
 		})
 	}
 }
+
+// setupSystemRoutes sets up system management routes
+func (m *Manager) setupSystemRoutes(r *gin.RouterGroup) {
+	systemGroup := r.Group("/system")
+	{
+		// System info
+		systemGroup.GET("/info", func(c *gin.Context) {
+			info := map[string]any{
+				"version":    "1.0.0", // You can inject this from build
+				"build_time": time.Now().Format(time.RFC3339),
+				"uptime":     time.Since(time.Now()).String(), // Calculate actual uptime
+				"extensions": map[string]any{
+					"total":      len(m.extensions),
+					"active":     m.countActiveExtensions(),
+					"hot_reload": m.conf.Extension.HotReload,
+				},
+			}
+
+			resp.Success(c.Writer, info)
+		})
+
+		// Cross services management
+		systemGroup.POST("/cross-services/refresh", func(c *gin.Context) {
+			m.refreshCrossServices()
+			resp.Success(c.Writer, map[string]any{
+				"message": "Cross services refreshed successfully",
+			})
+		})
+
+		// Configuration info (non-sensitive parts)
+		systemGroup.GET("/config", func(c *gin.Context) {
+			config := map[string]any{
+				"extension": map[string]any{
+					"mode":        m.conf.Extension.Mode,
+					"path":        m.conf.Extension.Path,
+					"hot_reload":  m.conf.Extension.HotReload,
+					"max_plugins": m.conf.Extension.MaxPlugins,
+				},
+				"features": map[string]any{
+					"grpc_enabled":    m.conf.GRPC != nil && m.conf.GRPC.Enabled,
+					"consul_enabled":  m.conf.Consul != nil,
+					"metrics_enabled": m.metricsCollector != nil && m.metricsCollector.IsEnabled(),
+				},
+			}
+
+			resp.Success(c.Writer, config)
+		})
+	}
+}
+
+// Helper functions remain the same as before...
 
 // parseQueryOptions parses query parameters into QueryOptions
 func parseQueryOptions(c *gin.Context) (*metrics.QueryOptions, error) {
@@ -450,7 +625,7 @@ func (m *Manager) RegisterRoutes(router *gin.Engine) {
 	}
 }
 
-// registerExtensionRoutes registers routes for a single extension
+// registerExtensionRoutes registers routes for a single extension with circuit breaker
 func (m *Manager) registerExtensionRoutes(router *gin.Engine, ext *types.Wrapper) {
 	// Create circuit breaker for this extension
 	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{

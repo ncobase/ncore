@@ -7,7 +7,7 @@ import (
 	"github.com/ncobase/ncore/extension/metrics"
 )
 
-// GetMetrics returns comprehensive real-time metrics
+// GetMetrics returns comprehensive real-time metrics (extension layer only)
 func (m *Manager) GetMetrics() map[string]any {
 	if m.metricsCollector == nil {
 		return map[string]any{
@@ -30,6 +30,70 @@ func (m *Manager) GetMetrics() map[string]any {
 	return result
 }
 
+// GetDataMetrics returns data layer metrics
+func (m *Manager) GetDataMetrics() map[string]any {
+	if m.data == nil {
+		return map[string]any{
+			"status":    "unavailable",
+			"timestamp": time.Now(),
+		}
+	}
+
+	return m.data.GetStats()
+}
+
+// GetSystemMetrics returns comprehensive system metrics from all layers
+func (m *Manager) GetSystemMetrics() map[string]any {
+	result := map[string]any{
+		"timestamp": time.Now(),
+		"layers":    make(map[string]any),
+	}
+
+	layers := result["layers"].(map[string]any)
+
+	// Extension layer metrics
+	layers["extension"] = m.GetMetrics()
+
+	// Data layer metrics
+	layers["data"] = m.GetDataMetrics()
+
+	// Service discovery metrics
+	if m.serviceDiscovery != nil {
+		layers["service_discovery"] = m.GetServiceCacheStats()
+	}
+
+	// Events metrics
+	layers["events"] = m.GetEventsMetrics()
+
+	return result
+}
+
+// GetComprehensiveMetrics returns all metrics in a structured format
+func (m *Manager) GetComprehensiveMetrics() map[string]any {
+	result := map[string]any{
+		"timestamp": time.Now(),
+		"summary":   make(map[string]any),
+		"details":   make(map[string]any),
+	}
+
+	summary := result["summary"].(map[string]any)
+	details := result["details"].(map[string]any)
+
+	// Summary information
+	summary["total_extensions"] = len(m.extensions)
+	summary["active_extensions"] = m.countActiveExtensions()
+	summary["data_layer_status"] = m.getDataLayerStatus()
+	summary["messaging_status"] = m.getMessagingStatus()
+
+	// Detailed metrics
+	details["extensions"] = m.GetMetrics()
+	details["data"] = m.GetDataMetrics()
+	details["events"] = m.GetEventsMetrics()
+	details["service_discovery"] = m.GetServiceCacheStats()
+
+	return result
+}
+
 // GetExtensionMetrics returns metrics for specific extension
 func (m *Manager) GetExtensionMetrics(name string) *metrics.ExtensionMetrics {
 	if m.metricsCollector == nil {
@@ -37,16 +101,6 @@ func (m *Manager) GetExtensionMetrics(name string) *metrics.ExtensionMetrics {
 	}
 
 	return m.metricsCollector.GetExtensionMetrics(name)
-}
-
-// GetSystemMetrics returns system metrics
-func (m *Manager) GetSystemMetrics() metrics.SystemMetrics {
-	if m.metricsCollector == nil {
-		return metrics.SystemMetrics{}
-	}
-
-	m.updateSystemMetrics()
-	return m.metricsCollector.GetSystemMetrics()
 }
 
 // QueryHistoricalMetrics queries historical metrics with aggregation
@@ -76,7 +130,56 @@ func (m *Manager) GetMetricsStorageStats() map[string]any {
 	return m.metricsCollector.GetStorageStats()
 }
 
-// updateSystemMetrics updates system-level metrics with improved implementation
+// Helper methods for metrics aggregation
+
+// countActiveExtensions counts active extensions
+func (m *Manager) countActiveExtensions() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	count := 0
+	for _, ext := range m.extensions {
+		if ext.Instance.Status() == "active" {
+			count++
+		}
+	}
+	return count
+}
+
+// getDataLayerStatus returns data layer status
+func (m *Manager) getDataLayerStatus() string {
+	if m.data == nil {
+		return "unavailable"
+	}
+
+	// Simple health check without full health details
+	stats := m.data.GetStats()
+	if status, ok := stats["status"].(string); ok {
+		return status
+	}
+
+	return "unknown"
+}
+
+// getMessagingStatus returns messaging status
+func (m *Manager) getMessagingStatus() map[string]any {
+	if m.data == nil {
+		return map[string]any{
+			"available": false,
+			"services":  map[string]bool{},
+		}
+	}
+
+	return map[string]any{
+		"available": m.data.IsMessagingAvailable(),
+		"services": map[string]bool{
+			"rabbitmq": m.data.RabbitMQ != nil && m.data.RabbitMQ.IsConnected(),
+			"kafka":    m.data.Kafka != nil && m.data.Kafka.IsConnected(),
+		},
+	}
+}
+
+// updateSystemMetrics updates system-level metrics
 func (m *Manager) updateSystemMetrics() {
 	if m.metricsCollector == nil || !m.metricsCollector.IsEnabled() {
 		return
@@ -108,7 +211,7 @@ func (m *Manager) updateSystemMetrics() {
 	}
 }
 
-// Extension metrics tracking methods
+// Extension metrics tracking methods (keep existing ones)
 
 // trackExtensionLoaded tracks extension loading
 func (m *Manager) trackExtensionLoaded(name string, duration time.Duration) {
@@ -138,14 +241,14 @@ func (m *Manager) trackServiceCall(extensionName string, success bool) {
 	}
 }
 
-// trackEventPublished tracks event published with event type
+// trackEventPublished tracks event published
 func (m *Manager) trackEventPublished(extensionName string, eventType string) {
 	if m.metricsCollector != nil {
 		m.metricsCollector.EventPublished(extensionName, eventType)
 	}
 }
 
-// trackEventReceived tracks event received with event type
+// trackEventReceived tracks event received
 func (m *Manager) trackEventReceived(extensionName string, eventType string) {
 	if m.metricsCollector != nil {
 		m.metricsCollector.EventReceived(extensionName, eventType)
@@ -166,21 +269,4 @@ func (m *Manager) CleanupOldMetrics(maxAge time.Duration) error {
 	}
 
 	return m.metricsCollector.CleanupOldMetrics(maxAge)
-}
-
-// getSecurityStatus returns security status
-func (m *Manager) getSecurityStatus() map[string]any {
-	status := map[string]any{
-		"sandbox_enabled": m.sandbox != nil,
-	}
-
-	if m.conf.Extension.Security != nil {
-		status["signature_required"] = m.conf.Extension.Security.RequireSignature
-		status["trusted_sources"] = len(m.conf.Extension.Security.TrustedSources)
-		status["allowed_paths"] = len(m.conf.Extension.Security.AllowedPaths)
-		status["blocked_extensions"] = len(m.conf.Extension.Security.BlockedExtensions)
-		status["allow_unsafe"] = m.conf.Extension.Security.AllowUnsafe
-	}
-
-	return status
 }

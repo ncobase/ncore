@@ -39,7 +39,7 @@ type Manager struct {
 	crossServices    map[string]any
 	data             *data.Data
 
-	// Simplified metrics system
+	// Metrics system
 	metricsCollector *metrics.Collector
 
 	// Optional components
@@ -63,7 +63,6 @@ func NewManager(conf *config.Config) (*Manager, error) {
 		cancel:          cancel,
 	}
 
-	// Initialize all subsystems
 	if err := m.initSubsystems(); err != nil {
 		cancel()
 		return nil, fmt.Errorf("failed to initialize subsystems: %v", err)
@@ -74,22 +73,22 @@ func NewManager(conf *config.Config) (*Manager, error) {
 
 // initSubsystems initializes all manager subsystems
 func (m *Manager) initSubsystems() error {
-	// 1. Initialize metrics system first
+	// Initialize metrics system first
 	if err := m.initMetricsSystem(); err != nil {
 		return fmt.Errorf("failed to initialize metrics: %v", err)
 	}
 
-	// 2. Initialize data layer
+	// Initialize data layer
 	if err := m.initDataLayer(); err != nil {
 		return fmt.Errorf("failed to initialize data layer: %v", err)
 	}
 
-	// 3. Initialize service discovery
+	// Initialize service discovery
 	if err := m.initServiceDiscovery(); err != nil {
 		return fmt.Errorf("failed to initialize service discovery: %v", err)
 	}
 
-	// 4. Initialize optional components
+	// Initialize optional components
 	if err := m.initOptionalComponents(); err != nil {
 		return fmt.Errorf("failed to initialize optional components: %v", err)
 	}
@@ -102,9 +101,7 @@ func (m *Manager) initMetricsSystem() error {
 	extConf := m.conf.Extension
 	enabled := extConf.Performance != nil && extConf.Performance.EnableMetrics
 
-	// Initialize with memory storage first
 	m.metricsCollector = metrics.NewCollectorWithMemoryStorage(enabled)
-
 	return nil
 }
 
@@ -120,14 +117,13 @@ func (m *Manager) initDataLayer() error {
 	// Upgrade metrics to Redis storage if available
 	if m.metricsCollector != nil && m.metricsCollector.IsEnabled() {
 		if redisClient := m.data.GetRedis(); redisClient != nil {
-			retention := 7 * 24 * time.Hour // 7 days default
+			retention := 7 * 24 * time.Hour
 			if m.conf.Extension.Performance != nil && m.conf.Extension.Performance.MetricsInterval != "" {
 				if parsed, err := time.ParseDuration(m.conf.Extension.Performance.MetricsInterval); err == nil {
-					retention = parsed * 168 // 7 days worth of intervals
+					retention = parsed * 168
 				}
 			}
 
-			// Use Redis client directly from data layer
 			if err := m.metricsCollector.UpgradeToRedisStorage(redisClient, "ncore:extension", retention); err != nil {
 				logger.Warnf(nil, "Failed to upgrade metrics to Redis storage: %v, continuing with memory storage", err)
 			}
@@ -185,9 +181,7 @@ func (m *Manager) initOptionalComponents() error {
 		}
 	}
 
-	// Initialize plugin manager
 	m.pm = plugin.NewManager(extConf)
-
 	return nil
 }
 
@@ -337,23 +331,30 @@ func (m *Manager) GetData() *data.Data {
 	return m.data
 }
 
-// Cleanup cleans up all loaded extensions
+// Cleanup cleans up all loaded extensions and subsystems
 func (m *Manager) Cleanup() {
-	// Cancel context
+	// Cancel context first to signal shutdown
 	if m.cancel != nil {
 		m.cancel()
 	}
 
-	// Cleanup subsystems in reverse order
+	// Stop metrics collector
+	if m.metricsCollector != nil {
+		m.metricsCollector.Stop()
+	}
+
+	// Cleanup subsystems in proper order
 	m.cleanupSubsystems()
 
 	// Reset state
+	m.mu.Lock()
 	m.extensions = make(map[string]*types.Wrapper)
 	m.circuitBreakers = make(map[string]*gobreaker.CircuitBreaker)
 	m.crossServices = make(map[string]any)
 	m.initialized = false
+	m.mu.Unlock()
 
-	// Close data connections
+	// Close data connections last (Redis client will be closed here)
 	if m.data != nil {
 		if errs := m.data.Close(); len(errs) > 0 {
 			logger.Errorf(nil, "errors closing data connections: %v", errs)
@@ -361,8 +362,28 @@ func (m *Manager) Cleanup() {
 	}
 }
 
-// cleanupSubsystems cleans up all subsystems
+// cleanupSubsystems cleans up all subsystems in proper order
 func (m *Manager) cleanupSubsystems() {
+	// Cleanup extensions first
+	m.cleanupExtensions()
+
+	// Stop gRPC server before closing registry
+	if m.grpcServer != nil {
+		_ = m.grpcServer.Stop(5 * time.Second)
+		m.grpcServer = nil
+	}
+
+	// Close gRPC registry
+	if m.grpcRegistry != nil {
+		m.grpcRegistry.Close()
+		m.grpcRegistry = nil
+	}
+
+	// Clear service discovery cache
+	if m.serviceDiscovery != nil {
+		m.serviceDiscovery.ClearCache()
+	}
+
 	// Cleanup optional components
 	if m.resourceMonitor != nil && m.pm != nil {
 		for pluginName := range m.extensions {
@@ -370,35 +391,18 @@ func (m *Manager) cleanupSubsystems() {
 			m.pm.RemovePluginConfig(pluginName)
 		}
 	}
-
-	// Clear service cache
-	if m.serviceDiscovery != nil {
-		m.serviceDiscovery.ClearCache()
-	}
-
-	// Stop gRPC server
-	if m.grpcServer != nil {
-		_ = m.grpcServer.Stop(5 * time.Second)
-	}
-
-	// Close gRPC registry
-	if m.grpcRegistry != nil {
-		m.grpcRegistry.Close()
-	}
-
-	// Cleanup extensions
-	m.cleanupExtensions()
-
-	// Stop and cleanup metrics collector
-	if m.metricsCollector != nil {
-		// Stop background routines gracefully
-		m.metricsCollector.Stop()
-	}
 }
 
 // cleanupExtensions cleans up all loaded extensions
 func (m *Manager) cleanupExtensions() {
-	for _, ext := range m.extensions {
+	m.mu.RLock()
+	extensions := make(map[string]*types.Wrapper)
+	for name, ext := range m.extensions {
+		extensions[name] = ext
+	}
+	m.mu.RUnlock()
+
+	for _, ext := range extensions {
 		if err := ext.Instance.PreCleanup(); err != nil {
 			logger.Errorf(nil, "failed pre-cleanup of extension %s: %v", ext.Metadata.Name, err)
 		}
