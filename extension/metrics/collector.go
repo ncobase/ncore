@@ -31,13 +31,24 @@ type Collector struct {
 }
 
 // NewCollector creates a new metrics collector
-func NewCollector(storage Storage, enabled bool) *Collector {
+func NewCollector(config *CollectorConfig) *Collector {
+	if config == nil {
+		// Use default config if none provided
+		dcc := DefaultCollectorConfig
+		config = &dcc
+	}
+
+	var storage Storage
+	if config.Enabled {
+		storage = NewMemoryStorage()
+	}
+
 	c := &Collector{
 		extensions: make(map[string]*ExtensionMetrics),
 		storage:    storage,
-		enabled:    enabled,
+		enabled:    config.Enabled,
 		startTime:  time.Now(),
-		batchSize:  100,
+		batchSize:  config.BatchSize,
 		lastFlush:  time.Now(),
 		stopChan:   make(chan struct{}),
 		system: SystemMetrics{
@@ -46,8 +57,8 @@ func NewCollector(storage Storage, enabled bool) *Collector {
 	}
 
 	// Start background flush routine if enabled and storage available
-	if enabled && storage != nil {
-		c.flushTicker = time.NewTicker(30 * time.Second)
+	if config.Enabled && storage != nil {
+		c.flushTicker = time.NewTicker(config.FlushInterval)
 		c.wg.Add(1)
 		go c.flushRoutine()
 	}
@@ -55,17 +66,8 @@ func NewCollector(storage Storage, enabled bool) *Collector {
 	return c
 }
 
-// NewCollectorWithMemoryStorage creates collector with memory storage
-func NewCollectorWithMemoryStorage(enabled bool) *Collector {
-	var storage Storage
-	if enabled {
-		storage = NewMemoryStorage()
-	}
-	return NewCollector(storage, enabled)
-}
-
 // UpgradeToRedisStorage upgrades from memory to Redis storage
-func (c *Collector) UpgradeToRedisStorage(client interface{}, keyPrefix string, retention time.Duration) error {
+func (c *Collector) UpgradeToRedisStorage(client any, keyPrefix string, retention time.Duration) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 

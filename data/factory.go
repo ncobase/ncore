@@ -34,8 +34,6 @@ func New(cfg *config.Config, createNewInstance ...bool) (*Data, func(name ...str
 
 	d := &Data{
 		Conn:      conn,
-		RabbitMQ:  rabbitmq.NewRabbitMQ(conn.RMQ),
-		Kafka:     kafka.New(conn.KFK),
 		collector: metrics.NoOpCollector{},
 	}
 
@@ -43,6 +41,9 @@ func New(cfg *config.Config, createNewInstance ...bool) (*Data, func(name ...str
 	if !createNew {
 		sharedInstance = d
 	}
+
+	// Initialize messaging systems
+	d.initMessaging()
 
 	cleanup := func(name ...string) {
 		if errs := d.Close(); len(errs) > 0 {
@@ -62,8 +63,6 @@ func NewWithOptions(cfg *config.Config, opts ...Option) (*Data, func(name ...str
 
 	d := &Data{
 		Conn:      conn,
-		RabbitMQ:  rabbitmq.NewRabbitMQ(conn.RMQ),
-		Kafka:     kafka.New(conn.KFK),
 		collector: metrics.NoOpCollector{},
 	}
 
@@ -72,6 +71,9 @@ func NewWithOptions(cfg *config.Config, opts ...Option) (*Data, func(name ...str
 		opt(d)
 	}
 
+	// Initialize messaging systems
+	d.initMessaging()
+
 	cleanup := func(name ...string) {
 		if errs := d.Close(); len(errs) > 0 {
 			fmt.Printf("cleanup errors: %v\n", errs)
@@ -79,4 +81,15 @@ func NewWithOptions(cfg *config.Config, opts ...Option) (*Data, func(name ...str
 	}
 
 	return d, cleanup, nil
+}
+
+// initMessaging initializes messaging systems
+func (d *Data) initMessaging() {
+	if d.Conn.RMQ != nil {
+		d.RabbitMQ = rabbitmq.NewRabbitMQ(d.Conn.RMQ)
+	}
+
+	if d.Conn.KFK != nil {
+		d.Kafka = kafka.New(d.Conn.KFK)
+	}
 }

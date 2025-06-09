@@ -98,10 +98,22 @@ func (m *Manager) initSubsystems() error {
 
 // initMetricsSystem initializes the metrics system
 func (m *Manager) initMetricsSystem() error {
-	extConf := m.conf.Extension
-	enabled := extConf.Performance != nil && extConf.Performance.EnableMetrics
+	// Start with default config
+	mdcc := metrics.DefaultCollectorConfig
 
-	m.metricsCollector = metrics.NewCollectorWithMemoryStorage(enabled)
+	// Override with user config if available
+	if m.conf.Extension.Performance != nil {
+		mdcc.Enabled = m.conf.Extension.Performance.EnableMetrics
+
+		// Override flush interval if specified
+		if m.conf.Extension.Performance.MetricsInterval != "" {
+			if interval, err := time.ParseDuration(m.conf.Extension.Performance.MetricsInterval); err == nil {
+				mdcc.FlushInterval = interval
+			}
+		}
+	}
+
+	m.metricsCollector = metrics.NewCollector(&mdcc)
 	return nil
 }
 
@@ -114,23 +126,42 @@ func (m *Manager) initDataLayer() error {
 
 	m.data = d
 
-	// Upgrade metrics to Redis storage if available
+	// Upgrade metrics to Redis storage if available and enabled
 	if m.metricsCollector != nil && m.metricsCollector.IsEnabled() {
-		if redisClient := m.data.GetRedis(); redisClient != nil {
-			retention := 7 * 24 * time.Hour
-			if m.conf.Extension.Performance != nil && m.conf.Extension.Performance.MetricsInterval != "" {
-				if parsed, err := time.ParseDuration(m.conf.Extension.Performance.MetricsInterval); err == nil {
-					retention = parsed * 168
-				}
-			}
-
-			if err := m.metricsCollector.UpgradeToRedisStorage(redisClient, "ncore:extension", retention); err != nil {
-				logger.Warnf(nil, "Failed to upgrade metrics to Redis storage: %v, continuing with memory storage", err)
-			}
-		}
+		m.upgradeMetricsStorageIfNeeded()
 	}
 
 	return nil
+}
+
+// upgradeMetricsStorageIfNeeded upgrades metrics storage to Redis if available
+func (m *Manager) upgradeMetricsStorageIfNeeded() {
+	if m.data == nil {
+		return
+	}
+
+	redisClient := m.data.GetRedis()
+	if redisClient == nil {
+		return
+	}
+
+	// Use default values from config
+	keyPrefix := metrics.DefaultCollectorConfig.Storage.KeyPrefix
+	retention := metrics.DefaultCollectorConfig.Retention
+
+	// Override retention if custom interval is set
+	if m.conf.Extension.Performance != nil && m.conf.Extension.Performance.MetricsInterval != "" {
+		if interval, err := time.ParseDuration(m.conf.Extension.Performance.MetricsInterval); err == nil {
+			retention = interval * 168 // keep 168 collection cycles
+		}
+	}
+
+	// Upgrade to Redis storage
+	if err := m.metricsCollector.UpgradeToRedisStorage(redisClient, keyPrefix, retention); err != nil {
+		logger.Warnf(nil, "Failed to upgrade metrics to Redis storage: %v, continuing with memory storage", err)
+	} else {
+		logger.Infof(nil, "Successfully upgraded metrics storage to Redis")
+	}
 }
 
 // initServiceDiscovery initializes service discovery
