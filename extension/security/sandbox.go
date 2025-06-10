@@ -126,10 +126,6 @@ func NewResourceMonitor(cfg *config.PerformanceConfig) *ResourceMonitor {
 
 // CheckResourceLimits validates if plugin can be loaded based on resource limits
 func (rm *ResourceMonitor) CheckResourceLimits(pluginName string) error {
-	if !rm.config.EnableMetrics {
-		return nil
-	}
-
 	// Check current system resources
 	totalMemory := rm.getTotalMemoryUsage()
 	if totalMemory+50 > float64(rm.config.MaxMemoryMB) { // Reserve 50MB buffer
@@ -146,10 +142,6 @@ func (rm *ResourceMonitor) CheckResourceLimits(pluginName string) error {
 
 // RecordPluginMetrics records resource usage for a plugin
 func (rm *ResourceMonitor) RecordPluginMetrics(pluginName string, metrics *PluginMetrics) {
-	if !rm.config.EnableMetrics {
-		return
-	}
-
 	rm.pluginMetrics[pluginName] = metrics
 }
 

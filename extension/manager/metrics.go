@@ -7,12 +7,29 @@ import (
 	"github.com/ncobase/ncore/extension/metrics"
 )
 
-// GetMetrics returns comprehensive real-time metrics (extension layer only)
+// IsMetricsEnabled returns whether metrics collection is enabled
+func (m *Manager) IsMetricsEnabled() bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	return m.metricsCollector != nil && m.metricsCollector.IsEnabled()
+}
+
+// GetMetrics returns comprehensive real-time metrics
 func (m *Manager) GetMetrics() map[string]any {
 	if m.metricsCollector == nil {
 		return map[string]any{
 			"enabled":   false,
 			"timestamp": time.Now(),
+			"reason":    "metrics collector not initialized",
+		}
+	}
+
+	if !m.metricsCollector.IsEnabled() {
+		return map[string]any{
+			"enabled":   false,
+			"timestamp": time.Now(),
+			"reason":    "metrics collection is disabled",
 		}
 	}
 
@@ -25,6 +42,16 @@ func (m *Manager) GetMetrics() map[string]any {
 		"system":     m.metricsCollector.GetSystemMetrics(),
 		"extensions": m.metricsCollector.GetAllExtensionMetrics(),
 		"storage":    m.metricsCollector.GetStorageStats(),
+	}
+
+	// Add configuration info
+	if m.conf.Extension.Metrics != nil {
+		result["config"] = map[string]any{
+			"flush_interval": m.conf.Extension.Metrics.FlushInterval,
+			"batch_size":     m.conf.Extension.Metrics.BatchSize,
+			"retention":      m.conf.Extension.Metrics.Retention,
+			"storage_type":   m.conf.Extension.Metrics.Storage.Type,
+		}
 	}
 
 	return result
@@ -84,6 +111,20 @@ func (m *Manager) GetComprehensiveMetrics() map[string]any {
 	summary["active_extensions"] = m.countActiveExtensions()
 	summary["data_layer_status"] = m.getDataLayerStatus()
 	summary["messaging_status"] = m.getMessagingStatus()
+
+	// Extension metrics enabled status
+	extensionMetricsEnabled := m.metricsCollector != nil && m.metricsCollector.IsEnabled()
+	summary["extension_metrics_enabled"] = extensionMetricsEnabled
+
+	// Data layer metrics enabled status
+	dataMetricsEnabled := false
+	if m.data != nil {
+		stats := m.data.GetStats()
+		if status, ok := stats["status"].(string); ok {
+			dataMetricsEnabled = status != "metrics_unavailable"
+		}
+	}
+	summary["data_metrics_enabled"] = dataMetricsEnabled
 
 	// Detailed metrics
 	details["extensions"] = m.GetMetrics()

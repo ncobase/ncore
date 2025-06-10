@@ -26,6 +26,7 @@ type Config struct {
 	Security    *SecurityConfig    `json:"security" yaml:"security"`
 	Performance *PerformanceConfig `json:"performance" yaml:"performance"`
 	Monitoring  *MonitoringConfig  `json:"monitoring" yaml:"monitoring"`
+	Metrics     *MetricsConfig     `json:"metrics" yaml:"metrics"`
 }
 
 // SecurityConfig defines security-related extension settings
@@ -42,8 +43,6 @@ type SecurityConfig struct {
 type PerformanceConfig struct {
 	MaxMemoryMB            int    `json:"max_memory_mb" yaml:"max_memory_mb"`
 	MaxCPUPercent          int    `json:"max_cpu_percent" yaml:"max_cpu_percent"`
-	EnableMetrics          bool   `json:"enable_metrics" yaml:"enable_metrics"`
-	MetricsInterval        string `json:"metrics_interval" yaml:"metrics_interval"`
 	GarbageCollectInterval string `json:"gc_interval" yaml:"gc_interval"`
 	MaxConcurrentLoads     int    `json:"max_concurrent_loads" yaml:"max_concurrent_loads"`
 }
@@ -97,6 +96,13 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	// Validate metrics config
+	if c.Metrics != nil {
+		if err := c.Metrics.Validate(); err != nil {
+			return fmt.Errorf("metrics config error: %v", err)
+		}
+	}
+
 	return nil
 }
 
@@ -129,8 +135,6 @@ func GetDefaultPerformanceConfig(isDevelopment bool) *PerformanceConfig {
 		return &PerformanceConfig{
 			MaxMemoryMB:            1024,
 			MaxCPUPercent:          90,
-			EnableMetrics:          true,
-			MetricsInterval:        "10s",
 			GarbageCollectInterval: "2m",
 			MaxConcurrentLoads:     10,
 		}
@@ -139,8 +143,6 @@ func GetDefaultPerformanceConfig(isDevelopment bool) *PerformanceConfig {
 	return &PerformanceConfig{
 		MaxMemoryMB:            512,
 		MaxCPUPercent:          70,
-		EnableMetrics:          true,
-		MetricsInterval:        "30s",
 		GarbageCollectInterval: "5m",
 		MaxConcurrentLoads:     5,
 	}
@@ -185,6 +187,7 @@ func GetConfig(v *viper.Viper) *Config {
 		Security:    getSecurityConfig(v, isDevelopment),
 		Performance: getPerformanceConfig(v, isDevelopment),
 		Monitoring:  getMonitoringConfig(v),
+		Metrics:     getMetricsConfig(v, isDevelopment),
 	}
 
 	if err := config.Validate(); err != nil {
@@ -219,8 +222,6 @@ func getPerformanceConfig(v *viper.Viper, isDevelopment bool) *PerformanceConfig
 	return &PerformanceConfig{
 		MaxMemoryMB:            getIntWithDefault(v, "extension.performance.max_memory_mb", defaultConfig.MaxMemoryMB),
 		MaxCPUPercent:          getIntWithDefault(v, "extension.performance.max_cpu_percent", defaultConfig.MaxCPUPercent),
-		EnableMetrics:          getBoolWithDefault(v, "extension.performance.enable_metrics", defaultConfig.EnableMetrics),
-		MetricsInterval:        getStringWithDefault(v, "extension.performance.metrics_interval", defaultConfig.MetricsInterval),
 		GarbageCollectInterval: getStringWithDefault(v, "extension.performance.gc_interval", defaultConfig.GarbageCollectInterval),
 		MaxConcurrentLoads:     getIntWithDefault(v, "extension.performance.max_concurrent_loads", defaultConfig.MaxConcurrentLoads),
 	}

@@ -145,35 +145,6 @@ type Storage interface {
 	GetStats() map[string]any
 }
 
-// CollectorConfig represents configuration for the metrics collector
-type CollectorConfig struct {
-	Enabled       bool          `json:"enabled"`
-	BatchSize     int           `json:"batch_size"`
-	FlushInterval time.Duration `json:"flush_interval"`
-	Retention     time.Duration `json:"retention"`
-	Storage       StorageConfig `json:"storage"`
-}
-
-// StorageConfig represents storage configuration
-type StorageConfig struct {
-	Type      string            `json:"type"`       // "memory", "redis"
-	KeyPrefix string            `json:"key_prefix"` // Redis key prefix
-	Options   map[string]string `json:"options"`    // Storage-specific options
-}
-
-// DefaultCollectorConfig provides default configuration
-var DefaultCollectorConfig = CollectorConfig{
-	Enabled:       true,
-	BatchSize:     100,
-	FlushInterval: 30 * time.Second,
-	Retention:     7 * 24 * time.Hour, // 7 days
-	Storage: StorageConfig{
-		Type:      "memory",
-		KeyPrefix: "ncore",
-		Options:   make(map[string]string),
-	},
-}
-
 // StorageStats represents common storage statistics
 type StorageStats struct {
 	Type        string     `json:"type"`                   // "memory", "redis", etc.

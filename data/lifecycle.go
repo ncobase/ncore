@@ -19,8 +19,9 @@ func (d *Data) GetStats() map[string]any {
 	collector := d.collector
 	d.mu.RUnlock()
 
-	if defaultCollector, ok := collector.(*metrics.DefaultCollector); ok {
-		return defaultCollector.GetStats()
+	// Check if collector is DataCollector and has GetStats method
+	if dataCollector, ok := collector.(*metrics.DataCollector); ok {
+		return dataCollector.GetStats()
 	}
 
 	return map[string]any{
@@ -41,6 +42,13 @@ func (d *Data) Close() []error {
 	d.closed = true
 	var errs []error
 
+	// Close metrics collector if it has Close method
+	if dataCollector, ok := d.collector.(*metrics.DataCollector); ok {
+		if err := dataCollector.Close(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
 	// Close connections through connection manager
 	if d.Conn != nil {
 		if connErrs := d.Conn.Close(); len(connErrs) > 0 {
@@ -53,6 +61,7 @@ func (d *Data) Close() []error {
 	d.RabbitMQ = nil
 	d.Kafka = nil
 	d.searchClient = nil
+	d.collector = metrics.NoOpCollector{} // Reset to no-op collector
 
 	return errs
 }

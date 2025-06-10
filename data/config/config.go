@@ -16,6 +16,7 @@ type Config struct {
 	*Neo4j         `yaml:"neo4j" json:"neo4j"`
 	*RabbitMQ      `yaml:"rabbitmq" json:"rabbitmq"`
 	*Kafka         `yaml:"kafka" json:"kafka"`
+	*Metrics       `yaml:"metrics" json:"metrics"`
 }
 
 // GetConfig returns data config
@@ -31,5 +32,6 @@ func GetConfig(v *viper.Viper) *Config {
 		Neo4j:         getNeo4jConfigs(v),
 		RabbitMQ:      getRabbitMQConfigs(v),
 		Kafka:         getKafkaConfigs(v),
+		Metrics:       getMetricsConfig(v),
 	}
 }

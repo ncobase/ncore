@@ -4,37 +4,22 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
-// Collector defines interface for data layer metrics collection
+// Collector interface for data layer metrics
 type Collector interface {
-	// Database metrics
-
 	DBQuery(duration time.Duration, err error)
 	DBTransaction(err error)
 	DBConnections(count int)
-
-	// Redis metrics
-
 	RedisCommand(command string, err error)
 	RedisConnections(count int)
-
-	// MongoDB metrics
-
 	MongoOperation(operation string, err error)
-
-	// Search metrics
-
 	SearchQuery(engine string, err error)
 	SearchIndex(engine, operation string)
-
-	// Message queue metrics
-
 	MQPublish(system string, err error)
 	MQConsume(system string, err error)
-
-	// Health metrics
-
 	HealthCheck(component string, healthy bool)
 }
 
@@ -53,8 +38,8 @@ func (NoOpCollector) MQPublish(string, error)      {}
 func (NoOpCollector) MQConsume(string, error)      {}
 func (NoOpCollector) HealthCheck(string, bool)     {}
 
-// DefaultCollector provides basic metrics collection with atomic counters
-type DefaultCollector struct {
+// DataCollector collects data layer metrics
+type DataCollector struct {
 	// Database metrics
 	dbQueries      atomic.Int64
 	dbQueryErrors  atomic.Int64
@@ -93,12 +78,52 @@ type DefaultCollector struct {
 	lastMongoOp      atomic.Value // time.Time
 	lastSearchQuery  atomic.Value // time.Time
 	lastMQOperation  atomic.Value // time.Time
+
+	// Storage
+	storage   Storage
+	batchSize int
+	buffer    []Metric
+	bufferMu  sync.Mutex
 }
 
-// NewDefaultCollector creates a new default collector
-func NewDefaultCollector() *DefaultCollector {
-	c := &DefaultCollector{
+// Metric represents a data layer metric
+type Metric struct {
+	Type      string    `json:"type"`
+	Value     int64     `json:"value"`
+	Labels    Labels    `json:"labels"`
+	Timestamp time.Time `json:"timestamp"`
+}
+
+// Labels for metric categorization
+type Labels map[string]string
+
+// Storage interface for metrics persistence
+type Storage interface {
+	Store(metrics []Metric) error
+	Query(query QueryRequest) ([]Metric, error)
+	Close() error
+}
+
+// QueryRequest for querying metrics
+type QueryRequest struct {
+	Type      string    `json:"type"`
+	StartTime time.Time `json:"start_time"`
+	EndTime   time.Time `json:"end_time"`
+	Labels    Labels    `json:"labels"`
+	Limit     int       `json:"limit"`
+}
+
+// NewDataCollector creates a new data collector with memory storage
+func NewDataCollector(batchSize int) *DataCollector {
+	if batchSize <= 0 {
+		batchSize = 100
+	}
+
+	c := &DataCollector{
 		healthChecks: make(map[string]*atomic.Bool),
+		storage:      NewMemoryStorage(),
+		batchSize:    batchSize,
+		buffer:       make([]Metric, 0, batchSize),
 	}
 
 	now := time.Now()
@@ -111,8 +136,31 @@ func NewDefaultCollector() *DefaultCollector {
 	return c
 }
 
-// DBQuery Database query metrics
-func (c *DefaultCollector) DBQuery(duration time.Duration, err error) {
+// NewDataCollectorWithRedis creates a new data collector with Redis storage
+func NewDataCollectorWithRedis(client *redis.Client, keyPrefix string, retention time.Duration, batchSize int) *DataCollector {
+	if batchSize <= 0 {
+		batchSize = 100
+	}
+
+	c := &DataCollector{
+		healthChecks: make(map[string]*atomic.Bool),
+		storage:      NewRedisStorage(client, keyPrefix, retention),
+		batchSize:    batchSize,
+		buffer:       make([]Metric, 0, batchSize),
+	}
+
+	now := time.Now()
+	c.lastDBQuery.Store(now)
+	c.lastRedisCommand.Store(now)
+	c.lastMongoOp.Store(now)
+	c.lastSearchQuery.Store(now)
+	c.lastMQOperation.Store(now)
+
+	return c
+}
+
+// DBQuery records database query metrics
+func (c *DataCollector) DBQuery(duration time.Duration, err error) {
 	c.dbQueries.Add(1)
 	c.lastDBQuery.Store(time.Now())
 
@@ -120,88 +168,127 @@ func (c *DefaultCollector) DBQuery(duration time.Duration, err error) {
 		c.dbQueryErrors.Add(1)
 	}
 
-	// Track slow queries (>1 second)
 	if duration > time.Second {
 		c.dbSlowQueries.Add(1)
 	}
+
+	c.recordMetric("db_query", 1, Labels{
+		"success": boolToString(err == nil),
+		"slow":    boolToString(duration > time.Second),
+	})
 }
 
-// DBTransaction Database transaction metrics
-func (c *DefaultCollector) DBTransaction(err error) {
+// DBTransaction records database transaction metrics
+func (c *DataCollector) DBTransaction(err error) {
 	c.dbTransactions.Add(1)
-
 	if err != nil {
 		c.dbTxErrors.Add(1)
 	}
+
+	c.recordMetric("db_transaction", 1, Labels{
+		"success": boolToString(err == nil),
+	})
 }
 
-// DBConnections Database connection metrics
-func (c *DefaultCollector) DBConnections(count int) {
+// DBConnections records database connection count
+func (c *DataCollector) DBConnections(count int) {
 	c.dbConnections.Store(int32(count))
+	c.recordMetric("db_connections", int64(count), nil)
 }
 
-// RedisCommand Redis command metrics
-func (c *DefaultCollector) RedisCommand(command string, err error) {
+// RedisCommand records Redis command metrics
+func (c *DataCollector) RedisCommand(command string, err error) {
 	c.redisCommands.Add(1)
 	c.lastRedisCommand.Store(time.Now())
 
 	if err != nil {
 		c.redisErrors.Add(1)
 	}
+
+	c.recordMetric("redis_command", 1, Labels{
+		"command": command,
+		"success": boolToString(err == nil),
+	})
 }
 
-// RedisConnections Redis connection metrics
-func (c *DefaultCollector) RedisConnections(count int) {
+// RedisConnections records Redis connection count
+func (c *DataCollector) RedisConnections(count int) {
 	c.redisConnections.Store(int32(count))
+	c.recordMetric("redis_connections", int64(count), nil)
 }
 
-// MongoOperation MongoDB operation metrics
-func (c *DefaultCollector) MongoOperation(operation string, err error) {
+// MongoOperation records MongoDB operation metrics
+func (c *DataCollector) MongoOperation(operation string, err error) {
 	c.mongoOperations.Add(1)
 	c.lastMongoOp.Store(time.Now())
 
 	if err != nil {
 		c.mongoErrors.Add(1)
 	}
+
+	c.recordMetric("mongo_operation", 1, Labels{
+		"operation": operation,
+		"success":   boolToString(err == nil),
+	})
 }
 
-// SearchQuery Search query metrics
-func (c *DefaultCollector) SearchQuery(engine string, err error) {
+// SearchQuery records search query metrics
+func (c *DataCollector) SearchQuery(engine string, err error) {
 	c.searchQueries.Add(1)
 	c.lastSearchQuery.Store(time.Now())
 
 	if err != nil {
 		c.searchErrors.Add(1)
 	}
+
+	c.recordMetric("search_query", 1, Labels{
+		"engine":  engine,
+		"success": boolToString(err == nil),
+	})
 }
 
-// SearchIndex Search index metrics
-func (c *DefaultCollector) SearchIndex(engine, operation string) {
+// SearchIndex records search index operation metrics
+func (c *DataCollector) SearchIndex(engine, operation string) {
 	c.searchIndexOps.Add(1)
+
+	c.recordMetric("search_index", 1, Labels{
+		"engine":    engine,
+		"operation": operation,
+	})
 }
 
-// MQPublish Message queue publish metrics
-func (c *DefaultCollector) MQPublish(system string, err error) {
+// MQPublish records message queue publish metrics
+func (c *DataCollector) MQPublish(system string, err error) {
 	c.mqPublished.Add(1)
 	c.lastMQOperation.Store(time.Now())
 
 	if err != nil {
 		c.mqPublishErrors.Add(1)
 	}
+
+	c.recordMetric("mq_publish", 1, Labels{
+		"system":  system,
+		"success": boolToString(err == nil),
+	})
 }
 
-// MQConsume Message queue consume metrics
-func (c *DefaultCollector) MQConsume(system string, err error) {
+// MQConsume records message queue consume metrics
+func (c *DataCollector) MQConsume(system string, err error) {
 	c.mqConsumed.Add(1)
 	c.lastMQOperation.Store(time.Now())
 
 	if err != nil {
 		c.mqConsumeErrors.Add(1)
 	}
+
+	c.recordMetric("mq_consume", 1, Labels{
+		"system":  system,
+		"success": boolToString(err == nil),
+	})
 }
 
-// HealthCheck Health check
-func (c *DefaultCollector) HealthCheck(component string, healthy bool) {
+// HealthCheck records health check metrics
+func (c *DataCollector) HealthCheck(component string, healthy bool) {
 	c.healthMu.Lock()
 	if _, exists := c.healthChecks[component]; !exists {
 		c.healthChecks[component] = &atomic.Bool{}
@@ -210,26 +297,51 @@ func (c *DefaultCollector) HealthCheck(component string, healthy bool) {
 	c.healthMu.Unlock()
 
 	healthCheck.Store(healthy)
+
+	c.recordMetric("health_check", boolToInt(healthy), Labels{
+		"component": component,
+	})
 }
 
-// GetStats returns comprehensive statistics
-func (c *DefaultCollector) GetStats() map[string]any {
-	dbQueries := c.dbQueries.Load()
-	dbErrors := c.dbQueryErrors.Load()
-	dbSuccessRate := calculateSuccessRate(dbQueries, dbErrors)
+// recordMetric records a metric to storage
+func (c *DataCollector) recordMetric(metricType string, value int64, labels Labels) {
+	metric := Metric{
+		Type:      metricType,
+		Value:     value,
+		Labels:    labels,
+		Timestamp: time.Now(),
+	}
 
-	redisCommands := c.redisCommands.Load()
-	redisErrors := c.redisErrors.Load()
-	redisSuccessRate := calculateSuccessRate(redisCommands, redisErrors)
+	c.bufferMu.Lock()
+	c.buffer = append(c.buffer, metric)
+	shouldFlush := len(c.buffer) >= c.batchSize
+	c.bufferMu.Unlock()
 
-	mongoOps := c.mongoOperations.Load()
-	mongoErrors := c.mongoErrors.Load()
-	mongoSuccessRate := calculateSuccessRate(mongoOps, mongoErrors)
+	if shouldFlush {
+		c.flush()
+	}
+}
 
-	searchQueries := c.searchQueries.Load()
-	searchErrors := c.searchErrors.Load()
-	searchSuccessRate := calculateSuccessRate(searchQueries, searchErrors)
+// flush writes buffered metrics to storage
+func (c *DataCollector) flush() {
+	c.bufferMu.Lock()
+	if len(c.buffer) == 0 {
+		c.bufferMu.Unlock()
+		return
+	}
 
+	metrics := make([]Metric, len(c.buffer))
+	copy(metrics, c.buffer)
+	c.buffer = c.buffer[:0]
+	c.bufferMu.Unlock()
+
+	if c.storage != nil {
+		_ = c.storage.Store(metrics) // Ignore errors for now
+	}
+}
+
+// GetStats returns current statistics
+func (c *DataCollector) GetStats() map[string]any {
 	c.healthMu.RLock()
 	healthStatus := make(map[string]bool)
 	for component, status := range c.healthChecks {
@@ -240,33 +352,29 @@ func (c *DefaultCollector) GetStats() map[string]any {
 	return map[string]any{
 		"database": map[string]any{
 			"connections":  c.dbConnections.Load(),
-			"queries":      dbQueries,
-			"errors":       dbErrors,
+			"queries":      c.dbQueries.Load(),
+			"errors":       c.dbQueryErrors.Load(),
 			"slow_queries": c.dbSlowQueries.Load(),
 			"transactions": c.dbTransactions.Load(),
 			"tx_errors":    c.dbTxErrors.Load(),
-			"success_rate": dbSuccessRate,
 			"last_query":   c.lastDBQuery.Load(),
 		},
 		"redis": map[string]any{
 			"connections":  c.redisConnections.Load(),
-			"commands":     redisCommands,
-			"errors":       redisErrors,
-			"success_rate": redisSuccessRate,
+			"commands":     c.redisCommands.Load(),
+			"errors":       c.redisErrors.Load(),
 			"last_command": c.lastRedisCommand.Load(),
 		},
 		"mongodb": map[string]any{
-			"operations":     mongoOps,
-			"errors":         mongoErrors,
-			"success_rate":   mongoSuccessRate,
+			"operations":     c.mongoOperations.Load(),
+			"errors":         c.mongoErrors.Load(),
 			"last_operation": c.lastMongoOp.Load(),
 		},
 		"search": map[string]any{
-			"queries":      searchQueries,
-			"errors":       searchErrors,
-			"index_ops":    c.searchIndexOps.Load(),
-			"success_rate": searchSuccessRate,
-			"last_query":   c.lastSearchQuery.Load(),
+			"queries":    c.searchQueries.Load(),
+			"errors":     c.searchErrors.Load(),
+			"index_ops":  c.searchIndexOps.Load(),
+			"last_query": c.lastSearchQuery.Load(),
 		},
 		"messaging": map[string]any{
 			"published":      c.mqPublished.Load(),
@@ -280,11 +388,26 @@ func (c *DefaultCollector) GetStats() map[string]any {
 	}
 }
 
-// calculateSuccessRate calculates success rate percentage
-func calculateSuccessRate(total, errors int64) float64 {
-	if total == 0 {
-		return 100.0
+// Close closes the collector and flushes remaining metrics
+func (c *DataCollector) Close() error {
+	c.flush()
+	if c.storage != nil {
+		return c.storage.Close()
 	}
-	success := total - errors
-	return (float64(success) / float64(total)) * 100.0
+	return nil
+}
+
+// Helper functions
+func boolToString(b bool) string {
+	if b {
+		return "true"
+	}
+	return "false"
+}
+
+func boolToInt(b bool) int64 {
+	if b {
+		return 1
+	}
+	return 0
 }

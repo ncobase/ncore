@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ncobase/ncore/extension/config"
 	"github.com/ncobase/ncore/logging/logger"
 	"github.com/redis/go-redis/v9"
 )
@@ -30,25 +31,39 @@ type Collector struct {
 	wg          sync.WaitGroup
 }
 
-// NewCollector creates a new metrics collector
-func NewCollector(config *CollectorConfig) *Collector {
-	if config == nil {
-		// Use default config if none provided
-		dcc := DefaultCollectorConfig
-		config = &dcc
+// NewCollector creates a new metrics collector from extension config
+func NewCollector(cfg *config.MetricsConfig) *Collector {
+	if cfg == nil || !cfg.Enabled {
+		// Metrics disabled, create a disabled collector
+		return &Collector{
+			extensions: make(map[string]*ExtensionMetrics),
+			enabled:    false,
+			startTime:  time.Now(),
+			system: SystemMetrics{
+				StartTime: time.Now(),
+			},
+		}
 	}
 
-	var storage Storage
-	if config.Enabled {
-		storage = NewMemoryStorage()
+	// Parse configuration values
+	flushInterval := 30 * time.Second
+	if cfg.FlushInterval != "" {
+		if interval, err := time.ParseDuration(cfg.FlushInterval); err == nil {
+			flushInterval = interval
+		}
+	}
+
+	batchSize := cfg.BatchSize
+	if batchSize <= 0 {
+		batchSize = 100
 	}
 
 	c := &Collector{
 		extensions: make(map[string]*ExtensionMetrics),
-		storage:    storage,
-		enabled:    config.Enabled,
+		storage:    NewMemoryStorage(),
+		enabled:    true,
 		startTime:  time.Now(),
-		batchSize:  config.BatchSize,
+		batchSize:  batchSize,
 		lastFlush:  time.Now(),
 		stopChan:   make(chan struct{}),
 		system: SystemMetrics{
@@ -56,12 +71,10 @@ func NewCollector(config *CollectorConfig) *Collector {
 		},
 	}
 
-	// Start background flush routine if enabled and storage available
-	if config.Enabled && storage != nil {
-		c.flushTicker = time.NewTicker(config.FlushInterval)
-		c.wg.Add(1)
-		go c.flushRoutine()
-	}
+	// Start background flush routine
+	c.flushTicker = time.NewTicker(flushInterval)
+	c.wg.Add(1)
+	go c.flushRoutine()
 
 	return c
 }

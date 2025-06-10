@@ -192,13 +192,16 @@ func (m *Manager) setupMetricsRoutes(r *gin.RouterGroup) {
 	{
 		// Dashboard summary
 		metricsGroup.GET("/summary", func(c *gin.Context) {
+			// Check if metrics are enabled
+			metricsEnabled := m.metricsCollector != nil && m.metricsCollector.IsEnabled()
+
 			summary := map[string]any{
 				"timestamp":         time.Now(),
 				"total_extensions":  len(m.extensions),
 				"active_extensions": m.countActiveExtensions(),
 				"data_status":       m.getDataLayerStatus(),
 				"messaging":         m.getMessagingStatus(),
-				"metrics_enabled":   m.metricsCollector != nil && m.metricsCollector.IsEnabled(),
+				"metrics_enabled":   metricsEnabled,
 			}
 
 			if m.serviceDiscovery != nil {
@@ -262,8 +265,13 @@ func (m *Manager) setupMetricsRoutes(r *gin.RouterGroup) {
 			resp.Success(c.Writer, cacheStats)
 		})
 
-		// Historical queries
+		// Historical queries - only if metrics are enabled
 		metricsGroup.GET("/history", func(c *gin.Context) {
+			if m.metricsCollector == nil || !m.metricsCollector.IsEnabled() {
+				resp.Fail(c.Writer, resp.ServiceUnavailable("Metrics collection is disabled"))
+				return
+			}
+
 			opts, err := parseQueryOptions(c)
 			if err != nil {
 				resp.Fail(c.Writer, resp.BadRequest("Invalid query parameters: %v", err))
@@ -283,8 +291,13 @@ func (m *Manager) setupMetricsRoutes(r *gin.RouterGroup) {
 			})
 		})
 
-		// Latest metrics
+		// Latest metrics - only if metrics are enabled
 		metricsGroup.GET("/latest/:name", func(c *gin.Context) {
+			if m.metricsCollector == nil || !m.metricsCollector.IsEnabled() {
+				resp.Fail(c.Writer, resp.ServiceUnavailable("Metrics collection is disabled"))
+				return
+			}
+
 			name := c.Param("name")
 			limitStr := c.DefaultQuery("limit", "100")
 
@@ -307,10 +320,47 @@ func (m *Manager) setupMetricsRoutes(r *gin.RouterGroup) {
 			})
 		})
 
-		// Storage info
+		// Storage info - only if metrics are enabled
 		metricsGroup.GET("/storage", func(c *gin.Context) {
+			if m.metricsCollector == nil || !m.metricsCollector.IsEnabled() {
+				resp.Success(c.Writer, map[string]any{
+					"status": "disabled",
+					"reason": "metrics collection is disabled",
+				})
+				return
+			}
+
 			stats := m.GetMetricsStorageStats()
 			resp.Success(c.Writer, stats)
+		})
+
+		// Configuration info
+		metricsGroup.GET("/config", func(c *gin.Context) {
+			metricsConfig := m.conf.Extension.Metrics
+			if metricsConfig == nil {
+				resp.Success(c.Writer, map[string]any{
+					"enabled": false,
+					"reason":  "no metrics configuration found",
+				})
+				return
+			}
+
+			// Return sanitized config (no sensitive data)
+			configInfo := map[string]any{
+				"enabled":        metricsConfig.Enabled,
+				"flush_interval": metricsConfig.FlushInterval,
+				"batch_size":     metricsConfig.BatchSize,
+				"retention":      metricsConfig.Retention,
+			}
+
+			if metricsConfig.Storage != nil {
+				configInfo["storage"] = map[string]any{
+					"type":       metricsConfig.Storage.Type,
+					"key_prefix": metricsConfig.Storage.KeyPrefix,
+				}
+			}
+
+			resp.Success(c.Writer, configInfo)
 		})
 	}
 }
@@ -391,14 +441,22 @@ func (m *Manager) setupSystemRoutes(r *gin.RouterGroup) {
 	{
 		// System info
 		systemGroup.GET("/info", func(c *gin.Context) {
+			// Calculate actual uptime if you have a start time
+			// For now, using placeholder
+			startTime := time.Now().Add(-time.Since(time.Now())) // This should be actual start time
+
 			info := map[string]any{
 				"version":    "1.0.0", // You can inject this from build
 				"build_time": time.Now().Format(time.RFC3339),
-				"uptime":     time.Since(time.Now()).String(), // Calculate actual uptime
+				"uptime":     time.Since(startTime).String(),
 				"extensions": map[string]any{
 					"total":      len(m.extensions),
 					"active":     m.countActiveExtensions(),
 					"hot_reload": m.conf.Extension.HotReload,
+				},
+				"metrics": map[string]any{
+					"extension_enabled": m.metricsCollector != nil && m.metricsCollector.IsEnabled(),
+					"data_enabled":      m.isDataMetricsEnabled(),
 				},
 			}
 
@@ -423,10 +481,36 @@ func (m *Manager) setupSystemRoutes(r *gin.RouterGroup) {
 					"max_plugins": m.conf.Extension.MaxPlugins,
 				},
 				"features": map[string]any{
-					"grpc_enabled":    m.conf.GRPC != nil && m.conf.GRPC.Enabled,
-					"consul_enabled":  m.conf.Consul != nil,
-					"metrics_enabled": m.metricsCollector != nil && m.metricsCollector.IsEnabled(),
+					"grpc_enabled":              m.conf.GRPC != nil && m.conf.GRPC.Enabled,
+					"consul_enabled":            m.conf.Consul != nil,
+					"extension_metrics_enabled": m.metricsCollector != nil && m.metricsCollector.IsEnabled(),
+					"data_metrics_enabled":      m.isDataMetricsEnabled(),
 				},
+			}
+
+			// Add metrics configuration if available
+			if m.conf.Extension.Metrics != nil {
+				config["metrics"] = map[string]any{
+					"extension": map[string]any{
+						"enabled":        m.conf.Extension.Metrics.Enabled,
+						"flush_interval": m.conf.Extension.Metrics.FlushInterval,
+						"batch_size":     m.conf.Extension.Metrics.BatchSize,
+						"retention":      m.conf.Extension.Metrics.Retention,
+						"storage_type":   m.conf.Extension.Metrics.Storage.Type,
+					},
+				}
+			}
+
+			if m.conf.Data != nil && m.conf.Data.Metrics != nil {
+				if config["metrics"] == nil {
+					config["metrics"] = make(map[string]any)
+				}
+				config["metrics"].(map[string]any)["data"] = map[string]any{
+					"enabled":        m.conf.Data.Metrics.Enabled,
+					"storage_type":   m.conf.Data.Metrics.StorageType,
+					"retention_days": m.conf.Data.Metrics.RetentionDays,
+					"batch_size":     m.conf.Data.Metrics.BatchSize,
+				}
 			}
 
 			resp.Success(c.Writer, config)
@@ -434,7 +518,26 @@ func (m *Manager) setupSystemRoutes(r *gin.RouterGroup) {
 	}
 }
 
-// Helper functions remain the same as before...
+// isDataMetricsEnabled checks if data layer metrics are enabled
+func (m *Manager) isDataMetricsEnabled() bool {
+	if m.data == nil {
+		return false
+	}
+
+	stats := m.data.GetStats()
+
+	// Check for metrics_unavailable status format
+	if status, ok := stats["status"].(string); ok {
+		return status != "metrics_unavailable"
+	}
+
+	// Check for detailed stats format
+	if _, hasDB := stats["database"].(map[string]any); hasDB {
+		return true
+	}
+
+	return false
+}
 
 // parseQueryOptions parses query parameters into QueryOptions
 func parseQueryOptions(c *gin.Context) (*metrics.QueryOptions, error) {
@@ -530,17 +633,24 @@ func (m *Manager) buildSystemHealth(ctx context.Context) map[string]any {
 		}
 	}
 
-	// Metrics system health
-	if m.metricsCollector != nil && m.metricsCollector.IsEnabled() {
-		components["metrics"] = map[string]any{
-			"status": "enabled",
-			"stats":  m.GetMetricsStorageStats(),
-		}
+	// Metrics system health - check new metrics config
+	metricsEnabled := m.metricsCollector != nil && m.metricsCollector.IsEnabled()
+	metricsComponent := map[string]any{
+		"enabled": metricsEnabled,
+	}
+
+	if metricsEnabled {
+		metricsComponent["status"] = "enabled"
+		metricsComponent["stats"] = m.GetMetricsStorageStats()
 	} else {
-		components["metrics"] = map[string]any{
-			"status": "disabled",
+		metricsComponent["status"] = "disabled"
+		if m.conf.Extension.Metrics != nil {
+			metricsComponent["reason"] = "configured but disabled"
+		} else {
+			metricsComponent["reason"] = "not configured"
 		}
 	}
+	components["metrics"] = metricsComponent
 
 	// Service discovery health
 	if m.serviceDiscovery != nil {

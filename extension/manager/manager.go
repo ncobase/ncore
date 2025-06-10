@@ -98,22 +98,8 @@ func (m *Manager) initSubsystems() error {
 
 // initMetricsSystem initializes the metrics system
 func (m *Manager) initMetricsSystem() error {
-	// Start with default config
-	mdcc := metrics.DefaultCollectorConfig
-
-	// Override with user config if available
-	if m.conf.Extension.Performance != nil {
-		mdcc.Enabled = m.conf.Extension.Performance.EnableMetrics
-
-		// Override flush interval if specified
-		if m.conf.Extension.Performance.MetricsInterval != "" {
-			if interval, err := time.ParseDuration(m.conf.Extension.Performance.MetricsInterval); err == nil {
-				mdcc.FlushInterval = interval
-			}
-		}
-	}
-
-	m.metricsCollector = metrics.NewCollector(&mdcc)
+	// Create collector
+	m.metricsCollector = metrics.NewCollector(m.conf.Extension.Metrics)
 	return nil
 }
 
@@ -134,31 +120,55 @@ func (m *Manager) initDataLayer() error {
 	return nil
 }
 
-// upgradeMetricsStorageIfNeeded upgrades metrics storage to Redis if available
+// upgradeMetricsStorageIfNeeded upgrades metrics storage to Redis if configured and available
 func (m *Manager) upgradeMetricsStorageIfNeeded() {
+	if m.metricsCollector == nil || !m.metricsCollector.IsEnabled() {
+		return
+	}
+
+	metricsConfig := m.conf.Extension.Metrics
+	if metricsConfig == nil || metricsConfig.Storage == nil {
+		return
+	}
+
+	storageType := metricsConfig.Storage.Type
+
+	// Only upgrade if storage type is "redis" or "auto"
+	if storageType != "redis" && storageType != "auto" {
+		return
+	}
+
+	// Check if data layer and Redis are available
 	if m.data == nil {
 		return
 	}
 
 	redisClient := m.data.GetRedis()
 	if redisClient == nil {
+		if storageType == "redis" {
+			logger.Warnf(nil, "Redis storage requested but Redis client not available, using memory storage")
+		}
 		return
 	}
 
-	// Use default values from config
-	keyPrefix := metrics.DefaultCollectorConfig.Storage.KeyPrefix
-	retention := metrics.DefaultCollectorConfig.Retention
+	// Get configuration values
+	keyPrefix := metricsConfig.Storage.KeyPrefix
+	if keyPrefix == "" {
+		keyPrefix = "ncore_ext"
+	}
 
-	// Override retention if custom interval is set
-	if m.conf.Extension.Performance != nil && m.conf.Extension.Performance.MetricsInterval != "" {
-		if interval, err := time.ParseDuration(m.conf.Extension.Performance.MetricsInterval); err == nil {
-			retention = interval * 168 // keep 168 collection cycles
+	retention := 7 * 24 * time.Hour
+	if metricsConfig.Retention != "" {
+		if ret, err := time.ParseDuration(metricsConfig.Retention); err == nil {
+			retention = ret
 		}
 	}
 
 	// Upgrade to Redis storage
 	if err := m.metricsCollector.UpgradeToRedisStorage(redisClient, keyPrefix, retention); err != nil {
 		logger.Warnf(nil, "Failed to upgrade metrics to Redis storage: %v, continuing with memory storage", err)
+	} else {
+		logger.Infof(nil, "Successfully upgraded extension metrics to Redis storage with prefix: %s", keyPrefix)
 	}
 }
 
@@ -196,8 +206,8 @@ func (m *Manager) initOptionalComponents() error {
 		m.sandbox = security.NewSandbox(extConf.Security)
 	}
 
-	// Initialize resource monitor
-	if extConf.Performance != nil && extConf.Performance.EnableMetrics {
+	// Initialize resource monitor - only if performance config exists
+	if extConf.Performance != nil {
 		m.resourceMonitor = security.NewResourceMonitor(extConf.Performance)
 	}
 
@@ -210,6 +220,7 @@ func (m *Manager) initOptionalComponents() error {
 		}
 	}
 
+	// Initialize plugin manager
 	m.pm = plugin.NewManager(extConf)
 	return nil
 }

@@ -2,6 +2,7 @@ package data
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/ncobase/ncore/data/config"
 	"github.com/ncobase/ncore/data/connection"
@@ -35,6 +36,13 @@ func New(cfg *config.Config, createNewInstance ...bool) (*Data, func(name ...str
 	d := &Data{
 		Conn:      conn,
 		collector: metrics.NoOpCollector{},
+	}
+
+	// Initialize metrics collector if enabled
+	if cfg.Metrics != nil && cfg.Metrics.Enabled {
+		if err := d.initMetricsCollector(cfg.Metrics); err != nil {
+			fmt.Printf("failed to initialize metrics collector: %v\n", err)
+		}
 	}
 
 	// Set as shared instance if not creating new
@@ -71,6 +79,13 @@ func NewWithOptions(cfg *config.Config, opts ...Option) (*Data, func(name ...str
 		opt(d)
 	}
 
+	// Initialize metrics collector if enabled
+	if cfg.Metrics != nil && cfg.Metrics.Enabled {
+		if err := d.initMetricsCollector(cfg.Metrics); err != nil {
+			fmt.Printf("failed to initialize metrics collector: %v\n", err)
+		}
+	}
+
 	// Initialize messaging systems
 	d.initMessaging()
 
@@ -81,6 +96,25 @@ func NewWithOptions(cfg *config.Config, opts ...Option) (*Data, func(name ...str
 	}
 
 	return d, cleanup, nil
+}
+
+// initMetricsCollector initializes metrics collector based on config
+func (d *Data) initMetricsCollector(cfg *config.Metrics) error {
+	// Use Redis storage if configured and available
+	if cfg.StorageType == "redis" && d.Conn != nil && d.Conn.RC != nil {
+		keyPrefix := cfg.KeyPrefix
+		retention := time.Duration(cfg.RetentionDays) * 24 * time.Hour
+		batchSize := cfg.BatchSize
+
+		collector := metrics.NewDataCollectorWithRedis(d.Conn.RC, keyPrefix, retention, batchSize)
+		d.collector = collector
+		return nil
+	}
+
+	// Fallback to memory storage
+	collector := metrics.NewDataCollector(cfg.BatchSize)
+	d.collector = collector
+	return nil
 }
 
 // initMessaging initializes messaging systems
