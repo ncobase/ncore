@@ -109,18 +109,18 @@ func GetEmailFromToken(claims map[string]any) string {
 	return ""
 }
 
-// GetTenantIDFromToken extracts tenant ID from token claims
-func GetTenantIDFromToken(claims map[string]any) string {
+// GetSpaceIDFromToken extracts space ID from token claims
+func GetSpaceIDFromToken(claims map[string]any) string {
 	if payload, ok := getPayload(claims); ok {
-		return getString(payload, "tenant_id")
+		return getString(payload, "space_id")
 	}
 	return ""
 }
 
-// GetTenantIDsFromToken extracts tenant IDs from token claims
-func GetTenantIDsFromToken(claims map[string]any) []string {
+// GetSpaceIDsFromToken extracts space IDs from token claims
+func GetSpaceIDsFromToken(claims map[string]any) []string {
 	if payload, ok := getPayload(claims); ok {
-		return getStringSlice(payload, "tenant_ids")
+		return getStringSlice(payload, "space_ids")
 	}
 	return []string{}
 }

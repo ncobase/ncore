@@ -167,8 +167,6 @@ func (m *Manager) upgradeMetricsStorageIfNeeded() {
 	// Upgrade to Redis storage
 	if err := m.metricsCollector.UpgradeToRedisStorage(redisClient, keyPrefix, retention); err != nil {
 		logger.Warnf(nil, "Failed to upgrade metrics to Redis storage: %v, continuing with memory storage", err)
-	} else {
-		logger.Infof(nil, "Successfully upgraded extension metrics to Redis storage with prefix: %s", keyPrefix)
 	}
 }
 

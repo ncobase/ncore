@@ -16,7 +16,7 @@ const (
 	userEmailKey    = consts.UserEmailKey
 	userStatusKey   = consts.UserStatusKey
 	userIsCertified = consts.UserIsCertifiedKey
-	tenantIDKey     = consts.TenantKey
+	spaceIDKey      = consts.SpaceKey
 	tokenKey        = consts.TokenKey
 	providerKey     = "provider"
 	profileKey      = "profile"
@@ -27,7 +27,7 @@ const (
 	userRolesKey    = "user_roles"
 	userPermissions = "user_permissions"
 	userIsAdminKey  = "user_is_admin"
-	tenantIDsKey    = "user_tenant_ids"
+	spaceIDsKey     = "user_space_ids"
 )
 
 // FromGinContext extracts the context.Context from *gin.Context.
@@ -149,14 +149,14 @@ func GetUserIsCertified(ctx context.Context) bool {
 	return false
 }
 
-// SetTenantID sets tenant id to context.Context.
-func SetTenantID(ctx context.Context, uid string) context.Context {
-	return SetValue(ctx, tenantIDKey, uid)
+// SetSpaceID sets space id to context.Context.
+func SetSpaceID(ctx context.Context, uid string) context.Context {
+	return SetValue(ctx, spaceIDKey, uid)
 }
 
-// GetTenantID gets tenant id from context.Context.
-func GetTenantID(ctx context.Context) string {
-	if uid, ok := GetValue(ctx, tenantIDKey).(string); ok {
+// GetSpaceID gets space id from context.Context.
+func GetSpaceID(ctx context.Context) string {
+	if uid, ok := GetValue(ctx, spaceIDKey).(string); ok {
 		return uid
 	}
 	return ""
@@ -277,15 +277,15 @@ func GetUserIsAdmin(ctx context.Context) bool {
 	return false
 }
 
-// SetUserTenantIDs sets user tenant IDs to context.Context.
-func SetUserTenantIDs(ctx context.Context, tenantIDs []string) context.Context {
-	return SetValue(ctx, tenantIDsKey, tenantIDs)
+// SetUserSpaceIDs sets user space IDs to context.Context.
+func SetUserSpaceIDs(ctx context.Context, spaceIDs []string) context.Context {
+	return SetValue(ctx, spaceIDsKey, spaceIDs)
 }
 
-// GetUserTenantIDs gets user tenant IDs from context.Context.
-func GetUserTenantIDs(ctx context.Context) []string {
-	if tenantIDs, ok := GetValue(ctx, tenantIDsKey).([]string); ok {
-		return tenantIDs
+// GetUserSpaceIDs gets user space IDs from context.Context.
+func GetUserSpaceIDs(ctx context.Context) []string {
+	if spaceIDs, ok := GetValue(ctx, spaceIDsKey).([]string); ok {
+		return spaceIDs
 	}
 	return []string{}
 }

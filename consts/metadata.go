@@ -30,9 +30,9 @@ const UserIsCertifiedKey = "x-md-is-certified"
 // TokenKey global token
 const TokenKey string = "x-md-token"
 
-// TenantKey global tenant id
-// TenantKey = XMdDomainKey
-const TenantKey string = "x-md-tid"
+// SpaceKey global space id
+// SpaceKey = XMdDomainKey
+const SpaceKey string = "x-md-sid"
 
 // TotalKey result total with response
 const TotalKey string = "x-md-total"
