@@ -2,6 +2,8 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
@@ -36,7 +38,7 @@ type SecurityConfig struct {
 	BlockedExtensions []string `json:"blocked_extensions" yaml:"blocked_extensions"`
 	TrustedSources    []string `json:"trusted_sources" yaml:"trusted_sources"`
 	RequireSignature  bool     `json:"require_signature" yaml:"require_signature"`
-	AllowUnsafe       bool     `json:"allow_unsafe" yaml:"allow_unsafe"` // For development
+	AllowUnsafe       bool     `json:"allow_unsafe" yaml:"allow_unsafe"`
 }
 
 // PerformanceConfig defines performance-related extension settings
@@ -55,33 +57,84 @@ type MonitoringConfig struct {
 	MetricsRetention      string `json:"metrics_retention" yaml:"metrics_retention"`
 }
 
+// MetricsConfig defines extension metrics configuration
+type MetricsConfig struct {
+	Enabled       bool           `json:"enabled" yaml:"enabled"`
+	FlushInterval string         `json:"flush_interval" yaml:"flush_interval"`
+	BatchSize     int            `json:"batch_size" yaml:"batch_size"`
+	Retention     string         `json:"retention" yaml:"retention"`
+	Storage       *StorageConfig `json:"storage" yaml:"storage"`
+}
+
+// StorageConfig defines metrics storage configuration
+type StorageConfig struct {
+	Type      string            `json:"type" yaml:"type"`
+	KeyPrefix string            `json:"key_prefix" yaml:"key_prefix"`
+	Options   map[string]string `json:"options" yaml:"options"`
+}
+
+// Helper methods
+
 // IsBuiltInMode checks if running in built-in mode
 func (c *Config) IsBuiltInMode() bool {
-	return c.Mode == "c2hlbgo" // built-in mode
+	return c.Mode == "c2hlbgo"
 }
 
 // ShouldEnableHotReload checks if hot reload is enabled and supported
 func (c *Config) ShouldEnableHotReload() bool {
-	return c.HotReload && !c.IsBuiltInMode()
+	return c.IsBuiltInMode() || c.HotReload
 }
 
-// IsDevelopmentMode checks if running in development mode
-func (c *Config) IsDevelopmentMode() bool {
-	return c.Mode == "development" || c.Mode == "dev"
+// GetRetentionDuration returns the retention duration with support for days/weeks
+func (m *MetricsConfig) GetRetentionDuration() (time.Duration, error) {
+	if m.Retention == "" {
+		return 168 * time.Hour, nil // Default 7 days
+	}
+	return parseDuration(m.Retention)
 }
 
-// IsProductionMode checks if running in production mode
-func (c *Config) IsProductionMode() bool {
-	return c.Mode == "production" || c.Mode == "prod"
+// Validate validates the metrics configuration
+func (m *MetricsConfig) Validate() error {
+	if !m.Enabled {
+		return nil
+	}
+
+	if m.FlushInterval != "" {
+		if _, err := time.ParseDuration(m.FlushInterval); err != nil {
+			return fmt.Errorf("invalid flush_interval: %v", err)
+		}
+	}
+
+	if m.Retention != "" {
+		if _, err := parseDuration(m.Retention); err != nil {
+			return fmt.Errorf("invalid retention: %v", err)
+		}
+	}
+
+	if m.BatchSize <= 0 {
+		return fmt.Errorf("batch_size must be greater than 0, got: %d", m.BatchSize)
+	}
+
+	if m.Storage != nil {
+		validTypes := map[string]bool{"memory": true, "redis": true, "auto": true}
+		if !validTypes[m.Storage.Type] {
+			return fmt.Errorf("invalid storage type: %s", m.Storage.Type)
+		}
+		if m.Storage.KeyPrefix == "" {
+			return fmt.Errorf("key_prefix cannot be empty")
+		}
+	}
+
+	return nil
 }
 
-// Validate validates the configuration with simplified logic
+// Validate validates the configuration
 func (c *Config) Validate() error {
 	if c.MaxPlugins <= 0 {
 		return fmt.Errorf("max_plugins must be greater than 0, got: %d", c.MaxPlugins)
 	}
 
-	// Validate timeout values if provided
+	// Validate timeout values
 	timeouts := map[string]string{
 		"load_timeout":       c.LoadTimeout,
 		"init_timeout":       c.InitTimeout,
@@ -96,7 +149,25 @@ func (c *Config) Validate() error {
 		}
 	}
 
-	// Validate metrics config
+	// Validate other time-based configs
+	if c.Performance != nil && c.Performance.GarbageCollectInterval != "" {
+		if _, err := time.ParseDuration(c.Performance.GarbageCollectInterval); err != nil {
+			return fmt.Errorf("invalid gc_interval: %v", err)
+		}
+	}
+
+	if c.Monitoring != nil && c.Monitoring.HealthCheckInterval != "" {
+		if _, err := time.ParseDuration(c.Monitoring.HealthCheckInterval); err != nil {
+			return fmt.Errorf("invalid health_check_interval: %v", err)
+		}
+	}
+
+	if c.Monitoring != nil && c.Monitoring.MetricsRetention != "" {
+		if _, err := parseDuration(c.Monitoring.MetricsRetention); err != nil {
+			return fmt.Errorf("invalid metrics_retention: %v", err)
+		}
+	}
+
 	if c.Metrics != nil {
 		if err := c.Metrics.Validate(); err != nil {
 			return fmt.Errorf("metrics config error: %v", err)
@@ -106,88 +177,55 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// GetDefaultSecurityConfig returns default security configuration
-func GetDefaultSecurityConfig(isDevelopment bool) *SecurityConfig {
-	if isDevelopment {
-		return &SecurityConfig{
-			EnableSandbox:     false,
-			AllowedPaths:      []string{},
-			BlockedExtensions: []string{".exe", ".bat", ".cmd"},
-			TrustedSources:    []string{}, // Allow any source in development
-			RequireSignature:  false,
-			AllowUnsafe:       true,
+// parseDuration parses duration with support for days (d) and weeks (w)
+func parseDuration(s string) (time.Duration, error) {
+	if strings.HasSuffix(s, "d") {
+		days, err := strconv.Atoi(strings.TrimSuffix(s, "d"))
+		if err != nil {
+			return 0, fmt.Errorf("invalid days format: %s", s)
 		}
+		return time.Duration(days) * 24 * time.Hour, nil
 	}
 
-	return &SecurityConfig{
-		EnableSandbox:     true,
-		AllowedPaths:      []string{"/opt/plugins", "/usr/local/plugins"},
-		BlockedExtensions: []string{".exe", ".bat", ".cmd", ".ps1", ".sh"},
-		TrustedSources:    []string{}, // Empty means require explicit configuration
-		RequireSignature:  true,
-		AllowUnsafe:       false,
-	}
-}
-
-// GetDefaultPerformanceConfig returns default performance configuration
-func GetDefaultPerformanceConfig(isDevelopment bool) *PerformanceConfig {
-	if isDevelopment {
-		return &PerformanceConfig{
-			MaxMemoryMB:            1024,
-			MaxCPUPercent:          90,
-			GarbageCollectInterval: "2m",
-			MaxConcurrentLoads:     10,
+	if strings.HasSuffix(s, "w") {
+		weeks, err := strconv.Atoi(strings.TrimSuffix(s, "w"))
+		if err != nil {
+			return 0, fmt.Errorf("invalid weeks format: %s", s)
 		}
+		return time.Duration(weeks) * 7 * 24 * time.Hour, nil
 	}
 
-	return &PerformanceConfig{
-		MaxMemoryMB:            512,
-		MaxCPUPercent:          70,
-		GarbageCollectInterval: "5m",
-		MaxConcurrentLoads:     5,
-	}
-}
-
-// GetDefaultMonitoringConfig returns default monitoring configuration
-func GetDefaultMonitoringConfig() *MonitoringConfig {
-	return &MonitoringConfig{
-		EnableHealthCheck:     true,
-		HealthCheckInterval:   "60s",
-		EnableDetailedMetrics: false,
-		MetricsRetention:      "24h",
-	}
+	return time.ParseDuration(s)
 }
 
 // GetConfig returns extension config from viper
 func GetConfig(v *viper.Viper) *Config {
-	// Determine environment
-	env := v.GetString("environment")
+	env := getStringWithDefault(v, "environment", "production")
 	if env == "" {
-		env = v.GetString("extension.environment")
+		env = getStringWithDefault(v, "extension.environment", "production")
 	}
-	if env == "" {
-		env = "development" // Default to development
-	}
+	isDev := env == "development" || env == "dev"
 
-	isDevelopment := env == "development" || env == "dev"
+	mode := getStringWithDefault(v, "extension.mode", "file")
+	isBuiltIn := mode == "c2hlbgo"
 
 	config := &Config{
-		Mode:      getStringWithDefault(v, "extension.mode", "file"),
-		Path:      getStringWithDefault(v, "extension.path", getDefaultPluginPath(isDevelopment)),
+		Mode:      mode,
+		Path:      getStringWithDefault(v, "extension.path", getDefaultPath(isDev)),
 		Includes:  v.GetStringSlice("extension.includes"),
 		Excludes:  v.GetStringSlice("extension.excludes"),
-		HotReload: getBoolWithDefault(v, "extension.hot_reload", isDevelopment),
+		HotReload: isBuiltIn || getBoolWithDefault(v, "extension.hot_reload", false),
 
-		MaxPlugins:        getIntWithDefault(v, "extension.max_plugins", 50),
+		MaxPlugins:        getIntWithDefault(v, "extension.max_plugins", 20),
 		LoadTimeout:       getStringWithDefault(v, "extension.load_timeout", "30s"),
 		InitTimeout:       getStringWithDefault(v, "extension.init_timeout", "60s"),
 		DependencyTimeout: getStringWithDefault(v, "extension.dependency_timeout", "15s"),
 		PluginConfig:      v.GetStringMap("extension.plugin_config"),
 
-		Security:    getSecurityConfig(v, isDevelopment),
-		Performance: getPerformanceConfig(v, isDevelopment),
+		Security:    getSecurityConfig(v, isDev),
+		Performance: getPerformanceConfig(v, isDev),
 		Monitoring:  getMonitoringConfig(v),
-		Metrics:     getMetricsConfig(v, isDevelopment),
+		Metrics:     getMetricsConfig(v, isDev),
 	}
 
 	if err := config.Validate(); err != nil {
@@ -197,61 +235,135 @@ func GetConfig(v *viper.Viper) *Config {
 	return config
 }
 
-// getSecurityConfig returns security configuration
-func getSecurityConfig(v *viper.Viper, isDevelopment bool) *SecurityConfig {
-	defaultConfig := GetDefaultSecurityConfig(isDevelopment)
+// Default configuration helpers
 
-	if !v.IsSet("extension.security") {
-		return defaultConfig
-	}
-
-	return &SecurityConfig{
-		EnableSandbox:     getBoolWithDefault(v, "extension.security.enable_sandbox", defaultConfig.EnableSandbox),
-		AllowedPaths:      getStringSliceWithDefault(v, "extension.security.allowed_paths", defaultConfig.AllowedPaths),
-		BlockedExtensions: getStringSliceWithDefault(v, "extension.security.blocked_extensions", defaultConfig.BlockedExtensions),
-		TrustedSources:    getStringSliceWithDefault(v, "extension.security.trusted_sources", defaultConfig.TrustedSources),
-		RequireSignature:  getBoolWithDefault(v, "extension.security.require_signature", defaultConfig.RequireSignature),
-		AllowUnsafe:       getBoolWithDefault(v, "extension.security.allow_unsafe", defaultConfig.AllowUnsafe),
-	}
-}
-
-// getPerformanceConfig returns performance configuration
-func getPerformanceConfig(v *viper.Viper, isDevelopment bool) *PerformanceConfig {
-	defaultConfig := GetDefaultPerformanceConfig(isDevelopment)
-
-	return &PerformanceConfig{
-		MaxMemoryMB:            getIntWithDefault(v, "extension.performance.max_memory_mb", defaultConfig.MaxMemoryMB),
-		MaxCPUPercent:          getIntWithDefault(v, "extension.performance.max_cpu_percent", defaultConfig.MaxCPUPercent),
-		GarbageCollectInterval: getStringWithDefault(v, "extension.performance.gc_interval", defaultConfig.GarbageCollectInterval),
-		MaxConcurrentLoads:     getIntWithDefault(v, "extension.performance.max_concurrent_loads", defaultConfig.MaxConcurrentLoads),
-	}
-}
-
-// getMonitoringConfig returns monitoring configuration
-func getMonitoringConfig(v *viper.Viper) *MonitoringConfig {
-	defaultConfig := GetDefaultMonitoringConfig()
-
-	if !v.IsSet("extension.monitoring") {
-		return defaultConfig
-	}
-
-	return &MonitoringConfig{
-		EnableHealthCheck:     getBoolWithDefault(v, "extension.monitoring.enable_health_check", defaultConfig.EnableHealthCheck),
-		HealthCheckInterval:   getStringWithDefault(v, "extension.monitoring.health_check_interval", defaultConfig.HealthCheckInterval),
-		EnableDetailedMetrics: getBoolWithDefault(v, "extension.monitoring.enable_detailed_metrics", defaultConfig.EnableDetailedMetrics),
-		MetricsRetention:      getStringWithDefault(v, "extension.monitoring.metrics_retention", defaultConfig.MetricsRetention),
-	}
-}
-
-// getDefaultPluginPath returns default plugin path
-func getDefaultPluginPath(isDevelopment bool) string {
-	if isDevelopment {
+func getDefaultPath(isDev bool) string {
+	if isDev {
 		return "./plugins"
 	}
 	return "/opt/ncore/plugins"
 }
 
-// getStringWithDefault returns string value with default
+func getSecurityConfig(v *viper.Viper, isDev bool) *SecurityConfig {
+	if !v.IsSet("extension.security") {
+		return &SecurityConfig{
+			EnableSandbox:     false,
+			AllowedPaths:      []string{},
+			BlockedExtensions: []string{".exe", ".bat", ".cmd"},
+			TrustedSources:    []string{},
+			RequireSignature:  false,
+			AllowUnsafe:       isDev,
+		}
+	}
+
+	return &SecurityConfig{
+		EnableSandbox:     getBoolWithDefault(v, "extension.security.enable_sandbox", false),
+		AllowedPaths:      v.GetStringSlice("extension.security.allowed_paths"),
+		BlockedExtensions: getStringSliceWithDefault(v, "extension.security.blocked_extensions", []string{".exe", ".bat", ".cmd"}),
+		TrustedSources:    v.GetStringSlice("extension.security.trusted_sources"),
+		RequireSignature:  getBoolWithDefault(v, "extension.security.require_signature", false),
+		AllowUnsafe:       getBoolWithDefault(v, "extension.security.allow_unsafe", isDev),
+	}
+}
+
+func getPerformanceConfig(v *viper.Viper, isDev bool) *PerformanceConfig {
+	if !v.IsSet("extension.performance") {
+		maxMem, maxCPU, maxLoads := 256, 30, 3
+		gcInterval := "10m"
+		if isDev {
+			maxMem, maxCPU, maxLoads = 512, 50, 5
+			gcInterval = "5m"
+		}
+
+		return &PerformanceConfig{
+			MaxMemoryMB:            maxMem,
+			MaxCPUPercent:          maxCPU,
+			GarbageCollectInterval: gcInterval,
+			MaxConcurrentLoads:     maxLoads,
+		}
+	}
+
+	defaultMaxMem, defaultMaxCPU, defaultMaxLoads := 256, 30, 3
+	defaultGC := "10m"
+	if isDev {
+		defaultMaxMem, defaultMaxCPU, defaultMaxLoads = 512, 50, 5
+		defaultGC = "5m"
+	}
+
+	return &PerformanceConfig{
+		MaxMemoryMB:            getIntWithDefault(v, "extension.performance.max_memory_mb", defaultMaxMem),
+		MaxCPUPercent:          getIntWithDefault(v, "extension.performance.max_cpu_percent", defaultMaxCPU),
+		GarbageCollectInterval: getStringWithDefault(v, "extension.performance.gc_interval", defaultGC),
+		MaxConcurrentLoads:     getIntWithDefault(v, "extension.performance.max_concurrent_loads", defaultMaxLoads),
+	}
+}
+
+func getMonitoringConfig(v *viper.Viper) *MonitoringConfig {
+	if !v.IsSet("extension.monitoring") {
+		return &MonitoringConfig{
+			EnableHealthCheck:     false,
+			HealthCheckInterval:   "5m",
+			EnableDetailedMetrics: false,
+			MetricsRetention:      "12h",
+		}
+	}
+
+	return &MonitoringConfig{
+		EnableHealthCheck:     getBoolWithDefault(v, "extension.monitoring.enable_health_check", false),
+		HealthCheckInterval:   getStringWithDefault(v, "extension.monitoring.health_check_interval", "5m"),
+		EnableDetailedMetrics: getBoolWithDefault(v, "extension.monitoring.enable_detailed_metrics", false),
+		MetricsRetention:      getStringWithDefault(v, "extension.monitoring.metrics_retention", "12h"),
+	}
+}
+
+func getMetricsConfig(v *viper.Viper, isDev bool) *MetricsConfig {
+	if !v.IsSet("extension.metrics") {
+		batchSize, retention, flushInterval := 100, "7d", "60s"
+		if isDev {
+			batchSize, retention, flushInterval = 50, "24h", "30s"
+		}
+
+		return &MetricsConfig{
+			Enabled:       false,
+			FlushInterval: flushInterval,
+			BatchSize:     batchSize,
+			Retention:     retention,
+			Storage: &StorageConfig{
+				Type:      "auto",
+				KeyPrefix: "ncore_ext",
+				Options:   make(map[string]string),
+			},
+		}
+	}
+
+	defaultBatch, defaultRetention, defaultFlush := 100, "7d", "60s"
+	if isDev {
+		defaultBatch, defaultRetention, defaultFlush = 50, "24h", "30s"
+	}
+
+	storage := &StorageConfig{
+		Type:      "auto",
+		KeyPrefix: "ncore_ext",
+		Options:   make(map[string]string),
+	}
+
+	if v.IsSet("extension.metrics.storage") {
+		storage.Type = getStringWithDefault(v, "extension.metrics.storage.type", "auto")
+		storage.KeyPrefix = getStringWithDefault(v, "extension.metrics.storage.key_prefix", "ncore_ext")
+		storage.Options = v.GetStringMapString("extension.metrics.storage.options")
+	}
+
+	return &MetricsConfig{
+		Enabled:       getBoolWithDefault(v, "extension.metrics.enabled", false),
+		FlushInterval: getStringWithDefault(v, "extension.metrics.flush_interval", defaultFlush),
+		BatchSize:     getIntWithDefault(v, "extension.metrics.batch_size", defaultBatch),
+		Retention:     getStringWithDefault(v, "extension.metrics.retention", defaultRetention),
+		Storage:       storage,
+	}
+}
+
+// Viper helper functions
+
 func getStringWithDefault(v *viper.Viper, key, defaultValue string) string {
 	if v.IsSet(key) {
 		return v.GetString(key)
@@ -259,7 +371,6 @@ func getStringWithDefault(v *viper.Viper, key, defaultValue string) string {
 	return defaultValue
 }
 
-// getIntWithDefault returns int value with default
 func getIntWithDefault(v *viper.Viper, key string, defaultValue int) int {
 	if v.IsSet(key) {
 		return v.GetInt(key)
@@ -267,7 +378,6 @@ func getIntWithDefault(v *viper.Viper, key string, defaultValue int) int {
 	return defaultValue
 }
 
-// getBoolWithDefault returns bool value with default
 func getBoolWithDefault(v *viper.Viper, key string, defaultValue bool) bool {
 	if v.IsSet(key) {
 		return v.GetBool(key)
@@ -275,7 +385,6 @@ func getBoolWithDefault(v *viper.Viper, key string, defaultValue bool) bool {
 	return defaultValue
 }
 
-// getStringSliceWithDefault returns string slice value with default
 func getStringSliceWithDefault(v *viper.Viper, key string, defaultValue []string) []string {
 	if v.IsSet(key) {
 		return v.GetStringSlice(key)

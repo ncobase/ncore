@@ -21,19 +21,23 @@ func (m *Manager) ManageRoutes(r *gin.RouterGroup) {
 	// Create API group
 	apiGroup := r.Group("")
 
-	// Extension management routes
+	// Extension management routes - always available
 	m.setupExtensionRoutes(apiGroup)
 
-	// Plugin management routes
-	m.setupPluginRoutes(apiGroup)
+	// Plugin management routes - only if hot reload is enabled
+	if m.conf.Extension.HotReload {
+		m.setupPluginRoutes(apiGroup)
+	}
 
-	// Metrics routes
-	m.setupMetricsRoutes(apiGroup)
+	// Metrics routes - only if metrics are enabled
+	if m.isMetricsEnabled() {
+		m.setupMetricsRoutes(apiGroup)
+	}
 
-	// Health check routes
+	// Health check routes - always available
 	m.setupHealthRoutes(apiGroup)
 
-	// System management routes
+	// System management routes - always available
 	m.setupSystemRoutes(apiGroup)
 }
 
@@ -120,7 +124,7 @@ func (m *Manager) setupExtensionRoutes(r *gin.RouterGroup) {
 	}
 }
 
-// setupPluginRoutes sets up plugin management routes
+// setupPluginRoutes sets up plugin management routes - only when hot reload enabled
 func (m *Manager) setupPluginRoutes(r *gin.RouterGroup) {
 	pluginGroup := r.Group("/plugins")
 	{
@@ -186,22 +190,19 @@ func (m *Manager) setupPluginRoutes(r *gin.RouterGroup) {
 	}
 }
 
-// setupMetricsRoutes sets up metrics routes
+// setupMetricsRoutes sets up metrics routes - only when metrics enabled
 func (m *Manager) setupMetricsRoutes(r *gin.RouterGroup) {
 	metricsGroup := r.Group("/metrics")
 	{
 		// Dashboard summary
 		metricsGroup.GET("/summary", func(c *gin.Context) {
-			// Check if metrics are enabled
-			metricsEnabled := m.metricsCollector != nil && m.metricsCollector.IsEnabled()
-
 			summary := map[string]any{
 				"timestamp":         time.Now(),
 				"total_extensions":  len(m.extensions),
 				"active_extensions": m.countActiveExtensions(),
 				"data_status":       m.getDataLayerStatus(),
 				"messaging":         m.getMessagingStatus(),
-				"metrics_enabled":   metricsEnabled,
+				"metrics_enabled":   true, // Only accessible when enabled
 			}
 
 			if m.serviceDiscovery != nil {
@@ -265,13 +266,8 @@ func (m *Manager) setupMetricsRoutes(r *gin.RouterGroup) {
 			resp.Success(c.Writer, cacheStats)
 		})
 
-		// Historical queries - only if metrics are enabled
+		// Historical queries
 		metricsGroup.GET("/history", func(c *gin.Context) {
-			if m.metricsCollector == nil || !m.metricsCollector.IsEnabled() {
-				resp.Fail(c.Writer, resp.ServiceUnavailable("Metrics collection is disabled"))
-				return
-			}
-
 			opts, err := parseQueryOptions(c)
 			if err != nil {
 				resp.Fail(c.Writer, resp.BadRequest("Invalid query parameters: %v", err))
@@ -291,13 +287,8 @@ func (m *Manager) setupMetricsRoutes(r *gin.RouterGroup) {
 			})
 		})
 
-		// Latest metrics - only if metrics are enabled
+		// Latest metrics
 		metricsGroup.GET("/latest/:name", func(c *gin.Context) {
-			if m.metricsCollector == nil || !m.metricsCollector.IsEnabled() {
-				resp.Fail(c.Writer, resp.ServiceUnavailable("Metrics collection is disabled"))
-				return
-			}
-
 			name := c.Param("name")
 			limitStr := c.DefaultQuery("limit", "100")
 
@@ -320,16 +311,8 @@ func (m *Manager) setupMetricsRoutes(r *gin.RouterGroup) {
 			})
 		})
 
-		// Storage info - only if metrics are enabled
+		// Storage info
 		metricsGroup.GET("/storage", func(c *gin.Context) {
-			if m.metricsCollector == nil || !m.metricsCollector.IsEnabled() {
-				resp.Success(c.Writer, map[string]any{
-					"status": "disabled",
-					"reason": "metrics collection is disabled",
-				})
-				return
-			}
-
 			stats := m.GetMetricsStorageStats()
 			resp.Success(c.Writer, stats)
 		})
@@ -337,17 +320,8 @@ func (m *Manager) setupMetricsRoutes(r *gin.RouterGroup) {
 		// Configuration info
 		metricsGroup.GET("/config", func(c *gin.Context) {
 			metricsConfig := m.conf.Extension.Metrics
-			if metricsConfig == nil {
-				resp.Success(c.Writer, map[string]any{
-					"enabled": false,
-					"reason":  "no metrics configuration found",
-				})
-				return
-			}
-
-			// Return sanitized config (no sensitive data)
 			configInfo := map[string]any{
-				"enabled":        metricsConfig.Enabled,
+				"enabled":        true,
 				"flush_interval": metricsConfig.FlushInterval,
 				"batch_size":     metricsConfig.BatchSize,
 				"retention":      metricsConfig.Retention,
@@ -441,12 +415,10 @@ func (m *Manager) setupSystemRoutes(r *gin.RouterGroup) {
 	{
 		// System info
 		systemGroup.GET("/info", func(c *gin.Context) {
-			// Calculate actual uptime if you have a start time
-			// For now, using placeholder
-			startTime := time.Now().Add(-time.Since(time.Now())) // This should be actual start time
+			startTime := time.Now().Add(-time.Since(time.Now())) // Placeholder - should use actual start time
 
 			info := map[string]any{
-				"version":    "1.0.0", // You can inject this from build
+				"version":    "1.0.0", // Should be injected from build
 				"build_time": time.Now().Format(time.RFC3339),
 				"uptime":     time.Since(startTime).String(),
 				"extensions": map[string]any{
@@ -454,9 +426,11 @@ func (m *Manager) setupSystemRoutes(r *gin.RouterGroup) {
 					"active":     m.countActiveExtensions(),
 					"hot_reload": m.conf.Extension.HotReload,
 				},
-				"metrics": map[string]any{
-					"extension_enabled": m.metricsCollector != nil && m.metricsCollector.IsEnabled(),
-					"data_enabled":      m.isDataMetricsEnabled(),
+				"features": map[string]any{
+					"metrics_enabled":    m.isMetricsEnabled(),
+					"hot_reload_enabled": m.conf.Extension.HotReload,
+					"grpc_enabled":       m.conf.GRPC != nil && m.conf.GRPC.Enabled,
+					"consul_enabled":     m.conf.Consul != nil,
 				},
 			}
 
@@ -481,32 +455,33 @@ func (m *Manager) setupSystemRoutes(r *gin.RouterGroup) {
 					"max_plugins": m.conf.Extension.MaxPlugins,
 				},
 				"features": map[string]any{
-					"grpc_enabled":              m.conf.GRPC != nil && m.conf.GRPC.Enabled,
-					"consul_enabled":            m.conf.Consul != nil,
-					"extension_metrics_enabled": m.metricsCollector != nil && m.metricsCollector.IsEnabled(),
-					"data_metrics_enabled":      m.isDataMetricsEnabled(),
+					"grpc_enabled":       m.conf.GRPC != nil && m.conf.GRPC.Enabled,
+					"consul_enabled":     m.conf.Consul != nil,
+					"metrics_enabled":    m.isMetricsEnabled(),
+					"hot_reload_enabled": m.conf.Extension.HotReload,
 				},
 			}
 
-			// Add metrics configuration if available
-			if m.conf.Extension.Metrics != nil {
+			// Add metrics configuration if enabled
+			if m.isMetricsEnabled() {
+				metricsConfig := m.conf.Extension.Metrics
 				config["metrics"] = map[string]any{
 					"extension": map[string]any{
-						"enabled":        m.conf.Extension.Metrics.Enabled,
-						"flush_interval": m.conf.Extension.Metrics.FlushInterval,
-						"batch_size":     m.conf.Extension.Metrics.BatchSize,
-						"retention":      m.conf.Extension.Metrics.Retention,
-						"storage_type":   m.conf.Extension.Metrics.Storage.Type,
+						"enabled":        true,
+						"flush_interval": metricsConfig.FlushInterval,
+						"batch_size":     metricsConfig.BatchSize,
+						"retention":      metricsConfig.Retention,
+						"storage_type":   metricsConfig.Storage.Type,
 					},
 				}
 			}
 
-			if m.conf.Data != nil && m.conf.Data.Metrics != nil {
+			if m.conf.Data != nil && m.conf.Data.Metrics != nil && m.conf.Data.Metrics.Enabled {
 				if config["metrics"] == nil {
 					config["metrics"] = make(map[string]any)
 				}
 				config["metrics"].(map[string]any)["data"] = map[string]any{
-					"enabled":        m.conf.Data.Metrics.Enabled,
+					"enabled":        true,
 					"storage_type":   m.conf.Data.Metrics.StorageType,
 					"retention_days": m.conf.Data.Metrics.RetentionDays,
 					"batch_size":     m.conf.Data.Metrics.BatchSize,
@@ -516,6 +491,11 @@ func (m *Manager) setupSystemRoutes(r *gin.RouterGroup) {
 			resp.Success(c.Writer, config)
 		})
 	}
+}
+
+// isMetricsEnabled checks if extension metrics are enabled
+func (m *Manager) isMetricsEnabled() bool {
+	return m.metricsCollector != nil && m.metricsCollector.IsEnabled()
 }
 
 // isDataMetricsEnabled checks if data layer metrics are enabled
@@ -633,13 +613,12 @@ func (m *Manager) buildSystemHealth(ctx context.Context) map[string]any {
 		}
 	}
 
-	// Metrics system health - check new metrics config
-	metricsEnabled := m.metricsCollector != nil && m.metricsCollector.IsEnabled()
+	// Metrics system health
 	metricsComponent := map[string]any{
-		"enabled": metricsEnabled,
+		"enabled": m.isMetricsEnabled(),
 	}
 
-	if metricsEnabled {
+	if m.isMetricsEnabled() {
 		metricsComponent["status"] = "enabled"
 		metricsComponent["stats"] = m.GetMetricsStorageStats()
 	} else {

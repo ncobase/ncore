@@ -157,11 +157,11 @@ func (m *Manager) upgradeMetricsStorageIfNeeded() {
 		keyPrefix = "ncore_ext"
 	}
 
-	retention := 7 * 24 * time.Hour
-	if metricsConfig.Retention != "" {
-		if ret, err := time.ParseDuration(metricsConfig.Retention); err == nil {
-			retention = ret
-		}
+	retention := 7 * 24 * time.Hour // Default 7 days
+	if duration, err := metricsConfig.GetRetentionDuration(); err == nil {
+		retention = duration
+	} else {
+		logger.Warnf(nil, "Invalid retention format, using default 7 days: %v", err)
 	}
 
 	// Upgrade to Redis storage
