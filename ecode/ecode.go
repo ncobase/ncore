@@ -30,6 +30,7 @@ var (
 	NothingFound          = -404 // Nothing found
 	MethodNotAllowed      = -405 // Method not allowed
 	Conflict              = -409 // Conflict
+	Gone                  = -410 // Gone
 	ServerErr             = -500 // Server error
 	ServiceUnavailable    = -503 // Service unavailable
 	Deadline              = -504 // Service call timeout

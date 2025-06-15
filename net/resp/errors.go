@@ -65,3 +65,8 @@ func Conflict(message string, data ...any) *Exception {
 func NotAllowed(message string, data ...any) *Exception {
 	return newResponse(http.StatusMethodNotAllowed, ecode.MethodNotAllowed, message, data...)
 }
+
+// Gone indicates a gone error.
+func Gone(message string, data ...any) *Exception {
+	return newResponse(http.StatusGone, ecode.Gone, message, data...)
+}

@@ -42,6 +42,11 @@ func newResponse(status, code int, message string, data ...any) *Exception {
 
 // Success handles success responses.
 func Success(w http.ResponseWriter, data ...any) {
+	WithStatusCode(w, http.StatusOK, data...)
+}
+
+// WithStatusCode handles success responses with custom status code.
+func WithStatusCode(w http.ResponseWriter, statusCode int, data ...any) {
 	var message string
 	var responseData any
 
@@ -53,7 +58,7 @@ func Success(w http.ResponseWriter, data ...any) {
 		}
 	}
 
-	r := newResponse(http.StatusOK, 0, message, responseData)
+	r := newResponse(statusCode, 0, message, responseData)
 	statusCode, result := buildSuccessResponse(r)
 	writeResponse(w, "JSON", statusCode, result)
 }

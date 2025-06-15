@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"strings"
 	"sync"
+	"unicode"
 
 	"github.com/ncobase/ncore/consts"
 	"github.com/ncobase/ncore/validation/validator"
@@ -113,4 +114,14 @@ func generateFastID(size int, alphabet string) string {
 	}
 
 	return string(result)
+}
+
+// IsAlphanumeric checks if a string contains only alphanumeric characters
+func IsAlphanumeric(s string) bool {
+	for _, r := range s {
+		if !unicode.IsLetter(r) && !unicode.IsNumber(r) {
+			return false
+		}
+	}
+	return true
 }
