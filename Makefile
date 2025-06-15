@@ -1,6 +1,7 @@
 #!/usr/bin/make
 
 # Metadata
+CMD_DIR=$(shell dirname $(abspath $(firstword $(MAKEFILE_LIST))))/cmd
 BINARY_NAME=ncore
 VERSION=$(shell git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
 BRANCH=$(shell git symbolic-ref -q --short HEAD 2>/dev/null || echo "unknown")
@@ -32,7 +33,7 @@ endif
 # Build the application
 build:
 	@echo "Building $(BINARY_NAME) $(VERSION)..."
-	@go build $(BUILD_FLAGS) -o $(BINARY_NAME) ./cmd
+	@go build $(BUILD_FLAGS) -o $(BINARY_NAME) $(CMD_DIR)
 
 # Clean build artifacts
 clean:
@@ -81,23 +82,23 @@ release:
 	@mkdir -p dist
 
 	@echo "Building for Linux (amd64)..."
-	@GOOS=linux GOARCH=amd64 go build $(BUILD_FLAGS) -o dist/$(BINARY_NAME)-$(VERSION)-linux-amd64 ./cmd
+	@GOOS=linux GOARCH=amd64 go build $(BUILD_FLAGS) -o dist/$(BINARY_NAME)-$(VERSION)-linux-amd64 $(CMD_DIR)
 	@cd dist && sha256sum $(BINARY_NAME)-$(VERSION)-linux-amd64 > $(BINARY_NAME)-$(VERSION)-linux-amd64.sha256
 
 	@echo "Building for Linux (arm64)..."
-	@GOOS=linux GOARCH=arm64 go build $(BUILD_FLAGS) -o dist/$(BINARY_NAME)-$(VERSION)-linux-arm64 ./cmd
+	@GOOS=linux GOARCH=arm64 go build $(BUILD_FLAGS) -o dist/$(BINARY_NAME)-$(VERSION)-linux-arm64 $(CMD_DIR)
 	@cd dist && sha256sum $(BINARY_NAME)-$(VERSION)-linux-arm64 > $(BINARY_NAME)-$(VERSION)-linux-arm64.sha256
 
 	@echo "Building for macOS (amd64)..."
-	@GOOS=darwin GOARCH=amd64 go build $(BUILD_FLAGS) -o dist/$(BINARY_NAME)-$(VERSION)-darwin-amd64 ./cmd
+	@GOOS=darwin GOARCH=amd64 go build $(BUILD_FLAGS) -o dist/$(BINARY_NAME)-$(VERSION)-darwin-amd64 $(CMD_DIR)
 	@cd dist && shasum -a 256 $(BINARY_NAME)-$(VERSION)-darwin-amd64 > $(BINARY_NAME)-$(VERSION)-darwin-amd64.sha256
 
 	@echo "Building for macOS (arm64)..."
-	@GOOS=darwin GOARCH=arm64 go build $(BUILD_FLAGS) -o dist/$(BINARY_NAME)-$(VERSION)-darwin-arm64 ./cmd
+	@GOOS=darwin GOARCH=arm64 go build $(BUILD_FLAGS) -o dist/$(BINARY_NAME)-$(VERSION)-darwin-arm64 $(CMD_DIR)
 	@cd dist && shasum -a 256 $(BINARY_NAME)-$(VERSION)-darwin-arm64 > $(BINARY_NAME)-$(VERSION)-darwin-arm64.sha256
 
 	@echo "Building for Windows (amd64)..."
-	@GOOS=windows GOARCH=amd64 go build $(BUILD_FLAGS) -o dist/$(BINARY_NAME)-$(VERSION)-windows-amd64.exe ./cmd
+	@GOOS=windows GOARCH=amd64 go build $(BUILD_FLAGS) -o dist/$(BINARY_NAME)-$(VERSION)-windows-amd64.exe $(CMD_DIR)
 	@cd dist && sha256sum $(BINARY_NAME)-$(VERSION)-windows-amd64.exe > $(BINARY_NAME)-$(VERSION)-windows-amd64.exe.sha256
 
 	@echo "Release binaries built successfully in ./dist directory"

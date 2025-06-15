@@ -1,3 +1,5 @@
 .idea/
 .vscode/
+dist/
+ncore
 .DS_Store
