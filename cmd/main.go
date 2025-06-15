@@ -8,8 +8,13 @@ import (
 )
 
 func main() {
-	// Execute the root command
+	// Create root command
 	rootCmd := commands.NewRootCmd()
+
+	// Disable completion
+	rootCmd.CompletionOptions.DisableDefaultCmd = true
+
+	// Execute
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)

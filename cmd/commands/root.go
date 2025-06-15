@@ -6,7 +6,7 @@ import (
 
 // NewRootCmd creates the root command
 func NewRootCmd() *cobra.Command {
-	// Create root command
+	// Define root command
 	rootCmd := &cobra.Command{
 		Use:   "ncore",
 		Short: "A set of reusable components for Go applications",
