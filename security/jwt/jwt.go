@@ -1,3 +1,4 @@
+// jwt.go
 package jwt
 
 import (
@@ -6,11 +7,11 @@ import (
 	jwtstd "github.com/golang-jwt/jwt/v5"
 )
 
-// Token expiration constants
+// Default token expiration constants
 const (
-	DefaultAccessTokenExpire   = 2 * time.Hour
-	DefaultRefreshTokenExpire  = 7 * 24 * time.Hour
-	DefaultRegisterTokenExpire = time.Hour
+	DefaultAccessTokenExpire   = 2 * time.Hour      // 2 hours
+	DefaultRefreshTokenExpire  = 7 * 24 * time.Hour // 7 days
+	DefaultRegisterTokenExpire = 30 * time.Minute   // 30 minutes
 )
 
 // Error constants
@@ -28,14 +29,69 @@ func (e TokenError) Error() string {
 	return string(e)
 }
 
-// TokenManager handles JWT token operations
-type TokenManager struct {
-	secret string
+// TokenConfig represents token configuration options
+type TokenConfig struct {
+	// For TokenManager configuration
+	AccessTokenExpiry   time.Duration
+	RefreshTokenExpiry  time.Duration
+	RegisterTokenExpiry time.Duration
+
+	// For individual token generation
+	Expiry time.Duration
 }
 
-// NewTokenManager creates a new TokenManager instance
-func NewTokenManager(secret string) *TokenManager {
-	return &TokenManager{secret: secret}
+// TokenManager handles JWT token operations
+type TokenManager struct {
+	secret              string
+	accessTokenExpiry   time.Duration
+	refreshTokenExpiry  time.Duration
+	registerTokenExpiry time.Duration
+}
+
+// NewTokenManager creates a new TokenManager instance with optional configuration
+func NewTokenManager(secret string, configs ...*TokenConfig) *TokenManager {
+	tm := &TokenManager{
+		secret:              secret,
+		accessTokenExpiry:   DefaultAccessTokenExpire,
+		refreshTokenExpiry:  DefaultRefreshTokenExpire,
+		registerTokenExpiry: DefaultRegisterTokenExpire,
+	}
+
+	if len(configs) > 0 && configs[0] != nil {
+		config := configs[0]
+		if config.AccessTokenExpiry > 0 {
+			tm.accessTokenExpiry = config.AccessTokenExpiry
+		}
+		if config.RefreshTokenExpiry > 0 {
+			tm.refreshTokenExpiry = config.RefreshTokenExpiry
+		}
+		if config.RegisterTokenExpiry > 0 {
+			tm.registerTokenExpiry = config.RegisterTokenExpiry
+		}
+	}
+
+	return tm
+}
+
+// SetAccessTokenExpiry sets the default access token expiry
+func (tm *TokenManager) SetAccessTokenExpiry(expiry time.Duration) {
+	if expiry > 0 {
+		tm.accessTokenExpiry = expiry
+	}
+}
+
+// SetRefreshTokenExpiry sets the default refresh token expiry
+func (tm *TokenManager) SetRefreshTokenExpiry(expiry time.Duration) {
+	if expiry > 0 {
+		tm.refreshTokenExpiry = expiry
+	}
+}
+
+// SetRegisterTokenExpiry sets the default register token expiry
+func (tm *TokenManager) SetRegisterTokenExpiry(expiry time.Duration) {
+	if expiry > 0 {
+		tm.registerTokenExpiry = expiry
+	}
 }
 
 // generateToken creates a JWT token with specified parameters
@@ -60,29 +116,31 @@ func (tm *TokenManager) generateToken(jti string, subject string, payload map[st
 	return token.SignedString([]byte(tm.secret))
 }
 
-// GenerateAccessToken generates an access token
-func (tm *TokenManager) GenerateAccessToken(jti string, payload map[string]any) (string, error) {
-	return tm.generateToken(jti, "access", payload, DefaultAccessTokenExpire)
-}
-
-// GenerateAccessTokenWithExpiry generates an access token with custom expiry
-func (tm *TokenManager) GenerateAccessTokenWithExpiry(jti string, payload map[string]any, expiry time.Duration) (string, error) {
+// GenerateAccessToken generates an access token with optional custom expiry
+func (tm *TokenManager) GenerateAccessToken(jti string, payload map[string]any, configs ...*TokenConfig) (string, error) {
+	expiry := tm.accessTokenExpiry
+	if len(configs) > 0 && configs[0] != nil && configs[0].Expiry > 0 {
+		expiry = configs[0].Expiry
+	}
 	return tm.generateToken(jti, "access", payload, expiry)
 }
 
-// GenerateRefreshToken generates a refresh token
-func (tm *TokenManager) GenerateRefreshToken(jti string, payload map[string]any) (string, error) {
-	return tm.generateToken(jti, "refresh", payload, DefaultRefreshTokenExpire)
-}
-
-// GenerateRefreshTokenWithExpiry generates a refresh token with custom expiry
-func (tm *TokenManager) GenerateRefreshTokenWithExpiry(jti string, payload map[string]any, expiry time.Duration) (string, error) {
+// GenerateRefreshToken generates a refresh token with optional custom expiry
+func (tm *TokenManager) GenerateRefreshToken(jti string, payload map[string]any, configs ...*TokenConfig) (string, error) {
+	expiry := tm.refreshTokenExpiry
+	if len(configs) > 0 && configs[0] != nil && configs[0].Expiry > 0 {
+		expiry = configs[0].Expiry
+	}
 	return tm.generateToken(jti, "refresh", payload, expiry)
 }
 
-// GenerateRegisterToken generates a register token
-func (tm *TokenManager) GenerateRegisterToken(jti string, payload map[string]any, subject string) (string, error) {
-	return tm.generateToken(jti, subject, payload, DefaultRegisterTokenExpire)
+// GenerateRegisterToken generates a register token with optional custom expiry
+func (tm *TokenManager) GenerateRegisterToken(jti string, payload map[string]any, subject string, configs ...*TokenConfig) (string, error) {
+	expiry := tm.registerTokenExpiry
+	if len(configs) > 0 && configs[0] != nil && configs[0].Expiry > 0 {
+		expiry = configs[0].Expiry
+	}
+	return tm.generateToken(jti, subject, payload, expiry)
 }
 
 // ValidateToken validates a JWT token and returns the parsed token
@@ -183,10 +241,9 @@ func (tm *TokenManager) RefreshTokenIfNeeded(tokenString string, refreshThreshol
 
 	expiryTime := time.Unix(int64(exp), 0)
 	if time.Until(expiryTime) > refreshThreshold {
-		return tokenString, false, nil // No refresh needed
+		return tokenString, false, nil
 	}
 
-	// Extract payload and regenerate token
 	payload, ok := claims["payload"].(map[string]any)
 	if !ok {
 		payload = map[string]any{}
