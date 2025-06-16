@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
@@ -22,24 +23,41 @@ var (
 
 // Config represents the configuration implementation.
 type Config struct {
-	AppName   string       `yaml:"app_name" json:"app_name"`
-	RunMode   string       `yaml:"run_mode" json:"run_mode"`
-	Protocol  string       `yaml:"protocol" json:"protocol"`
-	Domain    string       `yaml:"domain" json:"domain"`
-	Host      string       `yaml:"host" json:"host"`
-	Port      int          `yaml:"port" json:"port"`
-	GRPC      *GRPC        `yaml:"grpc" json:"grpc"`
-	Consul    *Consul      `yaml:"consul" json:"consul"`
-	Observes  *Observes    `yaml:"observes" json:"observes"`
-	Extension *Extension   `yaml:"extension" json:"extension"`
-	Frontend  *Frontend    `yaml:"frontend" json:"frontend"`
-	Logger    *Logger      `yaml:"logger" json:"logger"`
-	Data      *Data        `yaml:"data" json:"data"`
-	Auth      *Auth        `yaml:"auth" json:"auth"`
-	Storage   *Storage     `yaml:"storage" json:"storage"`
-	OAuth     *OAuth       `yaml:"oauth" json:"oauth"`
-	Email     *Email       `yaml:"email" json:"email"`
-	Viper     *viper.Viper `yaml:"-" json:"-"`
+	AppName     string       `yaml:"app_name" json:"app_name"`
+	Environment string       `yaml:"environment" json:"environment"`
+	Protocol    string       `yaml:"protocol" json:"protocol"`
+	Domain      string       `yaml:"domain" json:"domain"`
+	Host        string       `yaml:"host" json:"host"`
+	Port        int          `yaml:"port" json:"port"`
+	GRPC        *GRPC        `yaml:"grpc" json:"grpc"`
+	Consul      *Consul      `yaml:"consul" json:"consul"`
+	Observes    *Observes    `yaml:"observes" json:"observes"`
+	Extension   *Extension   `yaml:"extension" json:"extension"`
+	Frontend    *Frontend    `yaml:"frontend" json:"frontend"`
+	Logger      *Logger      `yaml:"logger" json:"logger"`
+	Data        *Data        `yaml:"data" json:"data"`
+	Auth        *Auth        `yaml:"auth" json:"auth"`
+	Storage     *Storage     `yaml:"storage" json:"storage"`
+	OAuth       *OAuth       `yaml:"oauth" json:"oauth"`
+	Email       *Email       `yaml:"email" json:"email"`
+	Viper       *viper.Viper `yaml:"-" json:"-"`
+}
+
+// IsProd returns current environment is production
+func (c *Config) IsProd(envs ...string) bool {
+	if len(envs) == 0 {
+		envs = []string{"prod", "release", "production"}
+	}
+	currentEnv := strings.ToLower(c.Environment)
+	if currentEnv == "" {
+		return true
+	}
+	for _, env := range envs {
+		if currentEnv == strings.ToLower(env) {
+			return true
+		}
+	}
+	return false
 }
 
 func init() {
@@ -105,24 +123,24 @@ func LoadConfig(configPath string) (*Config, error) {
 	}
 
 	cfg := &Config{
-		AppName:   v.GetString("app_name"),
-		RunMode:   v.GetString("run_mode"),
-		Protocol:  v.GetString("server.protocol"),
-		Domain:    v.GetString("server.domain"),
-		Host:      v.GetString("server.host"),
-		Port:      v.GetInt("server.port"),
-		GRPC:      getGRPCConfig(v),
-		Consul:    getConsulConfig(v),
-		Observes:  getObservesConfig(v),
-		Extension: getExtensionConfig(v),
-		Auth:      getAuth(v),
-		Frontend:  getFrontendConfig(v),
-		Logger:    getLoggerConfig(v),
-		Data:      getDataConfig(v),
-		Storage:   getStorageConfig(v),
-		OAuth:     getOAuthConfig(v),
-		Email:     getEmailConfig(v),
-		Viper:     v,
+		AppName:     v.GetString("app_name"),
+		Environment: v.GetString("environment"),
+		Protocol:    v.GetString("server.protocol"),
+		Domain:      v.GetString("server.domain"),
+		Host:        v.GetString("server.host"),
+		Port:        v.GetInt("server.port"),
+		GRPC:        getGRPCConfig(v),
+		Consul:      getConsulConfig(v),
+		Observes:    getObservesConfig(v),
+		Extension:   getExtensionConfig(v),
+		Auth:        getAuth(v),
+		Frontend:    getFrontendConfig(v),
+		Logger:      getLoggerConfig(v),
+		Data:        getDataConfig(v),
+		Storage:     getStorageConfig(v),
+		OAuth:       getOAuthConfig(v),
+		Email:       getEmailConfig(v),
+		Viper:       v,
 	}
 
 	return cfg, nil

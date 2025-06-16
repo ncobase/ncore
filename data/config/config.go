@@ -6,7 +6,6 @@ import (
 
 // Config data config struct
 type Config struct {
-	Environment    string `yaml:"environment" json:"environment"`
 	*Database      `yaml:"database" json:"database"`
 	*Redis         `yaml:"redis" json:"redis"`
 	*Meilisearch   `yaml:"meilisearch" json:"meilisearch"`
@@ -22,7 +21,6 @@ type Config struct {
 // GetConfig returns data config
 func GetConfig(v *viper.Viper) *Config {
 	return &Config{
-		Environment:   v.GetString("data.environment"),
 		Database:      getDatabaseConfig(v),
 		Redis:         getRedisConfigs(v),
 		Meilisearch:   getMeilisearchConfigs(v),
