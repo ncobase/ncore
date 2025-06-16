@@ -2,54 +2,60 @@ package jwt
 
 import "time"
 
-// getPayload extracts payload from token claims
-func getPayload(claims map[string]any) (map[string]any, bool) {
-	if payload, ok := claims["payload"].(map[string]any); ok {
-		return payload, true
-	}
-	return nil, false
-}
-
-// getString safely extracts string value from payload
-func getString(payload map[string]any, key string) string {
-	if val, ok := payload[key].(string); ok {
+// GetString safely extracts string value from any map
+func GetString(data map[string]any, key string) string {
+	if val, ok := data[key].(string); ok {
 		return val
 	}
 	return ""
 }
 
-// getBool safely extracts boolean value from payload
-func getBool(payload map[string]any, key string) bool {
-	if val, ok := payload[key].(bool); ok {
+// GetBool safely extracts boolean value from any map
+func GetBool(data map[string]any, key string) bool {
+	if val, ok := data[key].(bool); ok {
 		return val
 	}
 	return false
 }
 
-// getInt64 safely extracts int64 value from payload
-func getInt64(payload map[string]any, key string) int64 {
-	switch val := payload[key].(type) {
+// GetInt64 safely extracts int64 value from any map
+func GetInt64(data map[string]any, key string) int64 {
+	switch val := data[key].(type) {
 	case int64:
 		return val
 	case float64:
 		return int64(val)
 	case int:
 		return int64(val)
+	case int32:
+		return int64(val)
 	}
 	return 0
 }
 
-// getInt safely extracts int value from payload
-func getInt(payload map[string]any, key string) int {
-	if val, ok := payload[key].(int); ok {
+// GetInt safely extracts int value from any map
+func GetInt(data map[string]any, key string) int {
+	return int(GetInt64(data, key))
+}
+
+// GetFloat64 safely extracts float64 value from any map
+func GetFloat64(data map[string]any, key string) float64 {
+	switch val := data[key].(type) {
+	case float64:
 		return val
+	case float32:
+		return float64(val)
+	case int64:
+		return float64(val)
+	case int:
+		return float64(val)
 	}
 	return 0
 }
 
-// getStringSlice safely extracts string slice from payload
-func getStringSlice(payload map[string]any, key string) []string {
-	if val, ok := payload[key].([]any); ok {
+// GetStringSlice safely extracts string slice from any map
+func GetStringSlice(data map[string]any, key string) []string {
+	if val, ok := data[key].([]any); ok {
 		result := make([]string, 0, len(val))
 		for _, item := range val {
 			if str, ok := item.(string); ok {
@@ -61,221 +67,169 @@ func getStringSlice(payload map[string]any, key string) []string {
 	return []string{}
 }
 
-// GetTokenIDFromToken extracts JWT ID (jti) from token claims
-func GetTokenIDFromToken(claims map[string]any) string {
-	if jti, ok := claims["jti"].(string); ok {
-		return jti
+// GetMap safely extracts nested map from any map
+func GetMap(data map[string]any, key string) map[string]any {
+	if val, ok := data[key].(map[string]any); ok {
+		return val
 	}
-	return ""
+	return map[string]any{}
 }
 
-// GetSubjectFromToken extracts subject (sub) from token claims
-func GetSubjectFromToken(claims map[string]any) string {
-	if sub, ok := claims["sub"].(string); ok {
-		return sub
-	}
-	return ""
+// GetTokenID extracts JWT ID (jti) from token claims
+func GetTokenID(claims map[string]any) string {
+	return GetString(claims, "jti")
 }
 
-// GetExpirationFromToken extracts expiration time from token claims
-func GetExpirationFromToken(claims map[string]any) time.Time {
-	if exp, ok := claims["exp"].(float64); ok && exp > 0 {
+// GetSubject extracts subject (sub) from token claims
+func GetSubject(claims map[string]any) string {
+	return GetString(claims, "sub")
+}
+
+// GetIssuer extracts issuer (iss) from token claims
+func GetIssuer(claims map[string]any) string {
+	return GetString(claims, "iss")
+}
+
+// GetAudience extracts audience (aud) from token claims
+func GetAudience(claims map[string]any) []string {
+	return GetStringSlice(claims, "aud")
+}
+
+// GetExpiration extracts expiration time from token claims
+func GetExpiration(claims map[string]any) time.Time {
+	if exp := GetFloat64(claims, "exp"); exp > 0 {
 		return time.Unix(int64(exp), 0)
 	}
 	return time.Time{}
 }
 
-// GetUserIDFromToken extracts user ID from token claims
-func GetUserIDFromToken(claims map[string]any) string {
-	if payload, ok := getPayload(claims); ok {
-		return getString(payload, "user_id")
-	}
-	return ""
-}
-
-// GetUsernameFromToken extracts username from token claims
-func GetUsernameFromToken(claims map[string]any) string {
-	if payload, ok := getPayload(claims); ok {
-		return getString(payload, "username")
-	}
-	return ""
-}
-
-// GetEmailFromToken extracts email from token claims
-func GetEmailFromToken(claims map[string]any) string {
-	if payload, ok := getPayload(claims); ok {
-		return getString(payload, "email")
-	}
-	return ""
-}
-
-// GetSpaceIDFromToken extracts space ID from token claims
-func GetSpaceIDFromToken(claims map[string]any) string {
-	if payload, ok := getPayload(claims); ok {
-		return getString(payload, "space_id")
-	}
-	return ""
-}
-
-// GetSpaceIDsFromToken extracts space IDs from token claims
-func GetSpaceIDsFromToken(claims map[string]any) []string {
-	if payload, ok := getPayload(claims); ok {
-		return getStringSlice(payload, "space_ids")
-	}
-	return []string{}
-}
-
-// GetRolesFromToken extracts roles from token claims
-func GetRolesFromToken(claims map[string]any) []string {
-	if payload, ok := getPayload(claims); ok {
-		return getStringSlice(payload, "roles")
-	}
-	return []string{}
-}
-
-// GetPermissionsFromToken extracts permissions from token claims
-func GetPermissionsFromToken(claims map[string]any) []string {
-	if payload, ok := getPayload(claims); ok {
-		return getStringSlice(payload, "permissions")
-	}
-	return []string{}
-}
-
-// IsAdminFromToken checks if user is admin from token claims
-func IsAdminFromToken(claims map[string]any) bool {
-	if payload, ok := getPayload(claims); ok {
-		return getBool(payload, "is_admin")
-	}
-	return false
-}
-
-// GetUserStatusFromToken extracts user status from token claims
-func GetUserStatusFromToken(claims map[string]any) int {
-	if payload, ok := getPayload(claims); ok {
-		return getInt(payload, "user_status")
-	}
-	return 0
-}
-
-// IsCertifiedFromToken checks if user is certified from token claims
-func IsCertifiedFromToken(claims map[string]any) bool {
-	if payload, ok := getPayload(claims); ok {
-		return getBool(payload, "is_certified")
-	}
-	return false
-}
-
-// GetIssuedAtFromToken extracts issued at time from token claims
-func GetIssuedAtFromToken(claims map[string]any) time.Time {
-	if iat, ok := claims["iat"].(float64); ok && iat > 0 {
+// GetIssuedAt extracts issued at time from token claims
+func GetIssuedAt(claims map[string]any) time.Time {
+	if iat := GetFloat64(claims, "iat"); iat > 0 {
 		return time.Unix(int64(iat), 0)
 	}
 	return time.Time{}
 }
 
-// ValidateTokenUser validates user info in token against current user data
-func ValidateTokenUser(claims map[string]any, currentUser *TokenUser) error {
-	payload, ok := getPayload(claims)
-	if !ok {
-		return ErrInvalidToken
+// GetNotBefore extracts not before time from token claims
+func GetNotBefore(claims map[string]any) time.Time {
+	if nbf := GetFloat64(claims, "nbf"); nbf > 0 {
+		return time.Unix(int64(nbf), 0)
 	}
-
-	// Validate user ID
-	if tokenUserID := getString(payload, "user_id"); tokenUserID != currentUser.ID {
-		return TokenError("user ID mismatch")
-	}
-
-	// Validate username
-	if tokenUsername := getString(payload, "username"); tokenUsername != currentUser.Username {
-		return TokenError("username mismatch")
-	}
-
-	// Validate user status
-	if tokenStatus := getInt(payload, "user_status"); tokenStatus != currentUser.Status {
-		return TokenError("user status changed")
-	}
-
-	return nil
+	return time.Time{}
 }
 
-// TokenUser represents minimal user info for validation
-type TokenUser struct {
-	ID       string
-	Username string
-	Email    string
-	Status   int
+// GetPayload extracts payload from token claims
+func GetPayload(claims map[string]any) map[string]any {
+	return GetMap(claims, "payload")
+}
+
+// IsAccessToken checks if token is an access token
+func IsAccessToken(claims map[string]any) bool {
+	return GetSubject(claims) == "access"
+}
+
+// IsRefreshToken checks if token is a refresh token
+func IsRefreshToken(claims map[string]any) bool {
+	return GetSubject(claims) == "refresh"
+}
+
+// IsTokenExpired checks if token is expired based on claims
+func IsTokenExpired(claims map[string]any) bool {
+	exp := GetExpiration(claims)
+	return !exp.IsZero() && exp.Before(time.Now())
+}
+
+// IsTokenActive checks if token is currently active (not before current time)
+func IsTokenActive(claims map[string]any) bool {
+	nbf := GetNotBefore(claims)
+	return nbf.IsZero() || nbf.Before(time.Now())
 }
 
 // IsTokenStale checks if token is older than specified duration
 func IsTokenStale(claims map[string]any, staleDuration time.Duration) bool {
-	issuedAt := GetIssuedAtFromToken(claims)
+	issuedAt := GetIssuedAt(claims)
 	if issuedAt.IsZero() {
 		return true
 	}
 	return time.Since(issuedAt) > staleDuration
 }
 
-// HasRole checks if user has specific role in token
-func HasRole(claims map[string]any, role string) bool {
-	roles := GetRolesFromToken(claims)
-	for _, r := range roles {
-		if r == role {
+// ValidateTokenType ensures token is of expected type
+func ValidateTokenType(claims map[string]any, expectedType string) error {
+	actualType := GetSubject(claims)
+	if actualType != expectedType {
+		return TokenError("invalid token type: expected " + expectedType + ", got " + actualType)
+	}
+	return nil
+}
+
+// ValidateTokenTiming validates token timing (exp, iat, nbf)
+func ValidateTokenTiming(claims map[string]any) error {
+	now := time.Now()
+
+	// Check expiration
+	if exp := GetExpiration(claims); !exp.IsZero() && exp.Before(now) {
+		return ErrTokenExpired
+	}
+
+	// Check not before
+	if nbf := GetNotBefore(claims); !nbf.IsZero() && nbf.After(now) {
+		return TokenError("token not yet valid")
+	}
+
+	return nil
+}
+
+// GetPayloadString extracts string value from payload
+func GetPayloadString(claims map[string]any, key string) string {
+	payload := GetPayload(claims)
+	return GetString(payload, key)
+}
+
+// GetPayloadBool extracts boolean value from payload
+func GetPayloadBool(claims map[string]any, key string) bool {
+	payload := GetPayload(claims)
+	return GetBool(payload, key)
+}
+
+// GetPayloadInt extracts int value from payload
+func GetPayloadInt(claims map[string]any, key string) int {
+	payload := GetPayload(claims)
+	return GetInt(payload, key)
+}
+
+// GetPayloadStringSlice extracts string slice from payload
+func GetPayloadStringSlice(claims map[string]any, key string) []string {
+	payload := GetPayload(claims)
+	return GetStringSlice(payload, key)
+}
+
+// HasPayloadValue checks if payload contains a specific key with non-empty value
+func HasPayloadValue(claims map[string]any, key string) bool {
+	payload := GetPayload(claims)
+	_, exists := payload[key]
+	return exists
+}
+
+// ContainsValue checks if a slice contains a specific value
+func ContainsValue(slice []string, value string) bool {
+	for _, item := range slice {
+		if item == value {
 			return true
 		}
 	}
 	return false
 }
 
-// HasPermission checks if user has specific permission in token
-func HasPermission(claims map[string]any, permission string) bool {
-	permissions := GetPermissionsFromToken(claims)
-	for _, p := range permissions {
-		if p == permission || p == "*:*" {
-			return true
-		}
-	}
-	return false
-}
-
-// HasAnyRole checks if user has any of the specified roles
-func HasAnyRole(claims map[string]any, roles ...string) bool {
-	userRoles := GetRolesFromToken(claims)
-	for _, userRole := range userRoles {
-		for _, role := range roles {
-			if userRole == role {
+// ContainsAnyValue checks if a slice contains any of the specified values
+func ContainsAnyValue(slice []string, values ...string) bool {
+	for _, item := range slice {
+		for _, value := range values {
+			if item == value {
 				return true
 			}
 		}
 	}
 	return false
-}
-
-// IsAdminRole checks if user has admin role
-func IsAdminRole(claims map[string]any) bool {
-	return HasAnyRole(claims, "super-admin", "system-admin")
-}
-
-// IsAccessToken checks if token is an access token
-func IsAccessToken(claims map[string]any) bool {
-	return GetSubjectFromToken(claims) == "access"
-}
-
-// IsRefreshToken checks if token is a refresh token
-func IsRefreshToken(claims map[string]any) bool {
-	return GetSubjectFromToken(claims) == "refresh"
-}
-
-// IsRegisterToken checks if token is a register token
-func IsRegisterToken(claims map[string]any) bool {
-	subject := GetSubjectFromToken(claims)
-	return subject != "access" && subject != "refresh"
-}
-
-// ValidateTokenType ensures token is of expected type
-func ValidateTokenType(claims map[string]any, expectedType string) error {
-	actualType := GetSubjectFromToken(claims)
-	if actualType != expectedType {
-		return TokenError("invalid token type: expected " + expectedType + ", got " + actualType)
-	}
-	return nil
 }

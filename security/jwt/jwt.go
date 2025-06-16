@@ -8,7 +8,7 @@ import (
 
 // Token expiration constants
 const (
-	DefaultAccessTokenExpire   = 2 * time.Hour // Shorter for security
+	DefaultAccessTokenExpire   = 2 * time.Hour
 	DefaultRefreshTokenExpire  = 7 * 24 * time.Hour
 	DefaultRegisterTokenExpire = time.Hour
 )
@@ -46,11 +46,14 @@ func (tm *TokenManager) generateToken(jti string, subject string, payload map[st
 
 	now := time.Now()
 	claims := jwtstd.MapClaims{
-		"jti":     jti,
-		"sub":     subject,
-		"payload": payload,
-		"iat":     now.Unix(),
-		"exp":     now.Add(expiry).Unix(),
+		"jti": jti,
+		"sub": subject,
+		"iat": now.Unix(),
+		"exp": now.Add(expiry).Unix(),
+	}
+
+	if payload != nil && len(payload) > 0 {
+		claims["payload"] = payload
 	}
 
 	token := jwtstd.NewWithClaims(jwtstd.SigningMethodHS256, claims)
@@ -59,31 +62,22 @@ func (tm *TokenManager) generateToken(jti string, subject string, payload map[st
 
 // GenerateAccessToken generates an access token
 func (tm *TokenManager) GenerateAccessToken(jti string, payload map[string]any) (string, error) {
-	ensurePayloadDefaults(payload)
 	return tm.generateToken(jti, "access", payload, DefaultAccessTokenExpire)
 }
 
 // GenerateAccessTokenWithExpiry generates an access token with custom expiry
 func (tm *TokenManager) GenerateAccessTokenWithExpiry(jti string, payload map[string]any, expiry time.Duration) (string, error) {
-	ensurePayloadDefaults(payload)
 	return tm.generateToken(jti, "access", payload, expiry)
 }
 
 // GenerateRefreshToken generates a refresh token
 func (tm *TokenManager) GenerateRefreshToken(jti string, payload map[string]any) (string, error) {
-	// Refresh tokens only need user ID
-	minimalPayload := map[string]any{
-		"user_id": payload["user_id"],
-	}
-	return tm.generateToken(jti, "refresh", minimalPayload, DefaultRefreshTokenExpire)
+	return tm.generateToken(jti, "refresh", payload, DefaultRefreshTokenExpire)
 }
 
 // GenerateRefreshTokenWithExpiry generates a refresh token with custom expiry
 func (tm *TokenManager) GenerateRefreshTokenWithExpiry(jti string, payload map[string]any, expiry time.Duration) (string, error) {
-	minimalPayload := map[string]any{
-		"user_id": payload["user_id"],
-	}
-	return tm.generateToken(jti, "refresh", minimalPayload, expiry)
+	return tm.generateToken(jti, "refresh", payload, expiry)
 }
 
 // GenerateRegisterToken generates a register token
@@ -128,6 +122,21 @@ func (tm *TokenManager) DecodeToken(tokenString string) (map[string]any, error) 
 	}
 
 	return claims, nil
+}
+
+// GetPayload extracts the payload from token claims
+func (tm *TokenManager) GetPayload(tokenString string) (map[string]any, error) {
+	claims, err := tm.DecodeToken(tokenString)
+	if err != nil {
+		return nil, err
+	}
+
+	payload, ok := claims["payload"].(map[string]any)
+	if !ok {
+		return map[string]any{}, nil
+	}
+
+	return payload, nil
 }
 
 // IsTokenExpired checks if a token is expired
@@ -178,33 +187,12 @@ func (tm *TokenManager) RefreshTokenIfNeeded(tokenString string, refreshThreshol
 	}
 
 	// Extract payload and regenerate token
-	if payload, ok := getPayload(claims); ok {
-		jti, _ := claims["jti"].(string)
-		newToken, err := tm.GenerateAccessToken(jti, payload)
-		return newToken, true, err
+	payload, ok := claims["payload"].(map[string]any)
+	if !ok {
+		payload = map[string]any{}
 	}
 
-	return "", false, ErrTokenParsing
-}
-
-// ensurePayloadDefaults ensures payload has required default values
-func ensurePayloadDefaults(payload map[string]any) {
-	defaults := map[string]any{
-		"user_id":      "",
-		"username":     "",
-		"email":        "",
-		"roles":        []string{},
-		"permissions":  []string{},
-		"space_id":     "",
-		"space_ids":    []string{},
-		"is_admin":     false,
-		"user_status":  2,
-		"is_certified": false,
-	}
-
-	for key, defaultValue := range defaults {
-		if _, exists := payload[key]; !exists {
-			payload[key] = defaultValue
-		}
-	}
+	jti, _ := claims["jti"].(string)
+	newToken, err := tm.GenerateAccessToken(jti, payload)
+	return newToken, true, err
 }
