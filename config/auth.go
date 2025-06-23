@@ -1,6 +1,10 @@
 package config
 
-import "github.com/spf13/viper"
+import (
+	"time"
+
+	"github.com/spf13/viper"
+)
 
 // Auth auth config struct
 type Auth struct {
@@ -25,14 +29,14 @@ func getAuth(v *viper.Viper) *Auth {
 // JWT jwt config struct
 type JWT struct {
 	Secret string
-	Expire int
+	Expiry time.Duration
 }
 
 // getJWT returns the jwt config.
 func getJWT(v *viper.Viper) *JWT {
 	return &JWT{
 		Secret: v.GetString("auth.jwt.secret"),
-		Expire: v.GetInt("auth.jwt.expire"),
+		Expiry: v.GetDuration("auth.jwt.expiry"),
 	}
 }
 
