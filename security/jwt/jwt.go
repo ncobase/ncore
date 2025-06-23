@@ -73,6 +73,16 @@ func NewTokenManager(secret string, configs ...*TokenConfig) *TokenManager {
 	return tm
 }
 
+// SetSecret sets the JWT secret
+func (tm *TokenManager) SetSecret(secret string) {
+	tm.secret = secret
+}
+
+// GetSecret returns the JWT secret
+func (tm *TokenManager) GetSecret() string {
+	return tm.secret
+}
+
 // SetAccessTokenExpiry sets the default access token expiry
 func (tm *TokenManager) SetAccessTokenExpiry(expiry time.Duration) {
 	if expiry > 0 {
