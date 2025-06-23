@@ -7,7 +7,7 @@ import (
 )
 
 // getString safely extracts string value from map
-func getString(m map[string]interface{}, key string) string {
+func getString(m map[string]any, key string) string {
 	if v, ok := m[key]; ok {
 		if s, ok := v.(string); ok {
 			return s
@@ -19,7 +19,7 @@ func getString(m map[string]interface{}, key string) string {
 }
 
 // getBool safely extracts boolean value from map
-func getBool(m map[string]interface{}, key string) bool {
+func getBool(m map[string]any, key string) bool {
 	if v, ok := m[key]; ok {
 		if b, ok := v.(bool); ok {
 			return b
@@ -36,7 +36,7 @@ func getBool(m map[string]interface{}, key string) bool {
 }
 
 // getInt safely extracts integer value from map
-func getInt(m map[string]interface{}, key string) int {
+func getInt(m map[string]any, key string) int {
 	if v, ok := m[key]; ok {
 		switch val := v.(type) {
 		case int:
@@ -51,9 +51,9 @@ func getInt(m map[string]interface{}, key string) int {
 }
 
 // getStringSlice safely extracts string slice from map
-func getStringSlice(m map[string]interface{}, key string) []string {
+func getStringSlice(m map[string]any, key string) []string {
 	if v, ok := m[key]; ok {
-		if slice, ok := v.([]interface{}); ok {
+		if slice, ok := v.([]any); ok {
 			result := make([]string, 0, len(slice))
 			for _, item := range slice {
 				if str, ok := item.(string); ok {

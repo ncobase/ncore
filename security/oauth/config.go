@@ -194,6 +194,90 @@ func setProviderDefaults(provider string, config *ProviderConfig) {
 		if len(config.Scopes) == 0 {
 			config.Scopes = []string{"r_liteprofile", "r_emailaddress"}
 		}
+
+	case "tiktok":
+		if config.AuthURL == "" {
+			config.AuthURL = "https://www.tiktok.com/auth/authorize/"
+		}
+		if config.TokenURL == "" {
+			config.TokenURL = "https://open-api.tiktok.com/oauth/access_token/"
+		}
+		if config.UserInfoURL == "" {
+			config.UserInfoURL = "https://open-api.tiktok.com/oauth/userinfo/"
+		}
+		if len(config.Scopes) == 0 {
+			config.Scopes = []string{"user.info.basic"}
+		}
+
+	case "wechat":
+		if config.AuthURL == "" {
+			config.AuthURL = "https://open.weixin.qq.com/connect/qrconnect"
+		}
+		if config.TokenURL == "" {
+			config.TokenURL = "https://api.weixin.qq.com/sns/oauth2/access_token"
+		}
+		if config.UserInfoURL == "" {
+			config.UserInfoURL = "https://api.weixin.qq.com/sns/userinfo"
+		}
+		if len(config.Scopes) == 0 {
+			config.Scopes = []string{"snsapi_login"}
+		}
+
+	case "alipay":
+		if config.AuthURL == "" {
+			config.AuthURL = "https://openauth.alipay.com/oauth2/publicAppAuthorize.htm"
+		}
+		if config.TokenURL == "" {
+			config.TokenURL = "https://openapi.alipay.com/gateway.do"
+		}
+		if config.UserInfoURL == "" {
+			config.UserInfoURL = "https://openapi.alipay.com/gateway.do"
+		}
+		if len(config.Scopes) == 0 {
+			config.Scopes = []string{"auth_user"}
+		}
+
+	case "baidu":
+		if config.AuthURL == "" {
+			config.AuthURL = "https://openapi.baidu.com/oauth/2.0/authorize"
+		}
+		if config.TokenURL == "" {
+			config.TokenURL = "https://openapi.baidu.com/oauth/2.0/token"
+		}
+		if config.UserInfoURL == "" {
+			config.UserInfoURL = "https://openapi.baidu.com/rest/2.0/passport/users/getInfo"
+		}
+		if len(config.Scopes) == 0 {
+			config.Scopes = []string{"basic"}
+		}
+
+	case "weibo":
+		if config.AuthURL == "" {
+			config.AuthURL = "https://api.weibo.com/oauth2/authorize"
+		}
+		if config.TokenURL == "" {
+			config.TokenURL = "https://api.weibo.com/oauth2/access_token"
+		}
+		if config.UserInfoURL == "" {
+			config.UserInfoURL = "https://api.weibo.com/2/users/show.json"
+		}
+		if len(config.Scopes) == 0 {
+			config.Scopes = []string{"email"}
+		}
+
+	case "qq":
+		if config.AuthURL == "" {
+			config.AuthURL = "https://graph.qq.com/oauth2.0/authorize"
+		}
+		if config.TokenURL == "" {
+			config.TokenURL = "https://graph.qq.com/oauth2.0/token"
+		}
+		if config.UserInfoURL == "" {
+			config.UserInfoURL = "https://graph.qq.com/user/get_user_info"
+		}
+		if len(config.Scopes) == 0 {
+			config.Scopes = []string{"get_user_info"}
+		}
 	}
 }
 
@@ -270,6 +354,66 @@ func GetProviderInfo(provider string) *ProviderInfo {
 			SupportsRefresh:    true,
 			SupportsRevocation: false,
 		},
+		"tiktok": {
+			Name:               "tiktok",
+			DisplayName:        "TikTok",
+			Icon:               "tiktok",
+			SupportedScopes:    []string{"user.info.basic", "user.info.profile", "video.list"},
+			RequiredScopes:     []string{"user.info.basic"},
+			SupportsPKCE:       true,
+			SupportsRefresh:    true,
+			SupportsRevocation: false,
+		},
+		"wechat": {
+			Name:               "wechat",
+			DisplayName:        "微信",
+			Icon:               "wechat",
+			SupportedScopes:    []string{"snsapi_login", "snsapi_userinfo"},
+			RequiredScopes:     []string{"snsapi_login"},
+			SupportsPKCE:       false,
+			SupportsRefresh:    true,
+			SupportsRevocation: false,
+		},
+		"alipay": {
+			Name:               "alipay",
+			DisplayName:        "支付宝",
+			Icon:               "alipay",
+			SupportedScopes:    []string{"auth_user", "auth_base"},
+			RequiredScopes:     []string{"auth_user"},
+			SupportsPKCE:       false,
+			SupportsRefresh:    false,
+			SupportsRevocation: false,
+		},
+		"baidu": {
+			Name:               "baidu",
+			DisplayName:        "百度",
+			Icon:               "baidu",
+			SupportedScopes:    []string{"basic", "netdisk"},
+			RequiredScopes:     []string{"basic"},
+			SupportsPKCE:       false,
+			SupportsRefresh:    true,
+			SupportsRevocation: false,
+		},
+		"weibo": {
+			Name:               "weibo",
+			DisplayName:        "微博",
+			Icon:               "weibo",
+			SupportedScopes:    []string{"email", "direct_messages_read"},
+			RequiredScopes:     []string{"email"},
+			SupportsPKCE:       false,
+			SupportsRefresh:    false,
+			SupportsRevocation: false,
+		},
+		"qq": {
+			Name:               "qq",
+			DisplayName:        "QQ",
+			Icon:               "qq",
+			SupportedScopes:    []string{"get_user_info", "list_album"},
+			RequiredScopes:     []string{"get_user_info"},
+			SupportsPKCE:       false,
+			SupportsRefresh:    false,
+			SupportsRevocation: false,
+		},
 	}
 
 	if info, exists := infos[provider]; exists {
@@ -292,6 +436,12 @@ func GetSupportedProviders() []string {
 		string(ProviderApple),
 		string(ProviderTwitter),
 		string(ProviderLinkedIn),
+		string(ProviderTikTok),
+		string(ProviderWeChat),
+		string(ProviderAlipay),
+		string(ProviderBaidu),
+		string(ProviderWeibo),
+		string(ProviderQQ),
 	}
 }
 

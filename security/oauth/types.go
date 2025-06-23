@@ -16,6 +16,12 @@ const (
 	ProviderApple     Provider = "apple"
 	ProviderTwitter   Provider = "twitter"
 	ProviderLinkedIn  Provider = "linkedin"
+	ProviderTikTok    Provider = "tiktok"
+	ProviderWeChat    Provider = "wechat"
+	ProviderAlipay    Provider = "alipay"
+	ProviderBaidu     Provider = "baidu"
+	ProviderWeibo     Provider = "weibo"
+	ProviderQQ        Provider = "qq"
 )
 
 // Profile represents user profile from OAuth provider

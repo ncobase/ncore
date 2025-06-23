@@ -246,7 +246,7 @@ func (c *Client) GetUserProfile(ctx context.Context, provider Provider, accessTo
 		return nil, fmt.Errorf("failed to get user profile: %s", string(body))
 	}
 
-	var rawProfile map[string]interface{}
+	var rawProfile map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&rawProfile); err != nil {
 		return nil, err
 	}
@@ -314,7 +314,7 @@ func (c *Client) supportsPKCE(provider Provider) bool {
 	return info.SupportsPKCE
 }
 
-func (c *Client) parseProfile(provider Provider, rawProfile map[string]interface{}) *Profile {
+func (c *Client) parseProfile(provider Provider, rawProfile map[string]any) *Profile {
 	profile := &Profile{Provider: string(provider)}
 
 	switch provider {
@@ -333,8 +333,8 @@ func (c *Client) parseProfile(provider Provider, rawProfile map[string]interface
 		profile.Name = getString(rawProfile, "name")
 		profile.Username = getString(rawProfile, "email")
 		profile.Verified = getBool(rawProfile, "verified")
-		if picture, ok := rawProfile["picture"].(map[string]interface{}); ok {
-			if data, ok := picture["data"].(map[string]interface{}); ok {
+		if picture, ok := rawProfile["picture"].(map[string]any); ok {
+			if data, ok := picture["data"].(map[string]any); ok {
 				profile.Avatar = getString(data, "url")
 			}
 		}
@@ -347,6 +347,43 @@ func (c *Client) parseProfile(provider Provider, rawProfile map[string]interface
 		}
 		profile.Name = getString(rawProfile, "displayName")
 		profile.Username = profile.Email
+	case ProviderTikTok:
+		if data, ok := rawProfile["data"].(map[string]any); ok {
+			profile.ID = getString(data, "open_id")
+			profile.Name = getString(data, "display_name")
+			profile.Username = getString(data, "username")
+			profile.Avatar = getString(data, "avatar_url")
+		}
+
+	case ProviderWeChat:
+		profile.ID = getString(rawProfile, "openid")
+		profile.Name = getString(rawProfile, "nickname")
+		profile.Avatar = getString(rawProfile, "headimgurl")
+		profile.Username = getString(rawProfile, "openid")
+
+	case ProviderAlipay:
+		profile.ID = getString(rawProfile, "user_id")
+		profile.Name = getString(rawProfile, "nick_name")
+		profile.Avatar = getString(rawProfile, "avatar")
+		profile.Username = getString(rawProfile, "user_id")
+
+	case ProviderBaidu:
+		profile.ID = getString(rawProfile, "uid")
+		profile.Name = getString(rawProfile, "uname")
+		profile.Username = getString(rawProfile, "uname")
+
+	case ProviderWeibo:
+		profile.ID = getString(rawProfile, "id")
+		profile.Name = getString(rawProfile, "screen_name")
+		profile.Avatar = getString(rawProfile, "profile_image_url")
+		profile.Username = getString(rawProfile, "name")
+		profile.Verified = getBool(rawProfile, "verified")
+
+	case ProviderQQ:
+		profile.ID = getString(rawProfile, "openid")
+		profile.Name = getString(rawProfile, "nickname")
+		profile.Avatar = getString(rawProfile, "figureurl_qq_1")
+		profile.Username = getString(rawProfile, "openid")
 
 	default:
 		// Generic parsing for custom providers
@@ -380,7 +417,7 @@ func (c *Client) getGitHubProfile(ctx context.Context, accessToken string) (*Pro
 	}
 	defer resp.Body.Close()
 
-	var profile map[string]interface{}
+	var profile map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&profile); err != nil {
 		return nil, err
 	}
@@ -418,7 +455,7 @@ func (c *Client) getGitHubEmail(ctx context.Context, accessToken string) (string
 	}
 	defer resp.Body.Close()
 
-	var emails []map[string]interface{}
+	var emails []map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&emails); err != nil {
 		return "", err
 	}
@@ -477,12 +514,12 @@ func (c *Client) getTwitterProfile(ctx context.Context, accessToken string) (*Pr
 	}
 	defer resp.Body.Close()
 
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, err
 	}
 
-	data, ok := result["data"].(map[string]interface{})
+	data, ok := result["data"].(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("invalid Twitter API response")
 	}
@@ -514,7 +551,7 @@ func (c *Client) getLinkedInProfile(ctx context.Context, accessToken string) (*P
 	}
 	defer resp.Body.Close()
 
-	var profile map[string]interface{}
+	var profile map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&profile); err != nil {
 		return nil, err
 	}
@@ -524,8 +561,8 @@ func (c *Client) getLinkedInProfile(ctx context.Context, accessToken string) (*P
 
 	// Parse name
 	var name string
-	if firstName, ok := profile["firstName"].(map[string]interface{}); ok {
-		if localized, ok := firstName["localized"].(map[string]interface{}); ok {
+	if firstName, ok := profile["firstName"].(map[string]any); ok {
+		if localized, ok := firstName["localized"].(map[string]any); ok {
 			for _, v := range localized {
 				if str, ok := v.(string); ok {
 					name = str
@@ -534,8 +571,8 @@ func (c *Client) getLinkedInProfile(ctx context.Context, accessToken string) (*P
 			}
 		}
 	}
-	if lastName, ok := profile["lastName"].(map[string]interface{}); ok {
-		if localized, ok := lastName["localized"].(map[string]interface{}); ok {
+	if lastName, ok := profile["lastName"].(map[string]any); ok {
+		if localized, ok := lastName["localized"].(map[string]any); ok {
 			for _, v := range localized {
 				if str, ok := v.(string); ok {
 					if name != "" {
@@ -573,14 +610,14 @@ func (c *Client) getLinkedInEmail(ctx context.Context, accessToken string) (stri
 	}
 	defer resp.Body.Close()
 
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return "", err
 	}
 
-	if elements, ok := result["elements"].([]interface{}); ok && len(elements) > 0 {
-		if element, ok := elements[0].(map[string]interface{}); ok {
-			if handle, ok := element["handle~"].(map[string]interface{}); ok {
+	if elements, ok := result["elements"].([]any); ok && len(elements) > 0 {
+		if element, ok := elements[0].(map[string]any); ok {
+			if handle, ok := element["handle~"].(map[string]any); ok {
 				return getString(handle, "emailAddress"), nil
 			}
 		}

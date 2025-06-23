@@ -61,7 +61,7 @@ func (c *ProviderSpecificClient) parseAppleIDToken(idToken string) (*Profile, er
 	}
 
 	// Extract name if present (only on first auth)
-	if name, ok := claims["name"].(map[string]interface{}); ok {
+	if name, ok := claims["name"].(map[string]any); ok {
 		firstName := getString(name, "firstName")
 		lastName := getString(name, "lastName")
 		if firstName != "" || lastName != "" {
