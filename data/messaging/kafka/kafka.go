@@ -138,7 +138,7 @@ func (s *Kafka) PublishMessage(ctx context.Context, topic string, key, value []b
 	}
 
 	// Create context with timeout
-	timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	timeoutCtx, cancel := context.WithTimeout(ctx, 120*time.Second)
 	defer cancel()
 
 	// Create the message
@@ -209,7 +209,7 @@ func (s *Kafka) ConsumeMessages(ctx context.Context, topic string, groupID strin
 			}
 
 			// Read message with timeout
-			readCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+			readCtx, cancel := context.WithTimeout(ctx, 120*time.Second)
 			m, err := reader.FetchMessage(readCtx)
 			cancel()
 
@@ -236,7 +236,7 @@ func (s *Kafka) ConsumeMessages(ctx context.Context, topic string, groupID strin
 			}
 
 			// Commit message offset
-			commitCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			commitCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 			if err := reader.CommitMessages(commitCtx, m); err != nil {
 				fmt.Printf("Failed to commit Kafka message: %v\n", err)
 			}

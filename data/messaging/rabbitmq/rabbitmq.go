@@ -96,12 +96,12 @@ func (s *RabbitMQ) PublishMessage(exchange, routingKey string, body []byte) erro
 	defer closeChannel()
 
 	// Ensure exchange and queue exist
-	if err := s.ensureExchangeAndQueue(ch, exchange, routingKey); err != nil {
+	if err = s.ensureExchangeAndQueue(ch, exchange, routingKey); err != nil {
 		return err
 	}
 
 	// Set up confirmation mode for reliable publishing
-	if err := ch.Confirm(false); err != nil {
+	if err = ch.Confirm(false); err != nil {
 		return fmt.Errorf("failed to put channel in confirm mode: %w", err)
 	}
 
@@ -109,7 +109,7 @@ func (s *RabbitMQ) PublishMessage(exchange, routingKey string, body []byte) erro
 	confirms := ch.NotifyPublish(make(chan amqp.Confirmation, 1))
 
 	// Publish the message with context timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
 	err = ch.PublishWithContext(
@@ -136,7 +136,7 @@ func (s *RabbitMQ) PublishMessage(exchange, routingKey string, body []byte) erro
 		if !confirmed.Ack {
 			return fmt.Errorf("failed to receive publish confirmation")
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(120 * time.Second):
 		return fmt.Errorf("publish confirmation timed out")
 	}
 
