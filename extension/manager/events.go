@@ -16,7 +16,6 @@ import (
 func (m *Manager) PublishEvent(eventName string, data any, target ...types.EventTarget) {
 	targetFlag := m.determineEventTarget(target...)
 
-	// Auto-track event publication by extracting extension name from event name
 	if extensionName := m.extractExtensionFromEventName(eventName); extensionName != "" {
 		m.trackEventPublished(extensionName, eventName)
 	}
@@ -26,9 +25,9 @@ func (m *Manager) PublishEvent(eventName string, data any, target ...types.Event
 		m.eventDispatcher.Publish(eventName, data)
 	}
 
-	// Publish to message queue
-	if targetFlag&types.EventTargetQueue != 0 && m.isMessagingAvailable() {
-		_ = m.publishToQueue(eventName, data)
+	// Publish to message queue async
+	if targetFlag&types.EventTargetQueue != 0 && !m.isEventFallbackMode() {
+		go m.publishToQueue(eventName, data)
 	}
 }
 
@@ -36,19 +35,18 @@ func (m *Manager) PublishEvent(eventName string, data any, target ...types.Event
 func (m *Manager) PublishEventWithRetry(eventName string, data any, maxRetries int, target ...types.EventTarget) {
 	targetFlag := m.determineEventTarget(target...)
 
-	// Auto-track event publication by extracting extension name from event name
 	if extensionName := m.extractExtensionFromEventName(eventName); extensionName != "" {
 		m.trackEventPublished(extensionName, eventName)
 	}
 
-	// Retry for memory dispatcher
+	// Publish to memory dispatcher
 	if targetFlag&types.EventTargetMemory != 0 {
 		m.eventDispatcher.PublishWithRetry(eventName, data, maxRetries)
 	}
 
-	// Retry for message queue
-	if targetFlag&types.EventTargetQueue != 0 && m.isMessagingAvailable() {
-		_ = m.publishToQueueWithRetry(eventName, data, maxRetries)
+	// Publish to message queue async
+	if targetFlag&types.EventTargetQueue != 0 && !m.isEventFallbackMode() {
+		go m.publishToQueueWithRetry(eventName, data, maxRetries)
 	}
 }
 
@@ -56,7 +54,6 @@ func (m *Manager) PublishEventWithRetry(eventName string, data any, maxRetries i
 func (m *Manager) SubscribeEvent(eventName string, handler func(any), source ...types.EventTarget) {
 	sourceFlag := m.determineEventTarget(source...)
 
-	// Wrap handler to auto-track event reception
 	wrappedHandler := func(data any) {
 		if extensionName := m.extractExtensionFromEventName(eventName); extensionName != "" {
 			m.trackEventReceived(extensionName, eventName)
@@ -70,7 +67,7 @@ func (m *Manager) SubscribeEvent(eventName string, handler func(any), source ...
 	}
 
 	// Subscribe to message queue
-	if sourceFlag&types.EventTargetQueue != 0 && m.isMessagingAvailable() {
+	if sourceFlag&types.EventTargetQueue != 0 && !m.isEventFallbackMode() {
 		m.subscribeToQueue(eventName, wrappedHandler)
 	}
 }
@@ -123,34 +120,22 @@ func (m *Manager) determineEventTarget(target ...types.EventTarget) types.EventT
 		return target[0]
 	}
 
-	// Default: use queue if available, otherwise memory
-	if m.isMessagingAvailable() {
-		return types.EventTargetQueue
+	if m.isEventFallbackMode() {
+		return types.EventTargetMemory
 	}
-	return types.EventTargetMemory
+	return types.EventTargetAll
 }
 
-// isMessagingAvailable checks if messaging is available
-func (m *Manager) isMessagingAvailable() bool {
-	return m.data != nil && m.data.IsMessagingAvailable()
-}
-
-// extractExtensionFromEventName extracts extension name from event name using simple patterns
+// extractExtensionFromEventName extracts extension name from event name
 func (m *Manager) extractExtensionFromEventName(eventName string) string {
-	// Event naming patterns:
-	// 1. "extension.event" -> "extension"
-	// 2. "extension.module.event" -> "extension"
-	// 3. "exts.extension.ready" -> "extension"
 	parts := strings.Split(eventName, ".")
 
 	if len(parts) >= 2 {
-		// Handle special system events like "exts.extension.ready"
 		if parts[0] == "exts" && len(parts) >= 3 {
 			if m.isRegisteredExtension(parts[1]) {
 				return parts[1]
 			}
 		}
-		// Standard format: first part is extension name
 		if m.isRegisteredExtension(parts[0]) {
 			return parts[0]
 		}
@@ -168,7 +153,7 @@ func (m *Manager) isRegisteredExtension(name string) bool {
 }
 
 // publishToQueue publishes single event to queue
-func (m *Manager) publishToQueue(eventName string, data any) error {
+func (m *Manager) publishToQueue(eventName string, data any) {
 	eventData := types.EventData{
 		Time:      time.Now(),
 		Source:    "extension",
@@ -178,22 +163,17 @@ func (m *Manager) publishToQueue(eventName string, data any) error {
 
 	jsonData, err := json.Marshal(eventData)
 	if err != nil {
-		logger.Errorf(nil, "failed to serialize event: %v", err)
-		return err
+		logger.Errorf(nil, "Failed to serialize event: %v", err)
+		return
 	}
 
 	if err := m.PublishMessage(eventName, eventName, jsonData); err != nil {
-		logger.Warnf(nil, "failed to publish event %s to queue: %v", eventName, err)
-		// Fallback to memory
-		m.eventDispatcher.Publish(eventName, data)
-		return err
+		logger.Warnf(nil, "Failed to publish event %s to queue: %v", eventName, err)
 	}
-
-	return nil
 }
 
 // publishToQueueWithRetry publishes to queue with retry
-func (m *Manager) publishToQueueWithRetry(eventName string, data any, maxRetries int) error {
+func (m *Manager) publishToQueueWithRetry(eventName string, data any, maxRetries int) {
 	eventData := types.EventData{
 		Time:      time.Now(),
 		Source:    "extension",
@@ -203,25 +183,25 @@ func (m *Manager) publishToQueueWithRetry(eventName string, data any, maxRetries
 
 	jsonData, err := json.Marshal(eventData)
 	if err != nil {
-		logger.Errorf(nil, "failed to serialize event: %v", err)
-		return err
+		logger.Errorf(nil, "Failed to serialize event: %v", err)
+		return
 	}
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if attempt > 0 {
 			backoff := time.Duration(attempt) * time.Second
+			if backoff > 30*time.Second {
+				backoff = 30 * time.Second
+			}
 			time.Sleep(backoff)
 		}
 
 		if err := m.PublishMessage(eventName, eventName, jsonData); err == nil {
-			return nil
+			return
 		}
 	}
 
-	// Final fallback to memory
-	logger.Warnf(nil, "fallback to memory for event: %s", eventName)
-	m.eventDispatcher.PublishWithRetry(eventName, data, maxRetries)
-	return fmt.Errorf("failed to publish to queue after %d retries", maxRetries)
+	logger.Warnf(nil, "Failed to publish to queue after %d retries: %s", maxRetries, eventName)
 }
 
 // subscribeToQueue subscribes to queue events
@@ -229,7 +209,7 @@ func (m *Manager) subscribeToQueue(eventName string, handler func(any)) {
 	err := m.SubscribeToMessages(eventName, func(data []byte) error {
 		var eventData types.EventData
 		if err := json.Unmarshal(data, &eventData); err != nil {
-			logger.Errorf(nil, "failed to unmarshal event: %v", err)
+			logger.Errorf(nil, "Failed to unmarshal event: %v", err)
 			return err
 		}
 
@@ -238,20 +218,18 @@ func (m *Manager) subscribeToQueue(eventName string, handler func(any)) {
 	})
 
 	if err != nil {
-		logger.Warnf(nil, "fallback to memory subscription for: %s", eventName)
+		logger.Warnf(nil, "Failed to subscribe to queue, using memory: %s", eventName)
 		m.eventDispatcher.Subscribe(eventName, handler)
 	}
 }
 
-// Message queue delegation methods
-
-// PublishMessage publishes message to available queue system (RabbitMQ or Kafka)
+// PublishMessage publishes message to available queue system
 func (m *Manager) PublishMessage(exchange, routingKey string, body []byte) error {
 	if m.data == nil {
 		return fmt.Errorf("data layer not initialized")
 	}
 
-	// Try RabbitMQ first (using exchange and routingKey)
+	// Try RabbitMQ first
 	if err := m.data.PublishToRabbitMQ(exchange, routingKey, body); err != nil {
 		// If RabbitMQ fails, try Kafka (using exchange as topic)
 		if kafkaErr := m.data.PublishToKafka(context.Background(), exchange, []byte(routingKey), body); kafkaErr != nil {

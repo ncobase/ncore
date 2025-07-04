@@ -16,6 +16,7 @@ type Config struct {
 	*RabbitMQ      `yaml:"rabbitmq" json:"rabbitmq"`
 	*Kafka         `yaml:"kafka" json:"kafka"`
 	*Metrics       `yaml:"metrics" json:"metrics"`
+	*Messaging     `yaml:"messaging" json:"messaging"`
 }
 
 // GetConfig returns data config
@@ -31,5 +32,6 @@ func GetConfig(v *viper.Viper) *Config {
 		RabbitMQ:      getRabbitMQConfigs(v),
 		Kafka:         getKafkaConfigs(v),
 		Metrics:       getMetricsConfig(v),
+		Messaging:     getMessagingConfig(v),
 	}
 }

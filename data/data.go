@@ -3,6 +3,7 @@ package data
 import (
 	"sync"
 
+	"github.com/ncobase/ncore/data/config"
 	"github.com/ncobase/ncore/data/connection"
 	"github.com/ncobase/ncore/data/messaging/kafka"
 	"github.com/ncobase/ncore/data/messaging/rabbitmq"
@@ -25,6 +26,7 @@ type Data struct {
 	Kafka        *kafka.Kafka
 	searchClient *search.Client
 	collector    metrics.Collector
+	conf         *config.Config
 	searchOnce   sync.Once
 	closed       bool
 	mu           sync.RWMutex // Protects all fields from concurrent access

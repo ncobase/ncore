@@ -4,12 +4,18 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/ncobase/ncore/extension/registry"
 	"github.com/ncobase/ncore/extension/types"
 	"github.com/ncobase/ncore/logging/logger"
 	"github.com/sony/gobreaker"
+)
+
+var (
+	eventFallbackMode bool
+	eventFallbackMu   sync.RWMutex
 )
 
 // InitExtensions initializes all registered extensions
@@ -24,19 +30,17 @@ func (m *Manager) initExtensionsInternal(ctx context.Context) error {
 		m.mu.Unlock()
 		return fmt.Errorf("extensions already initialized")
 	}
+	m.mu.Unlock()
 
-	// Get registered extensions and dependency graph
+	// Check infrastructure readiness
+	if err := m.checkInfrastructure(ctx); err != nil {
+		return fmt.Errorf("infrastructure check failed: %v", err)
+	}
+
+	// Prepare extensions
 	registeredExtensions, dependencyGraph := registry.GetExtensionsAndDependencies()
-
-	// Add registered extensions to the manager
+	m.mu.Lock()
 	for name, ext := range registeredExtensions {
-		select {
-		case <-ctx.Done():
-			m.mu.Unlock()
-			return ctx.Err()
-		default:
-		}
-
 		if _, exists := m.extensions[name]; !exists {
 			m.extensions[name] = &types.Wrapper{
 				Metadata: ext.GetMetadata(),
@@ -45,7 +49,6 @@ func (m *Manager) initExtensionsInternal(ctx context.Context) error {
 		}
 	}
 
-	// Check dependencies
 	if err := m.checkDependencies(); err != nil {
 		m.mu.Unlock()
 		return err
@@ -63,94 +66,81 @@ func (m *Manager) initExtensionsInternal(ctx context.Context) error {
 		return err
 	}
 
-	// Initialize optional services asynchronously
+	// Start optional services async
 	go m.initOptionalServicesAsync()
+
+	// Publish ready events
+	m.publishReadyEvents()
 
 	m.mu.Lock()
 	m.initialized = true
 	m.mu.Unlock()
 
-	// Publish initialization complete event
-	m.PublishEvent("exts.all.initialized", map[string]any{
-		"status": "completed",
-		"count":  len(m.extensions),
-	})
 	return nil
+}
+
+// checkInfrastructure checks basic infrastructure readiness
+func (m *Manager) checkInfrastructure(ctx context.Context) error {
+	// Test data layer if available
+	if m.data != nil {
+		if err := m.data.Ping(ctx); err != nil {
+			logger.Warnf(nil, "Data layer ping failed: %v", err)
+		}
+	}
+
+	// Test messaging and set fallback mode
+	if m.data != nil && m.data.IsMessagingAvailable() {
+		if err := m.testMessaging(); err != nil {
+			logger.Warnf(nil, "Messaging test failed: %v, using memory-only events", err)
+			m.setEventFallbackMode(true)
+		}
+	} else {
+		m.setEventFallbackMode(true)
+	}
+
+	return nil
+}
+
+// testMessaging tests messaging connectivity
+func (m *Manager) testMessaging() error {
+	testData := []byte(`{"test":true}`)
+	return m.data.PublishToRabbitMQ("test", "test", testData)
 }
 
 // initializeExtensionsInPhases initializes extensions in three phases
 func (m *Manager) initializeExtensionsInPhases(ctx context.Context, initOrder []string) error {
-	var initErrors []error
-	var successfulExtensions []string
+	phases := []struct {
+		name string
+		fn   func(types.Interface) error
+	}{
+		{"PreInit", func(ext types.Interface) error { return ext.PreInit() }},
+		{"Init", func(ext types.Interface) error { return ext.Init(m.conf, m) }},
+		{"PostInit", func(ext types.Interface) error { return ext.PostInit() }},
+	}
 
-	// Phase 1: Pre-initialization
-	for _, name := range initOrder {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
+	for _, phase := range phases {
+		for _, name := range initOrder {
+			ext := m.extensions[name]
+			start := time.Now()
 
-		ext := m.extensions[name]
-		if err := ext.Instance.PreInit(); err != nil {
-			logger.Errorf(nil, "failed pre-initialization of extension %s: %v", name, err)
-			initErrors = append(initErrors, fmt.Errorf("pre-initialization of extension %s failed: %w", name, err))
+			if err := phase.fn(ext.Instance); err != nil {
+				logger.Errorf(nil, "Failed %s of extension %s: %v", phase.name, name, err)
+				return fmt.Errorf("%s of extension %s failed: %w", phase.name, name, err)
+			}
+
+			duration := time.Since(start)
+			if phase.name == "Init" {
+				m.trackExtensionInitialized(name, duration, nil)
+			}
+
+			// Publish extension ready event after PostInit
+			if phase.name == "PostInit" {
+				m.publishExtensionReadyEvent(name, ext)
+			}
 		}
 	}
 
-	// Phase 2: Main initialization
-	for _, name := range initOrder {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		ext := m.extensions[name]
-		start := time.Now()
-
-		err := ext.Instance.Init(m.conf, m)
-		duration := time.Since(start)
-
-		if err != nil {
-			logger.Errorf(nil, "failed to initialize extension %s: %v", name, err)
-			initErrors = append(initErrors, fmt.Errorf("initialization of extension %s failed: %w", name, err))
-		} else {
-			m.trackExtensionInitialized(name, duration, nil)
-		}
-	}
-
-	// Phase 3: Post-initialization
-	for _, name := range initOrder {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		ext := m.extensions[name]
-		if err := ext.Instance.PostInit(); err != nil {
-			logger.Errorf(nil, "failed post-initialization of extension %s: %v", name, err)
-			initErrors = append(initErrors, fmt.Errorf("post-initialization of extension %s failed: %w", name, err))
-		} else {
-			successfulExtensions = append(successfulExtensions, name)
-
-			// Publish extension ready event
-			m.PublishEvent(fmt.Sprintf("exts.%s.ready", name), map[string]any{
-				"name":     name,
-				"status":   "ready",
-				"metadata": ext.Instance.GetMetadata(),
-			})
-		}
-	}
-
-	if len(initErrors) > 0 {
-		return fmt.Errorf("failed to initialize extensions: %v", initErrors)
-	}
-
-	logger.Debugf(nil, "Successfully initialized %d extensions: %s",
-		len(successfulExtensions), successfulExtensions)
-
+	logger.Debugf(nil, "Successfully initialized %d extensions: %v", len(initOrder), initOrder)
 	return nil
 }
 
@@ -166,24 +156,58 @@ func (m *Manager) checkDependencies() error {
 	return nil
 }
 
-// initOptionalServicesAsync initializes optional services asynchronously
+// initOptionalServicesAsync initializes optional services
 func (m *Manager) initOptionalServicesAsync() {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Errorf(nil, "optional services init panic: %v", r)
+			logger.Errorf(nil, "Optional services init panic: %v", r)
 		}
 	}()
 
-	// gRPC services
 	if err := m.initGRPCSupport(); err != nil {
 		logger.Warnf(nil, "gRPC initialization failed: %v", err)
 	}
 
-	// Service discovery registration
 	m.registerServicesWithDiscovery()
-
-	// Cross-module services
 	m.refreshCrossServices()
+}
+
+// publishReadyEvents publishes system ready events
+func (m *Manager) publishReadyEvents() {
+	eventData := map[string]any{
+		"status": "completed",
+		"count":  len(m.extensions),
+	}
+
+	// Always publish to memory
+	m.eventDispatcher.Publish("exts.all.initialized", eventData)
+
+	// Async publish to queue if available
+	if !m.isEventFallbackMode() {
+		go func() {
+			time.Sleep(2 * time.Second) // Give messaging some time
+			m.PublishEvent("exts.all.initialized", eventData, types.EventTargetQueue)
+		}()
+	}
+}
+
+// publishExtensionReadyEvent publishes extension ready event
+func (m *Manager) publishExtensionReadyEvent(name string, ext *types.Wrapper) {
+	eventData := map[string]any{
+		"name":     name,
+		"status":   "ready",
+		"metadata": ext.Instance.GetMetadata(),
+	}
+
+	// Always publish to memory
+	m.eventDispatcher.Publish(fmt.Sprintf("exts.%s.ready", name), eventData)
+
+	// Async publish to queue if available
+	if !m.isEventFallbackMode() {
+		go func() {
+			m.PublishEvent(fmt.Sprintf("exts.%s.ready", name), eventData, types.EventTargetQueue)
+		}()
+	}
 }
 
 // registerServicesWithDiscovery registers services with service discovery
@@ -197,7 +221,7 @@ func (m *Manager) registerServicesWithDiscovery() {
 			svcInfo := ext.Instance.GetServiceInfo()
 			if svcInfo != nil {
 				if err := m.serviceDiscovery.RegisterService(name, svcInfo); err != nil {
-					logger.Warnf(nil, "failed to register extension %s with service discovery: %v", name, err)
+					logger.Warnf(nil, "Failed to register extension %s with service discovery: %v", name, err)
 				}
 			}
 		}
@@ -269,17 +293,31 @@ func (m *Manager) discoverAndRegisterServices(extensionName string, service any)
 	}
 }
 
+// setEventFallbackMode sets event fallback mode
+func (m *Manager) setEventFallbackMode(fallback bool) {
+	eventFallbackMu.Lock()
+	defer eventFallbackMu.Unlock()
+	eventFallbackMode = fallback
+}
+
+// isEventFallbackMode returns event fallback mode status
+func (m *Manager) isEventFallbackMode() bool {
+	eventFallbackMu.RLock()
+	defer eventFallbackMu.RUnlock()
+	return eventFallbackMode
+}
+
 // cleanupPartialInitialization cleans up partial initialization state
 func (m *Manager) cleanupPartialInitialization() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	logger.Warnf(nil, "cleaning up partial initialization state")
+	logger.Warnf(nil, "Cleaning up partial initialization state")
 
 	for name, ext := range m.extensions {
 		if ext.Instance.Status() == types.StatusInitializing {
 			if err := ext.Instance.Cleanup(); err != nil {
-				logger.Errorf(nil, "failed to cleanup extension %s: %v", name, err)
+				logger.Errorf(nil, "Failed to cleanup extension %s: %v", name, err)
 			}
 		}
 	}

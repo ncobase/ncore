@@ -35,6 +35,7 @@ func New(cfg *config.Config, createNewInstance ...bool) (*Data, func(name ...str
 
 	d := &Data{
 		Conn:      conn,
+		conf:      cfg,
 		collector: metrics.NoOpCollector{},
 	}
 
@@ -120,10 +121,18 @@ func (d *Data) initMetricsCollector(cfg *config.Metrics) error {
 // initMessaging initializes messaging systems
 func (d *Data) initMessaging() {
 	if d.Conn.RMQ != nil {
-		d.RabbitMQ = rabbitmq.NewRabbitMQ(d.Conn.RMQ)
+		if d.conf != nil && d.conf.Messaging != nil {
+			d.RabbitMQ = rabbitmq.NewRabbitMQWithConfig(d.Conn.RMQ, d.conf.Messaging)
+		} else {
+			d.RabbitMQ = rabbitmq.NewRabbitMQ(d.Conn.RMQ)
+		}
 	}
 
 	if d.Conn.KFK != nil {
-		d.Kafka = kafka.New(d.Conn.KFK)
+		if d.conf != nil && d.conf.Messaging != nil {
+			d.Kafka = kafka.NewWithConfig(d.Conn.KFK, d.conf.Messaging)
+		} else {
+			d.Kafka = kafka.New(d.Conn.KFK)
+		}
 	}
 }
