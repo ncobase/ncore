@@ -137,7 +137,7 @@ func (m *Manager) upgradeMetricsStorageIfAvailable() {
 	}
 
 	// Test Redis connection
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
 	if err := redisClient.Ping(ctx).Err(); err != nil {

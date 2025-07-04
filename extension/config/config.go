@@ -18,7 +18,6 @@ type Config struct {
 	HotReload bool     `json:"hot_reload" yaml:"hot_reload"`
 
 	MaxPlugins   int            `json:"max_plugins" yaml:"max_plugins"`
-	InitTimeout  string         `json:"init_timeout" yaml:"init_timeout"`
 	PluginConfig map[string]any `json:"plugin_config" yaml:"plugin_config"`
 
 	Security    *SecurityConfig    `json:"security" yaml:"security"`
@@ -77,12 +76,6 @@ func (m *MetricsConfig) GetRetentionDuration() (time.Duration, error) {
 func (c *Config) Validate() error {
 	if c.MaxPlugins <= 0 {
 		return fmt.Errorf("max_plugins must be greater than 0")
-	}
-
-	if c.InitTimeout != "" {
-		if _, err := time.ParseDuration(c.InitTimeout); err != nil {
-			return fmt.Errorf("invalid init_timeout: %v", err)
-		}
 	}
 
 	if c.Performance != nil && c.Performance.GarbageCollectInterval != "" {
@@ -154,12 +147,6 @@ func GetConfig(v *viper.Viper) *Config {
 	mode := getStringWithDefault(v, "extension.mode", "file")
 	isBuiltIn := mode == "c2hlbgo"
 
-	// Production timeout: 5 minutes, Dev timeout: 2 minutes
-	defaultTimeout := "300s"
-	if isDev {
-		defaultTimeout = "120s"
-	}
-
 	config := &Config{
 		Mode:      mode,
 		Path:      getStringWithDefault(v, "extension.path", getDefaultPath(isDev)),
@@ -168,7 +155,6 @@ func GetConfig(v *viper.Viper) *Config {
 		HotReload: isBuiltIn || getBoolWithDefault(v, "extension.hot_reload", false),
 
 		MaxPlugins:   getIntWithDefault(v, "extension.max_plugins", 20),
-		InitTimeout:  getStringWithDefault(v, "extension.init_timeout", defaultTimeout),
 		PluginConfig: v.GetStringMap("extension.plugin_config"),
 
 		Security:    getSecurityConfig(v, isDev),

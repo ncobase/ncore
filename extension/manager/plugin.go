@@ -128,10 +128,7 @@ func (m *Manager) LoadPlugin(path string) error {
 	}
 
 	// Load plugin with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	if err := m.loadPluginWithTimeout(ctx, path); err != nil {
+	if err := m.loadPluginInternal(path); err != nil {
 		return fmt.Errorf("plugin loading failed: %v", err)
 	}
 

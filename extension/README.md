@@ -253,7 +253,6 @@ extension:
   
   # Advanced configuration
   max_plugins: 50           # Maximum number of plugins
-  init_timeout: "120s"       # Initialization timeout
   
   # Security configuration
   security:

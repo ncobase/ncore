@@ -252,7 +252,6 @@ extension:
   
   # 高级配置
   max_plugins: 50           # 最大插件数量
-  init_timeout: "120s"       # 初始化超时
   
   # 安全配置
   security:

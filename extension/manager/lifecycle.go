@@ -14,39 +14,7 @@ import (
 
 // InitExtensions initializes all registered extensions
 func (m *Manager) InitExtensions() error {
-	// Get timeout from config
-	timeout := 300 * time.Second // Default 5 minutes
-	if m.conf.Extension.InitTimeout != "" {
-		if parsed, err := time.ParseDuration(m.conf.Extension.InitTimeout); err == nil {
-			timeout = parsed
-		}
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	done := make(chan error, 1)
-
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				done <- fmt.Errorf("initialization panic: %v", r)
-			}
-		}()
-		done <- m.initExtensionsInternal(ctx)
-	}()
-
-	select {
-	case err := <-done:
-		if err != nil {
-			m.cleanupPartialInitialization()
-			return fmt.Errorf("extension initialization failed: %v", err)
-		}
-		return nil
-	case <-ctx.Done():
-		m.cleanupPartialInitialization()
-		return fmt.Errorf("extension initialization timeout after %v", timeout)
-	}
+	return m.initExtensionsInternal(context.Background())
 }
 
 // initExtensionsInternal performs the actual initialization
@@ -124,7 +92,7 @@ func (m *Manager) initializeExtensionsInPhases(ctx context.Context, initOrder []
 		}
 
 		ext := m.extensions[name]
-		if err := m.runWithTimeout(ctx, 30*time.Second, ext.Instance.PreInit); err != nil {
+		if err := ext.Instance.PreInit(); err != nil {
 			logger.Errorf(nil, "failed pre-initialization of extension %s: %v", name, err)
 			initErrors = append(initErrors, fmt.Errorf("pre-initialization of extension %s failed: %w", name, err))
 		}
@@ -141,10 +109,7 @@ func (m *Manager) initializeExtensionsInPhases(ctx context.Context, initOrder []
 		ext := m.extensions[name]
 		start := time.Now()
 
-		err := m.runWithTimeout(ctx, 120*time.Second, func() error {
-			return ext.Instance.Init(m.conf, m)
-		})
-
+		err := ext.Instance.Init(m.conf, m)
 		duration := time.Since(start)
 
 		if err != nil {
@@ -164,7 +129,7 @@ func (m *Manager) initializeExtensionsInPhases(ctx context.Context, initOrder []
 		}
 
 		ext := m.extensions[name]
-		if err := m.runWithTimeout(ctx, 30*time.Second, ext.Instance.PostInit); err != nil {
+		if err := ext.Instance.PostInit(); err != nil {
 			logger.Errorf(nil, "failed post-initialization of extension %s: %v", name, err)
 			initErrors = append(initErrors, fmt.Errorf("post-initialization of extension %s failed: %w", name, err))
 		} else {
@@ -187,30 +152,6 @@ func (m *Manager) initializeExtensionsInPhases(ctx context.Context, initOrder []
 		len(successfulExtensions), successfulExtensions)
 
 	return nil
-}
-
-// runWithTimeout runs a function with timeout
-func (m *Manager) runWithTimeout(ctx context.Context, timeout time.Duration, fn func() error) error {
-	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	done := make(chan error, 1)
-
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				done <- fmt.Errorf("method panic: %v", r)
-			}
-		}()
-		done <- fn()
-	}()
-
-	select {
-	case err := <-done:
-		return err
-	case <-timeoutCtx.Done():
-		return timeoutCtx.Err()
-	}
 }
 
 // checkDependencies checks if all dependencies are loaded

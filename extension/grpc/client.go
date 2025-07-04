@@ -43,9 +43,6 @@ func (p *ClientPool) GetConnection(ctx context.Context, serviceName, address str
 	}
 
 	// Create new connection
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
 	conn, err := grpc.DialContext(ctx, address,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithUnaryInterceptor(clientUnaryInterceptor),
@@ -69,9 +66,6 @@ func (p *ClientPool) CheckHealth(ctx context.Context, serviceName string) error 
 	}
 
 	client := grpc_health_v1.NewHealthClient(conn)
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
 	resp, err := client.Check(ctx, &grpc_health_v1.HealthCheckRequest{
 		Service: serviceName,
 	})
