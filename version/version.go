@@ -60,8 +60,6 @@ func GetVersionInfo() Info {
 			if revision == "unknown" {
 				revision = runtimeRevision
 			}
-		} else {
-			log.Println("WARNING: Unable to get git information at runtime - git may not be installed or this may not be a git repository")
 		}
 	}
 
