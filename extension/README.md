@@ -15,7 +15,6 @@ inter-service communication, and enterprise-grade security features.
 - **Cross-Service Calls**: Unified local and remote service calling interface
 - **Security Sandbox**: Plugin path validation, signature verification, trusted source validation
 - **Resource Monitoring**: Memory and CPU usage limits, performance metrics collection
-- **Timeout Control**: Load, initialization, and dependency resolution timeout protection
 - **Plugin Configuration**: Personalized configuration management for each plugin
 
 ## Basic Usage
@@ -254,9 +253,7 @@ extension:
   
   # Advanced configuration
   max_plugins: 50           # Maximum number of plugins
-  load_timeout: "30s"       # Plugin loading timeout
-  init_timeout: "60s"       # Initialization timeout
-  dependency_timeout: "10s" # Dependency resolution timeout
+  init_timeout: "120s"       # Initialization timeout
   
   # Security configuration
   security:

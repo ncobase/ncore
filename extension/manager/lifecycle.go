@@ -9,29 +9,48 @@ import (
 	"github.com/ncobase/ncore/extension/registry"
 	"github.com/ncobase/ncore/extension/types"
 	"github.com/ncobase/ncore/logging/logger"
+	"github.com/sony/gobreaker"
 )
 
 // InitExtensions initializes all registered extensions
 func (m *Manager) InitExtensions() error {
-	ctx := context.Background()
-
-	// Initialize with timeout if available
-	initFunc := func(timeoutCtx context.Context) error {
-		return m.initExtensionsInternal()
+	// Get timeout from config
+	timeout := 300 * time.Second // Default 5 minutes
+	if m.conf.Extension.InitTimeout != "" {
+		if parsed, err := time.ParseDuration(m.conf.Extension.InitTimeout); err == nil {
+			timeout = parsed
+		}
 	}
 
-	var err error
-	if m.timeoutManager != nil {
-		err = m.timeoutManager.WithInitTimeout(ctx, initFunc)
-	} else {
-		err = initFunc(ctx)
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 
-	return err
+	done := make(chan error, 1)
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				done <- fmt.Errorf("initialization panic: %v", r)
+			}
+		}()
+		done <- m.initExtensionsInternal(ctx)
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			m.cleanupPartialInitialization()
+			return fmt.Errorf("extension initialization failed: %v", err)
+		}
+		return nil
+	case <-ctx.Done():
+		m.cleanupPartialInitialization()
+		return fmt.Errorf("extension initialization timeout after %v", timeout)
+	}
 }
 
 // initExtensionsInternal performs the actual initialization
-func (m *Manager) initExtensionsInternal() error {
+func (m *Manager) initExtensionsInternal(ctx context.Context) error {
 	m.mu.Lock()
 	if m.initialized {
 		m.mu.Unlock()
@@ -43,6 +62,13 @@ func (m *Manager) initExtensionsInternal() error {
 
 	// Add registered extensions to the manager
 	for name, ext := range registeredExtensions {
+		select {
+		case <-ctx.Done():
+			m.mu.Unlock()
+			return ctx.Err()
+		default:
+		}
+
 		if _, exists := m.extensions[name]; !exists {
 			m.extensions[name] = &types.Wrapper{
 				Metadata: ext.GetMetadata(),
@@ -59,27 +85,18 @@ func (m *Manager) initExtensionsInternal() error {
 
 	initOrder, err := getInitOrder(m.extensions, dependencyGraph)
 	if err != nil {
-		logger.Errorf(nil, "failed to determine initialization order: %v", err)
 		m.mu.Unlock()
 		return err
 	}
 	m.mu.Unlock()
 
 	// Initialize extensions in phases
-	if err := m.initializeExtensionsInPhases(initOrder); err != nil {
+	if err := m.initializeExtensionsInPhases(ctx, initOrder); err != nil {
 		return err
 	}
 
-	// Initialize gRPC if enabled
-	if err := m.initGRPCSupport(); err != nil {
-		return fmt.Errorf("failed to initialize gRPC: %v", err)
-	}
-
-	// Register services with service discovery
-	m.registerServicesWithDiscovery()
-
-	// Auto-register cross-module services
-	m.refreshCrossServices()
+	// Initialize optional services asynchronously
+	go m.initOptionalServicesAsync()
 
 	m.mu.Lock()
 	m.initialized = true
@@ -94,49 +111,66 @@ func (m *Manager) initExtensionsInternal() error {
 }
 
 // initializeExtensionsInPhases initializes extensions in three phases
-func (m *Manager) initializeExtensionsInPhases(initOrder []string) error {
+func (m *Manager) initializeExtensionsInPhases(ctx context.Context, initOrder []string) error {
 	var initErrors []error
 	var successfulExtensions []string
 
 	// Phase 1: Pre-initialization
 	for _, name := range initOrder {
-		ext := m.extensions[name]
-		err := ext.Instance.PreInit()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 
-		if err != nil {
+		ext := m.extensions[name]
+		if err := m.runWithTimeout(ctx, 30*time.Second, ext.Instance.PreInit); err != nil {
 			logger.Errorf(nil, "failed pre-initialization of extension %s: %v", name, err)
 			initErrors = append(initErrors, fmt.Errorf("pre-initialization of extension %s failed: %w", name, err))
 		}
 	}
 
-	// Phase 2: Main initialization with metrics tracking
+	// Phase 2: Main initialization
 	for _, name := range initOrder {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		ext := m.extensions[name]
 		start := time.Now()
-		err := ext.Instance.Init(m.conf, m)
+
+		err := m.runWithTimeout(ctx, 120*time.Second, func() error {
+			return ext.Instance.Init(m.conf, m)
+		})
+
 		duration := time.Since(start)
 
 		if err != nil {
 			logger.Errorf(nil, "failed to initialize extension %s: %v", name, err)
 			initErrors = append(initErrors, fmt.Errorf("initialization of extension %s failed: %w", name, err))
+		} else {
+			m.trackExtensionInitialized(name, duration, nil)
 		}
-
-		// Track initialization metrics
-		m.trackExtensionInitialized(name, duration, err)
 	}
 
 	// Phase 3: Post-initialization
 	for _, name := range initOrder {
-		ext := m.extensions[name]
-		err := ext.Instance.PostInit()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 
-		if err != nil {
+		ext := m.extensions[name]
+		if err := m.runWithTimeout(ctx, 30*time.Second, ext.Instance.PostInit); err != nil {
 			logger.Errorf(nil, "failed post-initialization of extension %s: %v", name, err)
 			initErrors = append(initErrors, fmt.Errorf("post-initialization of extension %s failed: %w", name, err))
 		} else {
 			successfulExtensions = append(successfulExtensions, name)
 
-			// Publish extension ready event - automatic tracking via event name
+			// Publish extension ready event
 			m.PublishEvent(fmt.Sprintf("exts.%s.ready", name), map[string]any{
 				"name":     name,
 				"status":   "ready",
@@ -155,6 +189,30 @@ func (m *Manager) initializeExtensionsInPhases(initOrder []string) error {
 	return nil
 }
 
+// runWithTimeout runs a function with timeout
+func (m *Manager) runWithTimeout(ctx context.Context, timeout time.Duration, fn func() error) error {
+	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	done := make(chan error, 1)
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				done <- fmt.Errorf("method panic: %v", r)
+			}
+		}()
+		done <- fn()
+	}()
+
+	select {
+	case err := <-done:
+		return err
+	case <-timeoutCtx.Done():
+		return timeoutCtx.Err()
+	}
+}
+
 // checkDependencies checks if all dependencies are loaded
 func (m *Manager) checkDependencies() error {
 	for name, ext := range m.extensions {
@@ -165,6 +223,26 @@ func (m *Manager) checkDependencies() error {
 		}
 	}
 	return nil
+}
+
+// initOptionalServicesAsync initializes optional services asynchronously
+func (m *Manager) initOptionalServicesAsync() {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Errorf(nil, "optional services init panic: %v", r)
+		}
+	}()
+
+	// gRPC services
+	if err := m.initGRPCSupport(); err != nil {
+		logger.Warnf(nil, "gRPC initialization failed: %v", err)
+	}
+
+	// Service discovery registration
+	m.registerServicesWithDiscovery()
+
+	// Cross-module services
+	m.refreshCrossServices()
 }
 
 // registerServicesWithDiscovery registers services with service discovery
@@ -191,7 +269,6 @@ func (m *Manager) refreshCrossServices() {
 	m.crossServices = make(map[string]any)
 	m.mu.Unlock()
 
-	// Re-register all extension services
 	for name := range m.extensions {
 		m.autoRegisterExtensionServices(name)
 	}
@@ -249,4 +326,24 @@ func (m *Manager) discoverAndRegisterServices(extensionName string, service any)
 		m.crossServices[serviceKey] = field.Interface()
 		m.mu.Unlock()
 	}
+}
+
+// cleanupPartialInitialization cleans up partial initialization state
+func (m *Manager) cleanupPartialInitialization() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	logger.Warnf(nil, "cleaning up partial initialization state")
+
+	for name, ext := range m.extensions {
+		if ext.Instance.Status() == types.StatusInitializing {
+			if err := ext.Instance.Cleanup(); err != nil {
+				logger.Errorf(nil, "failed to cleanup extension %s: %v", name, err)
+			}
+		}
+	}
+
+	m.initialized = false
+	m.circuitBreakers = make(map[string]*gobreaker.CircuitBreaker)
+	m.crossServices = make(map[string]any)
 }

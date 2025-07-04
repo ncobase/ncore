@@ -15,13 +15,12 @@ func (m *Manager) IsMetricsEnabled() bool {
 	return m.metricsCollector != nil && m.metricsCollector.IsEnabled()
 }
 
-// GetMetrics returns comprehensive real-time metrics
+// GetMetrics returns comprehensive metrics
 func (m *Manager) GetMetrics() map[string]any {
 	if m.metricsCollector == nil {
 		return map[string]any{
 			"enabled":   false,
 			"timestamp": time.Now(),
-			"reason":    "metrics collector not initialized",
 		}
 	}
 
@@ -29,11 +28,9 @@ func (m *Manager) GetMetrics() map[string]any {
 		return map[string]any{
 			"enabled":   false,
 			"timestamp": time.Now(),
-			"reason":    "metrics collection is disabled",
 		}
 	}
 
-	// Update system metrics before getting snapshot
 	m.updateSystemMetrics()
 
 	result := map[string]any{
@@ -44,7 +41,6 @@ func (m *Manager) GetMetrics() map[string]any {
 		"storage":    m.metricsCollector.GetStorageStats(),
 	}
 
-	// Add configuration info
 	if m.conf.Extension.Metrics != nil {
 		result["config"] = map[string]any{
 			"flush_interval": m.conf.Extension.Metrics.FlushInterval,
@@ -69,7 +65,7 @@ func (m *Manager) GetDataMetrics() map[string]any {
 	return m.data.GetStats()
 }
 
-// GetSystemMetrics returns comprehensive system metrics from all layers
+// GetSystemMetrics returns system metrics from all layers
 func (m *Manager) GetSystemMetrics() map[string]any {
 	result := map[string]any{
 		"timestamp": time.Now(),
@@ -78,18 +74,13 @@ func (m *Manager) GetSystemMetrics() map[string]any {
 
 	layers := result["layers"].(map[string]any)
 
-	// Extension layer metrics
 	layers["extension"] = m.GetMetrics()
-
-	// Data layer metrics
 	layers["data"] = m.GetDataMetrics()
 
-	// Service discovery metrics
 	if m.serviceDiscovery != nil {
 		layers["service_discovery"] = m.GetServiceCacheStats()
 	}
 
-	// Events metrics
 	layers["events"] = m.GetEventsMetrics()
 
 	return result
@@ -111,20 +102,8 @@ func (m *Manager) GetComprehensiveMetrics() map[string]any {
 	summary["active_extensions"] = m.countActiveExtensions()
 	summary["data_layer_status"] = m.getDataLayerStatus()
 	summary["messaging_status"] = m.getMessagingStatus()
-
-	// Extension metrics enabled status
-	extensionMetricsEnabled := m.metricsCollector != nil && m.metricsCollector.IsEnabled()
-	summary["extension_metrics_enabled"] = extensionMetricsEnabled
-
-	// Data layer metrics enabled status
-	dataMetricsEnabled := false
-	if m.data != nil {
-		stats := m.data.GetStats()
-		if status, ok := stats["status"].(string); ok {
-			dataMetricsEnabled = status != "metrics_unavailable"
-		}
-	}
-	summary["data_metrics_enabled"] = dataMetricsEnabled
+	summary["extension_metrics_enabled"] = m.IsMetricsEnabled()
+	summary["data_metrics_enabled"] = m.isDataMetricsEnabled()
 
 	// Detailed metrics
 	details["extensions"] = m.GetMetrics()
@@ -133,6 +112,48 @@ func (m *Manager) GetComprehensiveMetrics() map[string]any {
 	details["service_discovery"] = m.GetServiceCacheStats()
 
 	return result
+}
+
+// GetEventsMetrics returns event metrics
+func (m *Manager) GetEventsMetrics() map[string]any {
+	if m.eventDispatcher == nil {
+		return map[string]any{"status": "disabled"}
+	}
+
+	// Get metrics from event dispatcher
+	dispatcherMetrics := m.eventDispatcher.GetMetrics()
+
+	// Get extension-specific event metrics from collector
+	extensionEventMetrics := make(map[string]any)
+	if m.metricsCollector != nil && m.metricsCollector.IsEnabled() {
+		extensions := m.metricsCollector.GetAllExtensionMetrics()
+		for name, ext := range extensions {
+			extensionEventMetrics[name] = map[string]any{
+				"published": ext.EventsPublished,
+				"received":  ext.EventsReceived,
+			}
+		}
+	}
+
+	return map[string]any{
+		"dispatcher": dispatcherMetrics,
+		"extensions": extensionEventMetrics,
+		"timestamp":  time.Now(),
+		"status":     "active",
+	}
+}
+
+// GetServiceCacheStats returns service cache statistics
+func (m *Manager) GetServiceCacheStats() map[string]any {
+	if m.serviceDiscovery == nil {
+		return map[string]any{
+			"status": "not_initialized",
+		}
+	}
+
+	stats := m.serviceDiscovery.GetCacheStats()
+	stats["status"] = "active"
+	return stats
 }
 
 // GetExtensionMetrics returns metrics for specific extension
@@ -144,7 +165,7 @@ func (m *Manager) GetExtensionMetrics(name string) *metrics.ExtensionMetrics {
 	return m.metricsCollector.GetExtensionMetrics(name)
 }
 
-// QueryHistoricalMetrics queries historical metrics with aggregation
+// QueryHistoricalMetrics queries historical metrics
 func (m *Manager) QueryHistoricalMetrics(opts *metrics.QueryOptions) ([]*metrics.AggregatedMetrics, error) {
 	if m.metricsCollector == nil {
 		return nil, fmt.Errorf("metrics collector not initialized")
@@ -171,8 +192,6 @@ func (m *Manager) GetMetricsStorageStats() map[string]any {
 	return m.metricsCollector.GetStorageStats()
 }
 
-// Helper methods for metrics aggregation
-
 // countActiveExtensions counts active extensions
 func (m *Manager) countActiveExtensions() int {
 	m.mu.RLock()
@@ -193,7 +212,6 @@ func (m *Manager) getDataLayerStatus() string {
 		return "unavailable"
 	}
 
-	// Simple health check without full health details
 	stats := m.data.GetStats()
 	if status, ok := stats["status"].(string); ok {
 		return status
@@ -220,16 +238,33 @@ func (m *Manager) getMessagingStatus() map[string]any {
 	}
 }
 
+// isDataMetricsEnabled checks if data layer metrics are enabled
+func (m *Manager) isDataMetricsEnabled() bool {
+	if m.data == nil {
+		return false
+	}
+
+	stats := m.data.GetStats()
+
+	if status, ok := stats["status"].(string); ok {
+		return status != "metrics_unavailable"
+	}
+
+	if _, hasDB := stats["database"].(map[string]any); hasDB {
+		return true
+	}
+
+	return false
+}
+
 // updateSystemMetrics updates system-level metrics
 func (m *Manager) updateSystemMetrics() {
 	if m.metricsCollector == nil || !m.metricsCollector.IsEnabled() {
 		return
 	}
 
-	// Update basic system metrics (memory, goroutines, etc.)
 	m.metricsCollector.UpdateSystemMetrics()
 
-	// Update service discovery metrics if available
 	if m.serviceDiscovery != nil {
 		cacheStats := m.serviceDiscovery.GetCacheStats()
 
@@ -252,7 +287,7 @@ func (m *Manager) updateSystemMetrics() {
 	}
 }
 
-// Extension metrics tracking methods (keep existing ones)
+// Extension metrics tracking methods
 
 // trackExtensionLoaded tracks extension loading
 func (m *Manager) trackExtensionLoaded(name string, duration time.Duration) {
@@ -303,7 +338,7 @@ func (m *Manager) trackCircuitBreakerTripped(extensionName string) {
 	}
 }
 
-// CleanupOldMetrics removes metrics older than the specified duration
+// CleanupOldMetrics removes old metrics
 func (m *Manager) CleanupOldMetrics(maxAge time.Duration) error {
 	if m.metricsCollector == nil {
 		return fmt.Errorf("metrics collector not initialized")

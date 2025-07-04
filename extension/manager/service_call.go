@@ -56,7 +56,7 @@ func (m *Manager) CallServiceWithOptions(ctx context.Context, serviceName, metho
 		result, err = m.callLocalFirst(ctx, serviceName, methodName, req, start)
 	}
 
-	// Track service call metrics (simplified)
+	// Track service call metrics
 	success := err == nil
 	m.trackServiceCall(serviceName, success)
 

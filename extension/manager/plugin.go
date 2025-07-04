@@ -26,7 +26,7 @@ func (m *Manager) LoadPlugins() error {
 func (m *Manager) loadFilePlugins() error {
 	basePath := m.conf.Extension.Path
 	if basePath == "" {
-		logger.Warnf(nil, "No plugin path configured, skipping file plugin loading")
+		logger.Warnf(nil, "no plugin path configured, skipping file plugin loading")
 		return nil
 	}
 
@@ -48,12 +48,12 @@ func (m *Manager) loadFilePlugins() error {
 			pluginName := strings.TrimSuffix(filepath.Base(filePath), utils.GetPlatformExt())
 
 			if !m.shouldLoadPlugin(pluginName) {
-				logger.Infof(nil, "Skipping plugin %s based on configuration", pluginName)
+				logger.Infof(nil, "skipping plugin %s based on configuration", pluginName)
 				continue
 			}
 
 			if err := m.LoadPlugin(filePath); err != nil {
-				logger.Errorf(nil, "Failed to load plugin %s: %v", pluginName, err)
+				logger.Errorf(nil, "failed to load plugin %s: %v", pluginName, err)
 				return err
 			}
 
@@ -62,7 +62,7 @@ func (m *Manager) loadFilePlugins() error {
 	}
 
 	if len(loaded) > 0 {
-		logger.Debugf(nil, "Loaded %d file plugins: %v", len(loaded), loaded)
+		logger.Debugf(nil, "loaded %d file plugins: %v", len(loaded), loaded)
 	}
 
 	return nil
@@ -77,12 +77,12 @@ func (m *Manager) loadBuiltInPlugins() error {
 		pluginName := pluginWrapper.Metadata.Name
 
 		if !m.shouldLoadPlugin(pluginName) {
-			logger.Infof(nil, "Skipping built-in plugin %s based on configuration", pluginName)
+			logger.Infof(nil, "skipping built-in plugin %s based on configuration", pluginName)
 			continue
 		}
 
 		if err := m.initializePlugin(pluginWrapper); err != nil {
-			logger.Errorf(nil, "Failed to initialize built-in plugin %s: %v", pluginName, err)
+			logger.Errorf(nil, "failed to initialize built-in plugin %s: %v", pluginName, err)
 			continue
 		}
 
@@ -91,7 +91,7 @@ func (m *Manager) loadBuiltInPlugins() error {
 	}
 
 	if len(loaded) > 0 {
-		logger.Debugf(nil, "Loaded %d built-in plugins: %v", len(loaded), loaded)
+		logger.Debugf(nil, "loaded %d built-in plugins: %v", len(loaded), loaded)
 	}
 
 	return nil
@@ -99,7 +99,6 @@ func (m *Manager) loadBuiltInPlugins() error {
 
 // LoadPlugin loads a single plugin from file with security checks and metrics
 func (m *Manager) LoadPlugin(path string) error {
-	ctx := context.Background()
 	start := time.Now()
 	pluginName := extractPluginName(path)
 
@@ -128,23 +127,15 @@ func (m *Manager) LoadPlugin(path string) error {
 		}
 	}
 
-	// Load plugin with timeout if available
-	loadFunc := func(timeoutCtx context.Context) error {
-		return m.loadPluginInternal(path)
-	}
+	// Load plugin with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
 
-	var err error
-	if m.timeoutManager != nil {
-		err = m.timeoutManager.WithLoadTimeout(ctx, loadFunc)
-	} else {
-		err = loadFunc(ctx)
+	if err := m.loadPluginWithTimeout(ctx, path); err != nil {
+		return fmt.Errorf("plugin loading failed: %v", err)
 	}
 
 	duration := time.Since(start)
-
-	if err != nil {
-		return fmt.Errorf("plugin loading failed: %v", err)
-	}
 
 	// Track successful load metrics
 	m.trackExtensionLoaded(pluginName, duration)
@@ -158,8 +149,29 @@ func (m *Manager) LoadPlugin(path string) error {
 		m.resourceMonitor.RecordPluginMetrics(pluginName, metrics)
 	}
 
-	logger.Infof(ctx, "plugin loaded: %s (took %v)", pluginName, duration)
+	logger.Infof(nil, "plugin loaded: %s (took %v)", pluginName, duration)
 	return nil
+}
+
+// loadPluginWithTimeout loads plugin with timeout
+func (m *Manager) loadPluginWithTimeout(ctx context.Context, path string) error {
+	done := make(chan error, 1)
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				done <- fmt.Errorf("plugin loading panic: %v", r)
+			}
+		}()
+		done <- m.loadPluginInternal(path)
+	}()
+
+	select {
+	case err := <-done:
+		return err
+	case <-ctx.Done():
+		return fmt.Errorf("plugin loading timeout")
+	}
 }
 
 // loadPluginInternal performs the actual plugin loading
@@ -170,7 +182,7 @@ func (m *Manager) loadPluginInternal(path string) error {
 	defer m.mu.Unlock()
 
 	if _, exists := m.extensions[name]; exists {
-		logger.Debugf(nil, "Plugin %s already loaded, skipping", name)
+		logger.Debugf(nil, "plugin %s already loaded, skipping", name)
 		return nil
 	}
 
@@ -181,7 +193,7 @@ func (m *Manager) loadPluginInternal(path string) error {
 	loadedPlugin := plugin.GetPlugin(name)
 	if loadedPlugin != nil {
 		m.extensions[name] = loadedPlugin
-		logger.Infof(nil, "Plugin %s loaded successfully", name)
+		logger.Infof(nil, "plugin %s loaded successfully", name)
 	}
 
 	return nil
@@ -200,7 +212,7 @@ func (m *Manager) ReloadPlugin(name string) error {
 		return fmt.Errorf("failed to reload plugin %s: %v", name, err)
 	}
 
-	logger.Infof(nil, "Plugin %s reloaded successfully", name)
+	logger.Infof(nil, "plugin %s reloaded successfully", name)
 	return nil
 }
 
@@ -249,7 +261,7 @@ func (m *Manager) UnloadPlugin(name string) error {
 	// Track unload
 	m.trackExtensionUnloaded(name)
 
-	logger.Infof(nil, "Plugin %s unloaded successfully", name)
+	logger.Infof(nil, "plugin %s unloaded successfully", name)
 	return nil
 }
 
@@ -300,7 +312,7 @@ func (m *Manager) shouldLoadPlugin(name string) bool {
 
 // isBuiltInMode checks if we're in built-in plugin mode
 func (m *Manager) isBuiltInMode() bool {
-	return m.conf.Extension.Mode == "c2hlbgo" // built-in mode
+	return m.conf.Extension.Mode == "c2hlbgo"
 }
 
 // removeCrossServicesForExtension removes all cross services for an extension
@@ -322,7 +334,7 @@ func (m *Manager) removeCrossServicesForExtension(extensionName string) {
 	}
 
 	if len(keysToRemove) > 0 {
-		logger.Debugf(nil, "Removed %d cross services for extension %s", len(keysToRemove), extensionName)
+		logger.Debugf(nil, "removed %d cross services for extension %s", len(keysToRemove), extensionName)
 	}
 }
 

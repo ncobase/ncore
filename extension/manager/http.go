@@ -498,27 +498,6 @@ func (m *Manager) isMetricsEnabled() bool {
 	return m.metricsCollector != nil && m.metricsCollector.IsEnabled()
 }
 
-// isDataMetricsEnabled checks if data layer metrics are enabled
-func (m *Manager) isDataMetricsEnabled() bool {
-	if m.data == nil {
-		return false
-	}
-
-	stats := m.data.GetStats()
-
-	// Check for metrics_unavailable status format
-	if status, ok := stats["status"].(string); ok {
-		return status != "metrics_unavailable"
-	}
-
-	// Check for detailed stats format
-	if _, hasDB := stats["database"].(map[string]any); hasDB {
-		return true
-	}
-
-	return false
-}
-
 // parseQueryOptions parses query parameters into QueryOptions
 func parseQueryOptions(c *gin.Context) (*metrics.QueryOptions, error) {
 	opts := &metrics.QueryOptions{

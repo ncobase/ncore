@@ -14,7 +14,6 @@ import (
 	"github.com/ncobase/ncore/extension/metrics"
 	"github.com/ncobase/ncore/extension/plugin"
 	"github.com/ncobase/ncore/extension/security"
-	"github.com/ncobase/ncore/extension/timeout"
 	"github.com/ncobase/ncore/extension/types"
 	"github.com/ncobase/ncore/logging/logger"
 	"github.com/sony/gobreaker"
@@ -45,7 +44,6 @@ type Manager struct {
 	// Optional components
 	sandbox         *security.Sandbox
 	resourceMonitor *security.ResourceMonitor
-	timeoutManager  *timeout.Manager
 	pm              *plugin.Manager
 }
 
@@ -74,54 +72,48 @@ func NewManager(conf *config.Config) (*Manager, error) {
 // initSubsystems initializes all manager subsystems
 func (m *Manager) initSubsystems() error {
 	// Initialize metrics system first
-	if err := m.initMetricsSystem(); err != nil {
-		return fmt.Errorf("failed to initialize metrics: %v", err)
-	}
+	m.metricsCollector = metrics.NewCollector(m.conf.Extension.Metrics)
 
-	// Initialize data layer
-	if err := m.initDataLayer(); err != nil {
+	// Initialize data layer with retry
+	if err := m.initDataLayerWithRetry(); err != nil {
 		return fmt.Errorf("failed to initialize data layer: %v", err)
 	}
 
-	// Initialize service discovery
+	// Initialize service discovery (non-blocking)
 	if err := m.initServiceDiscovery(); err != nil {
-		return fmt.Errorf("failed to initialize service discovery: %v", err)
+		logger.Warnf(nil, "Service discovery init failed: %v", err)
 	}
 
 	// Initialize optional components
-	if err := m.initOptionalComponents(); err != nil {
-		return fmt.Errorf("failed to initialize optional components: %v", err)
-	}
-
-	return nil
+	return m.initOptionalComponents()
 }
 
-// initMetricsSystem initializes the metrics system
-func (m *Manager) initMetricsSystem() error {
-	// Create collector
-	m.metricsCollector = metrics.NewCollector(m.conf.Extension.Metrics)
-	return nil
-}
+// initDataLayerWithRetry initializes data layer with retry logic
+func (m *Manager) initDataLayerWithRetry() error {
+	maxRetries := 3
+	baseDelay := 2 * time.Second
 
-// initDataLayer initializes the data layer
-func (m *Manager) initDataLayer() error {
-	d, _, err := data.New(m.conf.Data)
-	if err != nil {
-		return err
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		d, _, err := data.New(m.conf.Data)
+		if err == nil {
+			m.data = d
+			m.upgradeMetricsStorageIfAvailable()
+			return nil
+		}
+
+		if attempt < maxRetries-1 {
+			delay := baseDelay * time.Duration(1<<uint(attempt))
+			logger.Warnf(nil, "Data layer init attempt %d/%d failed: %v, retrying in %v",
+				attempt+1, maxRetries, err, delay)
+			time.Sleep(delay)
+		}
 	}
 
-	m.data = d
-
-	// Upgrade metrics to Redis storage if available and enabled
-	if m.metricsCollector != nil && m.metricsCollector.IsEnabled() {
-		m.upgradeMetricsStorageIfNeeded()
-	}
-
-	return nil
+	return fmt.Errorf("data layer init failed after %d attempts", maxRetries)
 }
 
-// upgradeMetricsStorageIfNeeded upgrades metrics storage to Redis if configured and available
-func (m *Manager) upgradeMetricsStorageIfNeeded() {
+// upgradeMetricsStorageIfAvailable upgrades metrics storage to Redis if available
+func (m *Manager) upgradeMetricsStorageIfAvailable() {
 	if m.metricsCollector == nil || !m.metricsCollector.IsEnabled() {
 		return
 	}
@@ -132,41 +124,39 @@ func (m *Manager) upgradeMetricsStorageIfNeeded() {
 	}
 
 	storageType := metricsConfig.Storage.Type
-
-	// Only upgrade if storage type is "redis" or "auto"
 	if storageType != "redis" && storageType != "auto" {
-		return
-	}
-
-	// Check if data layer and Redis are available
-	if m.data == nil {
 		return
 	}
 
 	redisClient := m.data.GetRedis()
 	if redisClient == nil {
 		if storageType == "redis" {
-			logger.Warnf(nil, "Redis storage requested but Redis client not available, using memory storage")
+			logger.Warnf(nil, "Redis storage requested but not available")
 		}
 		return
 	}
 
-	// Get configuration values
+	// Test Redis connection
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := redisClient.Ping(ctx).Err(); err != nil {
+		logger.Warnf(nil, "Redis connection test failed: %v", err)
+		return
+	}
+
 	keyPrefix := metricsConfig.Storage.KeyPrefix
 	if keyPrefix == "" {
 		keyPrefix = "ncore_ext"
 	}
 
-	retention := 7 * 24 * time.Hour // Default 7 days
+	retention := 7 * 24 * time.Hour
 	if duration, err := metricsConfig.GetRetentionDuration(); err == nil {
 		retention = duration
-	} else {
-		logger.Warnf(nil, "Invalid retention format, using default 7 days: %v", err)
 	}
 
-	// Upgrade to Redis storage
 	if err := m.metricsCollector.UpgradeToRedisStorage(redisClient, keyPrefix, retention); err != nil {
-		logger.Warnf(nil, "Failed to upgrade metrics to Redis storage: %v, continuing with memory storage", err)
+		logger.Warnf(nil, "Failed to upgrade metrics storage: %v", err)
 	}
 }
 
@@ -204,18 +194,9 @@ func (m *Manager) initOptionalComponents() error {
 		m.sandbox = security.NewSandbox(extConf.Security)
 	}
 
-	// Initialize resource monitor - only if performance config exists
+	// Initialize resource monitor
 	if extConf.Performance != nil {
 		m.resourceMonitor = security.NewResourceMonitor(extConf.Performance)
-	}
-
-	// Initialize timeout manager
-	if extConf.LoadTimeout != "" || extConf.InitTimeout != "" || extConf.DependencyTimeout != "" {
-		var err error
-		m.timeoutManager, err = timeout.NewManager(extConf)
-		if err != nil {
-			return fmt.Errorf("failed to create timeout manager: %v", err)
-		}
 	}
 
 	// Initialize plugin manager
@@ -369,22 +350,37 @@ func (m *Manager) GetData() *data.Data {
 	return m.data
 }
 
+// IsFullyInitialized checks if all extensions are ready
+func (m *Manager) IsFullyInitialized() bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if !m.initialized {
+		return false
+	}
+
+	for _, ext := range m.extensions {
+		status := ext.Instance.Status()
+		if status != types.StatusActive {
+			return false
+		}
+	}
+
+	return true
+}
+
 // Cleanup cleans up all loaded extensions and subsystems
 func (m *Manager) Cleanup() {
-	// Cancel context first to signal shutdown
 	if m.cancel != nil {
 		m.cancel()
 	}
 
-	// Stop metrics collector
 	if m.metricsCollector != nil {
 		m.metricsCollector.Stop()
 	}
 
-	// Cleanup subsystems in proper order
 	m.cleanupSubsystems()
 
-	// Reset state
 	m.mu.Lock()
 	m.extensions = make(map[string]*types.Wrapper)
 	m.circuitBreakers = make(map[string]*gobreaker.CircuitBreaker)
@@ -392,7 +388,6 @@ func (m *Manager) Cleanup() {
 	m.initialized = false
 	m.mu.Unlock()
 
-	// Close data connections last (Redis client will be closed here)
 	if m.data != nil {
 		if errs := m.data.Close(); len(errs) > 0 {
 			logger.Errorf(nil, "errors closing data connections: %v", errs)
@@ -400,7 +395,7 @@ func (m *Manager) Cleanup() {
 	}
 }
 
-// cleanupSubsystems cleans up all subsystems in proper order
+// cleanupSubsystems cleans up all subsystems
 func (m *Manager) cleanupSubsystems() {
 	// Cleanup extensions first
 	m.cleanupExtensions()

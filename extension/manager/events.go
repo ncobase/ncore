@@ -117,35 +117,6 @@ func (m *Manager) GetExtensionSubscriber(name string, subscriberType reflect.Typ
 	return subscriber, nil
 }
 
-// GetEventsMetrics returns event metrics
-func (m *Manager) GetEventsMetrics() map[string]any {
-	if m.eventDispatcher == nil {
-		return map[string]any{"status": "disabled"}
-	}
-
-	// Get metrics from event dispatcher
-	dispatcherMetrics := m.eventDispatcher.GetMetrics()
-
-	// Get extension-specific event metrics from collector
-	extensionEventMetrics := make(map[string]any)
-	if m.metricsCollector != nil && m.metricsCollector.IsEnabled() {
-		extensions := m.metricsCollector.GetAllExtensionMetrics()
-		for name, ext := range extensions {
-			extensionEventMetrics[name] = map[string]any{
-				"published": ext.EventsPublished,
-				"received":  ext.EventsReceived,
-			}
-		}
-	}
-
-	return map[string]any{
-		"dispatcher": dispatcherMetrics,
-		"extensions": extensionEventMetrics,
-		"timestamp":  time.Now(),
-		"status":     "active",
-	}
-}
-
 // determineEventTarget determines which target to use
 func (m *Manager) determineEventTarget(target ...types.EventTarget) types.EventTarget {
 	if len(target) > 0 {
