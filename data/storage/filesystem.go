@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -67,6 +66,10 @@ func (fs *LocalFileSystem) GetFullPath(p string) string {
 
 // Get receives a file with the given path
 func (fs *LocalFileSystem) Get(p string) (*os.File, error) {
+	if p == "" {
+		return nil, fmt.Errorf("path cannot be empty")
+	}
+
 	fullPath := fs.GetFullPath(p)
 
 	// Check if file exists and is not a directory
@@ -92,16 +95,29 @@ func (fs *LocalFileSystem) GetStream(p string) (io.ReadCloser, error) {
 
 // Put stores the reader into the given path
 func (fs *LocalFileSystem) Put(p string, r io.Reader) (*Object, error) {
+	if p == "" {
+		return nil, fmt.Errorf("path cannot be empty")
+	}
 	if r == nil {
-		return nil, errors.New("reader cannot be nil")
+		return nil, fmt.Errorf("reader cannot be nil")
 	}
 
 	fullPath := fs.GetFullPath(p)
+
+	// Ensure the path is a file, not a directory
+	if strings.HasSuffix(p, "/") || strings.HasSuffix(fullPath, "/") {
+		return nil, fmt.Errorf("path appears to be a directory, not a file: %s", p)
+	}
 
 	// Create directory if it doesn't exist
 	dir := filepath.Dir(fullPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create directory %s: %w", dir, err)
+	}
+
+	// Check if fullPath is actually a directory (this prevents the original error)
+	if info, err := os.Stat(fullPath); err == nil && info.IsDir() {
+		return nil, fmt.Errorf("target path is a directory, cannot create file: %s", fullPath)
 	}
 
 	// Create or truncate the file
@@ -144,12 +160,16 @@ func (fs *LocalFileSystem) Put(p string, r io.Reader) (*Object, error) {
 
 // Delete deletes a file
 func (fs *LocalFileSystem) Delete(p string) error {
+	if p == "" {
+		return fmt.Errorf("path cannot be empty")
+	}
+
 	fullPath := fs.GetFullPath(p)
 
 	// Check if file exists
 	if _, err := os.Stat(fullPath); err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("file not found: %s", p)
+			return nil // File already doesn't exist, consider it success
 		}
 		return fmt.Errorf("failed to stat file %s: %w", p, err)
 	}
@@ -221,6 +241,9 @@ func (fs *LocalFileSystem) GetEndpoint() string {
 
 // GetURL gets the public accessible URL
 func (fs *LocalFileSystem) GetURL(p string) (string, error) {
+	if p == "" {
+		return "", fmt.Errorf("path cannot be empty")
+	}
 	// For local filesystem, we just return the relative path
 	// In a real application, you might want to return a full URL
 	// with your web server's base URL

@@ -59,17 +59,29 @@ func (c *Config) Validate() error {
 	switch c.Provider {
 	case "filesystem":
 		if c.Bucket == "" {
-			return errors.New("bucket (local path) is required for filesystem storage")
+			c.Bucket = "./uploads" // Set default path
 		}
-	case "aliyun-oss", "minio", "aws-s3", "azure", "tencent-cos", "qiniu", "googlecloud", "synology":
+	case "aliyun-oss", "aws-s3", "azure", "tencent-cos":
 		if c.ID == "" || c.Secret == "" || c.Bucket == "" {
 			return errors.New("id, secret, and bucket are required for cloud storage")
 		}
-		if c.Region == "" && c.Provider != "minio" && c.Provider != "synology" {
-			return errors.New("region is required for most cloud storage providers")
+		if c.Region == "" {
+			return errors.New("region is required for cloud storage providers")
 		}
-		if c.Endpoint == "" && (c.Provider == "qiniu" || c.Provider == "synology") {
-			return errors.New("endpoint is required for qiniu and synology storage")
+	case "minio":
+		if c.ID == "" || c.Secret == "" || c.Bucket == "" || c.Endpoint == "" {
+			return errors.New("id, secret, bucket, and endpoint are required for Minio")
+		}
+	case "qiniu", "synology":
+		if c.ID == "" || c.Secret == "" || c.Bucket == "" || c.Endpoint == "" {
+			return errors.New("id, secret, bucket, and endpoint are required for qiniu and synology storage")
+		}
+	case "googlecloud":
+		if c.Bucket == "" {
+			return errors.New("bucket is required for Google Cloud storage")
+		}
+		if c.Secret == "" && c.ServiceAccountJSON == "" {
+			return errors.New("service account JSON is required for Google Cloud storage")
 		}
 	default:
 		return fmt.Errorf("unsupported storage provider: %s", c.Provider)
@@ -88,7 +100,7 @@ func NewStorage(c *Config) (Interface, error) {
 	case "aliyun-oss":
 		return NewAliyun(c), nil
 	case "minio":
-		return NewMinio(c), nil
+		return NewMinio(c)
 	case "aws-s3":
 		return NewS3(c), nil
 	case "azure":
