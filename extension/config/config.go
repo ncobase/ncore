@@ -59,9 +59,13 @@ type StorageConfig struct {
 	Options   map[string]string `json:"options" yaml:"options"`
 }
 
+// BuiltInMode represents a special build tag for built-in extension mode
+// To enable built-in mode, build or run with tag: go build/run -tags="c2hlbgo"
+const BuiltInMode = "c2hlbgo"
+
 // IsBuiltInMode checks if running in built-in mode
 func (c *Config) IsBuiltInMode() bool {
-	return c.Mode == "c2hlbgo"
+	return c.Mode == BuiltInMode
 }
 
 // GetRetentionDuration returns the retention duration
@@ -145,7 +149,7 @@ func GetConfig(v *viper.Viper) *Config {
 	isDev := env == "development" || env == "dev"
 
 	mode := getStringWithDefault(v, "extension.mode", "file")
-	isBuiltIn := mode == "c2hlbgo"
+	isBuiltIn := mode == BuiltInMode
 
 	config := &Config{
 		Mode:      mode,

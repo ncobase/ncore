@@ -7,20 +7,66 @@ import (
 	"time"
 )
 
-// IsMessagingAvailable checks if messaging services are available
-func (d *Data) IsMessagingAvailable() bool {
+// IsMessagingEnabled checks if messaging services
+func (d *Data) IsMessagingEnabled() bool {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
 	if d.closed {
 		return false
 	}
+
+	// Check if messaging is disabled in config
+	if d.conf.Messaging != nil {
+		return d.conf.Messaging.IsEnabled()
+	}
+
+	// Default to true if no messaging config
+	return true
+}
+
+// IsQueueAvailable checks if external message queues are available
+func (d *Data) IsQueueAvailable() bool {
+	if !d.IsMessagingEnabled() {
+		return false
+	}
+
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	if d.closed {
+		return false
+	}
+
 	return (d.RabbitMQ != nil && d.RabbitMQ.IsConnected()) ||
 		(d.Kafka != nil && d.Kafka.IsConnected())
 }
 
+// ShouldUseMemoryFallback checks if should fallback to memory when queue unavailable
+func (d *Data) ShouldUseMemoryFallback() bool {
+	if !d.IsMessagingEnabled() {
+		return false
+	}
+
+	if d.conf.Messaging != nil {
+		return d.conf.Messaging.ShouldUseMemoryFallback()
+	}
+
+	return true
+}
+
+// IsMessagingAvailable checks if any messaging (queue or memory) is available
+// Deprecated: Use IsMessagingEnabled() and IsQueueAvailable() separately
+func (d *Data) IsMessagingAvailable() bool {
+	return d.IsMessagingEnabled() && (d.IsQueueAvailable() || d.ShouldUseMemoryFallback())
+}
+
 // PublishToRabbitMQ publishes message to RabbitMQ with metrics
 func (d *Data) PublishToRabbitMQ(exchange, routingKey string, body []byte) error {
+	if !d.IsMessagingEnabled() {
+		return errors.New("messaging is disabled")
+	}
+
 	start := time.Now()
 
 	d.mu.RLock()
@@ -53,6 +99,10 @@ func (d *Data) PublishToRabbitMQ(exchange, routingKey string, body []byte) error
 
 // ConsumeFromRabbitMQ consumes messages from RabbitMQ with metrics
 func (d *Data) ConsumeFromRabbitMQ(queue string, handler func([]byte) error) error {
+	if !d.IsMessagingEnabled() {
+		return errors.New("messaging is disabled")
+	}
+
 	d.mu.RLock()
 	closed := d.closed
 	rabbitmq := d.RabbitMQ
@@ -97,6 +147,10 @@ func (d *Data) ConsumeFromRabbitMQ(queue string, handler func([]byte) error) err
 
 // PublishToKafka publishes message to Kafka with metrics
 func (d *Data) PublishToKafka(ctx context.Context, topic string, key, value []byte) error {
+	if !d.IsMessagingEnabled() {
+		return errors.New("messaging is disabled")
+	}
+
 	start := time.Now()
 
 	d.mu.RLock()
@@ -129,6 +183,10 @@ func (d *Data) PublishToKafka(ctx context.Context, topic string, key, value []by
 
 // ConsumeFromKafka consumes messages from Kafka with metrics
 func (d *Data) ConsumeFromKafka(ctx context.Context, topic, groupID string, handler func([]byte) error) error {
+	if !d.IsMessagingEnabled() {
+		return errors.New("messaging is disabled")
+	}
+
 	d.mu.RLock()
 	closed := d.closed
 	kafka := d.Kafka

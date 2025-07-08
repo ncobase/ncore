@@ -4,18 +4,12 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"sync"
 	"time"
 
 	"github.com/ncobase/ncore/extension/registry"
 	"github.com/ncobase/ncore/extension/types"
 	"github.com/ncobase/ncore/logging/logger"
 	"github.com/sony/gobreaker"
-)
-
-var (
-	eventFallbackMode bool
-	eventFallbackMu   sync.RWMutex
 )
 
 // InitExtensions initializes all registered extensions
@@ -88,23 +82,14 @@ func (m *Manager) checkInfrastructure(ctx context.Context) error {
 		}
 	}
 
-	// Test messaging and set fallback mode
-	if m.data != nil && m.data.IsMessagingAvailable() {
-		if err := m.testMessaging(); err != nil {
-			logger.Warnf(nil, "Messaging test failed: %v, using memory-only events", err)
-			m.setEventFallbackMode(true)
+	// Test messaging if enabled
+	if m.data != nil && m.data.IsMessagingEnabled() {
+		if !m.data.IsMessagingAvailable() {
+			logger.Warnf(nil, "Messaging enabled but not available")
 		}
-	} else {
-		m.setEventFallbackMode(true)
 	}
 
 	return nil
-}
-
-// testMessaging tests messaging connectivity
-func (m *Manager) testMessaging() error {
-	testData := []byte(`{"test":true}`)
-	return m.data.PublishToRabbitMQ("test", "test", testData)
 }
 
 // initializeExtensionsInPhases initializes extensions in three phases
@@ -182,8 +167,8 @@ func (m *Manager) publishReadyEvents() {
 	// Always publish to memory
 	m.eventDispatcher.Publish("exts.all.initialized", eventData)
 
-	// Async publish to queue if available
-	if !m.isEventFallbackMode() {
+	// Async publish to queue if messaging enabled
+	if m.isMessagingEnabled() {
 		go func() {
 			time.Sleep(2 * time.Second) // Give messaging some time
 			m.PublishEvent("exts.all.initialized", eventData, types.EventTargetQueue)
@@ -202,8 +187,8 @@ func (m *Manager) publishExtensionReadyEvent(name string, ext *types.Wrapper) {
 	// Always publish to memory
 	m.eventDispatcher.Publish(fmt.Sprintf("exts.%s.ready", name), eventData)
 
-	// Async publish to queue if available
-	if !m.isEventFallbackMode() {
+	// Async publish to queue if messaging enabled
+	if m.isMessagingEnabled() {
 		go func() {
 			m.PublishEvent(fmt.Sprintf("exts.%s.ready", name), eventData, types.EventTargetQueue)
 		}()
@@ -291,20 +276,6 @@ func (m *Manager) discoverAndRegisterServices(extensionName string, service any)
 		m.crossServices[serviceKey] = field.Interface()
 		m.mu.Unlock()
 	}
-}
-
-// setEventFallbackMode sets event fallback mode
-func (m *Manager) setEventFallbackMode(fallback bool) {
-	eventFallbackMu.Lock()
-	defer eventFallbackMu.Unlock()
-	eventFallbackMode = fallback
-}
-
-// isEventFallbackMode returns event fallback mode status
-func (m *Manager) isEventFallbackMode() bool {
-	eventFallbackMu.RLock()
-	defer eventFallbackMu.RUnlock()
-	return eventFallbackMode
 }
 
 // cleanupPartialInitialization cleans up partial initialization state

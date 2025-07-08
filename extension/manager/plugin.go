@@ -309,7 +309,7 @@ func (m *Manager) shouldLoadPlugin(name string) bool {
 
 // isBuiltInMode checks if we're in built-in plugin mode
 func (m *Manager) isBuiltInMode() bool {
-	return m.conf.Extension.Mode == "c2hlbgo"
+	return m.conf.Extension.IsBuiltInMode()
 }
 
 // removeCrossServicesForExtension removes all cross services for an extension

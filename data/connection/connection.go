@@ -85,17 +85,20 @@ func New(conf *config.Config) (*Connections, error) {
 		}
 	}
 
-	if conf.RabbitMQ != nil && conf.RabbitMQ.URL != "" {
-		c.RMQ, err = newRabbitMQConnection(conf.RabbitMQ)
-		if err != nil {
-			return nil, err
+	// Initialize messaging connections
+	if conf.Messaging != nil && conf.Messaging.IsEnabled() {
+		if conf.RabbitMQ != nil && conf.RabbitMQ.URL != "" {
+			c.RMQ, err = newRabbitMQConnection(conf.RabbitMQ)
+			if err != nil {
+				return nil, err
+			}
 		}
-	}
 
-	if conf.Kafka != nil && conf.Kafka.Brokers != nil && len(conf.Kafka.Brokers) > 0 {
-		c.KFK, err = newKafkaConnection(conf.Kafka)
-		if err != nil {
-			return nil, err
+		if conf.Kafka != nil && conf.Kafka.Brokers != nil && len(conf.Kafka.Brokers) > 0 {
+			c.KFK, err = newKafkaConnection(conf.Kafka)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -166,11 +169,9 @@ func (d *Connections) Close() (errs []error) {
 		d.KFK = nil
 	}
 
-	// Set Meilisearch client to nil
+	// Set search clients to nil
 	d.MS = nil
-	// Set Elasticsearch client to nil
 	d.ES = nil
-	// Set OpenSearch client to nil
 	d.OS = nil
 
 	d.closed = true

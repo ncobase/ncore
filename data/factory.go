@@ -118,21 +118,20 @@ func (d *Data) initMetricsCollector(cfg *config.Metrics) error {
 	return nil
 }
 
-// initMessaging initializes messaging systems
+// initMessaging initializes messaging systems if enabled
 func (d *Data) initMessaging() {
-	if d.Conn.RMQ != nil {
-		if d.conf != nil && d.conf.Messaging != nil {
-			d.RabbitMQ = rabbitmq.NewRabbitMQWithConfig(d.Conn.RMQ, d.conf.Messaging)
-		} else {
-			d.RabbitMQ = rabbitmq.NewRabbitMQ(d.Conn.RMQ)
-		}
+	// Check if messaging is enabled
+	if d.conf.Messaging == nil || !d.conf.Messaging.IsEnabled() {
+		return
 	}
 
+	// Initialize RabbitMQ if connection exists
+	if d.Conn.RMQ != nil {
+		d.RabbitMQ = rabbitmq.NewRabbitMQWithConfig(d.Conn.RMQ, d.conf.Messaging)
+	}
+
+	// Initialize Kafka if connection exists
 	if d.Conn.KFK != nil {
-		if d.conf != nil && d.conf.Messaging != nil {
-			d.Kafka = kafka.NewWithConfig(d.Conn.KFK, d.conf.Messaging)
-		} else {
-			d.Kafka = kafka.New(d.Conn.KFK)
-		}
+		d.Kafka = kafka.NewWithConfig(d.Conn.KFK, d.conf.Messaging)
 	}
 }

@@ -14,44 +14,59 @@ import (
 
 // PublishEvent publishes event
 func (m *Manager) PublishEvent(eventName string, data any, target ...types.EventTarget) {
+	// If messaging is disabled, skip all event publishing
+	if !m.isMessagingEnabled() {
+		return
+	}
+
 	targetFlag := m.determineEventTarget(target...)
 
 	if extensionName := m.extractExtensionFromEventName(eventName); extensionName != "" {
 		m.trackEventPublished(extensionName, eventName)
 	}
 
-	// Publish to memory dispatcher
+	// Publish to memory dispatcher if memory target is included
 	if targetFlag&types.EventTargetMemory != 0 {
 		m.eventDispatcher.Publish(eventName, data)
 	}
 
-	// Publish to message queue async
-	if targetFlag&types.EventTargetQueue != 0 && !m.isEventFallbackMode() {
+	// Publish to message queue async if queue target is included and queue is available
+	if targetFlag&types.EventTargetQueue != 0 && m.isQueueAvailable() {
 		go m.publishToQueue(eventName, data)
 	}
 }
 
 // PublishEventWithRetry publishes event with retry
 func (m *Manager) PublishEventWithRetry(eventName string, data any, maxRetries int, target ...types.EventTarget) {
+	// If messaging is disabled, skip all event publishing
+	if !m.isMessagingEnabled() {
+		return
+	}
+
 	targetFlag := m.determineEventTarget(target...)
 
 	if extensionName := m.extractExtensionFromEventName(eventName); extensionName != "" {
 		m.trackEventPublished(extensionName, eventName)
 	}
 
-	// Publish to memory dispatcher
+	// Publish to memory dispatcher if memory target is included
 	if targetFlag&types.EventTargetMemory != 0 {
 		m.eventDispatcher.PublishWithRetry(eventName, data, maxRetries)
 	}
 
-	// Publish to message queue async
-	if targetFlag&types.EventTargetQueue != 0 && !m.isEventFallbackMode() {
+	// Publish to message queue async if queue target is included and queue is available
+	if targetFlag&types.EventTargetQueue != 0 && m.isQueueAvailable() {
 		go m.publishToQueueWithRetry(eventName, data, maxRetries)
 	}
 }
 
 // SubscribeEvent subscribes to events
 func (m *Manager) SubscribeEvent(eventName string, handler func(any), source ...types.EventTarget) {
+	// If messaging is disabled, skip all event subscription
+	if !m.isMessagingEnabled() {
+		return
+	}
+
 	sourceFlag := m.determineEventTarget(source...)
 
 	wrappedHandler := func(data any) {
@@ -61,13 +76,13 @@ func (m *Manager) SubscribeEvent(eventName string, handler func(any), source ...
 		handler(data)
 	}
 
-	// Subscribe to memory dispatcher
+	// Subscribe to memory dispatcher if memory source is included
 	if sourceFlag&types.EventTargetMemory != 0 {
 		m.eventDispatcher.Subscribe(eventName, wrappedHandler)
 	}
 
-	// Subscribe to message queue
-	if sourceFlag&types.EventTargetQueue != 0 && !m.isEventFallbackMode() {
+	// Subscribe to message queue if queue source is included and queue is available
+	if sourceFlag&types.EventTargetQueue != 0 && m.isQueueAvailable() {
 		m.subscribeToQueue(eventName, wrappedHandler)
 	}
 }
@@ -114,16 +129,44 @@ func (m *Manager) GetExtensionSubscriber(name string, subscriberType reflect.Typ
 	return subscriber, nil
 }
 
-// determineEventTarget determines which target to use
+// isMessagingEnabled checks if messaging is enabled in data layer
+func (m *Manager) isMessagingEnabled() bool {
+	return m.data != nil && m.data.IsMessagingEnabled()
+}
+
+// isQueueAvailable checks if external message queues are available
+func (m *Manager) isQueueAvailable() bool {
+	return m.data != nil && m.data.IsQueueAvailable()
+}
+
+// shouldUseMemoryFallback checks if should use memory fallback
+func (m *Manager) shouldUseMemoryFallback() bool {
+	return m.data != nil && m.data.ShouldUseMemoryFallback()
+}
+
+// determineEventTarget determines which target to use based on availability
 func (m *Manager) determineEventTarget(target ...types.EventTarget) types.EventTarget {
 	if len(target) > 0 {
 		return target[0]
 	}
 
-	if m.isEventFallbackMode() {
+	// If messaging is disabled, no targets
+	if !m.isMessagingEnabled() {
+		return 0
+	}
+
+	// If queue is available, use all targets
+	if m.isQueueAvailable() {
+		return types.EventTargetAll
+	}
+
+	// If queue not available but memory fallback is enabled, use memory only
+	if m.shouldUseMemoryFallback() {
 		return types.EventTargetMemory
 	}
-	return types.EventTargetAll
+
+	// No targets available
+	return 0
 }
 
 // extractExtensionFromEventName extracts extension name from event name
@@ -154,6 +197,10 @@ func (m *Manager) isRegisteredExtension(name string) bool {
 
 // publishToQueue publishes single event to queue
 func (m *Manager) publishToQueue(eventName string, data any) {
+	if !m.isQueueAvailable() {
+		return
+	}
+
 	eventData := types.EventData{
 		Time:      time.Now(),
 		Source:    "extension",
@@ -174,6 +221,10 @@ func (m *Manager) publishToQueue(eventName string, data any) {
 
 // publishToQueueWithRetry publishes to queue with retry
 func (m *Manager) publishToQueueWithRetry(eventName string, data any, maxRetries int) {
+	if !m.isQueueAvailable() {
+		return
+	}
+
 	eventData := types.EventData{
 		Time:      time.Now(),
 		Source:    "extension",
@@ -206,6 +257,14 @@ func (m *Manager) publishToQueueWithRetry(eventName string, data any, maxRetries
 
 // subscribeToQueue subscribes to queue events
 func (m *Manager) subscribeToQueue(eventName string, handler func(any)) {
+	if !m.isQueueAvailable() {
+		// If queue not available but memory fallback is enabled, use memory
+		if m.shouldUseMemoryFallback() {
+			m.eventDispatcher.Subscribe(eventName, handler)
+		}
+		return
+	}
+
 	err := m.SubscribeToMessages(eventName, func(data []byte) error {
 		var eventData types.EventData
 		if err := json.Unmarshal(data, &eventData); err != nil {
@@ -218,8 +277,12 @@ func (m *Manager) subscribeToQueue(eventName string, handler func(any)) {
 	})
 
 	if err != nil {
-		logger.Warnf(nil, "Failed to subscribe to queue, using memory: %s", eventName)
-		m.eventDispatcher.Subscribe(eventName, handler)
+		logger.Warnf(nil, "Failed to subscribe to queue: %s", eventName)
+		// Fallback to memory if enabled
+		if m.shouldUseMemoryFallback() {
+			logger.Infof(nil, "Falling back to memory subscription for: %s", eventName)
+			m.eventDispatcher.Subscribe(eventName, handler)
+		}
 	}
 }
 
@@ -227,6 +290,10 @@ func (m *Manager) subscribeToQueue(eventName string, handler func(any)) {
 func (m *Manager) PublishMessage(exchange, routingKey string, body []byte) error {
 	if m.data == nil {
 		return fmt.Errorf("data layer not initialized")
+	}
+
+	if !m.data.IsMessagingEnabled() {
+		return fmt.Errorf("messaging is disabled")
 	}
 
 	// Try RabbitMQ first
@@ -243,6 +310,10 @@ func (m *Manager) PublishMessage(exchange, routingKey string, body []byte) error
 func (m *Manager) SubscribeToMessages(queue string, handler func([]byte) error) error {
 	if m.data == nil {
 		return fmt.Errorf("data layer not initialized")
+	}
+
+	if !m.data.IsMessagingEnabled() {
+		return fmt.Errorf("messaging is disabled")
 	}
 
 	// Try RabbitMQ first
