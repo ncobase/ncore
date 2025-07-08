@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"crypto/md5"
 	"fmt"
 	"mime/multipart"
 	"path"
@@ -26,24 +25,26 @@ const (
 	FileTypeOther   FileType = "other"
 )
 
-// FileHeader contains file metadata
+// FileHeader contains file metadata with improved path handling
 type FileHeader struct {
-	Name     string                `json:"name"`
-	Size     int                   `json:"size"`
-	Path     string                `json:"path"`
-	Type     string                `json:"type"`
-	Ext      string                `json:"ext"`
-	Raw      *multipart.FileHeader `json:"raw"`
-	Metadata any                   `json:"metadata,omitempty"`
+	Name         string                `json:"name"`
+	OriginalName string                `json:"original_name"`
+	Size         int                   `json:"size"`
+	Path         string                `json:"path"`
+	Type         string                `json:"type"`
+	Ext          string                `json:"ext"`
+	Raw          *multipart.FileHeader `json:"raw"`
+	Metadata     any                   `json:"metadata,omitempty"`
 }
 
-// GetFileHeader processes file header and generates unique file name
+// GetFileHeader processes file header and generates unique file name with improved logic
 func GetFileHeader(f *multipart.FileHeader, pathPrefix ...string) *FileHeader {
 	if f == nil {
 		return &FileHeader{
-			Name: "unknown",
-			Path: "unknown",
-			Type: "application/octet-stream",
+			Name:         "unknown",
+			OriginalName: "unknown",
+			Path:         "unknown",
+			Type:         "application/octet-stream",
 		}
 	}
 
@@ -53,24 +54,25 @@ func GetFileHeader(f *multipart.FileHeader, pathPrefix ...string) *FileHeader {
 	file.Size = int(f.Size)
 	file.Type = f.Header.Get("Content-Type")
 	file.Raw = f
+	file.OriginalName = fullName
 
-	// Generate unique file name with better collision resistance
+	// Clean original name without extension
 	originalName := strings.TrimSuffix(fullName, file.Ext)
 	if originalName == "" {
 		originalName = "file"
 	}
 
-	// Create hash of original filename + timestamp for better uniqueness
-	hash := fmt.Sprintf("%x", md5.Sum([]byte(fmt.Sprintf("%s_%d", fullName, time.Now().UnixNano()))))
-	uniqueSuffix := fmt.Sprintf("%d_%s_%s",
-		time.Now().Unix(),
-		nanoid.Number(8),
-		hash[:8])
+	// Clean filename for storage
+	cleanName := cleanFileName(originalName)
 
-	file.Name = fmt.Sprintf("%s_%s", originalName, uniqueSuffix)
+	// Generate unique filename without path - path will be handled by service
+	timestamp := time.Now().Unix()
+	randomID := nanoid.Number(8)
+
+	file.Name = fmt.Sprintf("%s_%d_%s", cleanName, timestamp, randomID)
 	file.Path = fmt.Sprintf("%s%s", file.Name, file.Ext)
 
-	// Add path prefix if provided
+	// Add path prefix if provided (but this should be handled by service layer)
 	if len(pathPrefix) > 0 && pathPrefix[0] != "" {
 		file.Path = path.Join(pathPrefix[0], file.Path)
 	}
@@ -86,6 +88,35 @@ func GetFileHeader(f *multipart.FileHeader, pathPrefix ...string) *FileHeader {
 	return file
 }
 
+// cleanFileName cleans filename for safe storage
+func cleanFileName(name string) string {
+	// Replace unsafe characters
+	name = strings.ReplaceAll(name, " ", "_")
+	name = strings.ReplaceAll(name, "/", "_")
+	name = strings.ReplaceAll(name, "\\", "_")
+	name = strings.ReplaceAll(name, ":", "_")
+	name = strings.ReplaceAll(name, "*", "_")
+	name = strings.ReplaceAll(name, "?", "_")
+	name = strings.ReplaceAll(name, "\"", "_")
+	name = strings.ReplaceAll(name, "<", "_")
+	name = strings.ReplaceAll(name, ">", "_")
+	name = strings.ReplaceAll(name, "|", "_")
+
+	// Remove multiple underscores
+	for strings.Contains(name, "__") {
+		name = strings.ReplaceAll(name, "__", "_")
+	}
+
+	// Trim underscores from start and end
+	name = strings.Trim(name, "_")
+
+	if name == "" {
+		name = "file"
+	}
+
+	return name
+}
+
 // RestoreOriginalFileName extracts original filename from unique filename
 func RestoreOriginalFileName(uniqueName string, withExt ...bool) string {
 	if strings.Contains(uniqueName, "/") {
@@ -96,8 +127,8 @@ func RestoreOriginalFileName(uniqueName string, withExt ...bool) string {
 	nameWithoutExt := strings.TrimSuffix(uniqueName, ext)
 
 	// Find the first underscore which separates original name from unique suffix
-	underscoreIndex := strings.Index(nameWithoutExt, "_")
-	if underscoreIndex == -1 {
+	parts := strings.Split(nameWithoutExt, "_")
+	if len(parts) < 3 {
 		// No unique suffix found, return as is
 		if len(withExt) > 0 && withExt[0] {
 			return uniqueName
@@ -105,7 +136,10 @@ func RestoreOriginalFileName(uniqueName string, withExt ...bool) string {
 		return nameWithoutExt
 	}
 
-	originalName := nameWithoutExt[:underscoreIndex]
+	// Take all parts except the last two (timestamp and random ID)
+	originalParts := parts[:len(parts)-2]
+	originalName := strings.Join(originalParts, "_")
+
 	if len(withExt) > 0 && withExt[0] {
 		return originalName + ext
 	}
