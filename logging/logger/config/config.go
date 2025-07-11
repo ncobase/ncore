@@ -26,7 +26,7 @@ func GetConfig(v *viper.Viper) *Config {
 		return nil
 	}
 
-	indexName := strings.ToLower(v.GetString("app_name") + "-" + v.GetString("run_mode") + "-log")
+	indexName := strings.ToLower(v.GetString("app_name") + "-" + v.GetString("environment") + "-log")
 	if v.IsSet("logger.index_name") && v.GetString("logger.index_name") != "" {
 		indexName = v.GetString("logger.index_name")
 	}

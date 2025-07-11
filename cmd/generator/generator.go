@@ -573,7 +573,7 @@ go build -o %s ./cmd
 	configPath := filepath.Join(basePath, "config.yaml")
 	configContent := fmt.Sprintf(`# Application configuration
 app_name: %s
-run_mode: debug  # debug, release
+environment: debug  # debug, release
 
 # Server configuration
 server:
