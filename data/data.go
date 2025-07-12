@@ -52,3 +52,26 @@ func WithExtensionCollector(collector metrics.ExtensionCollector) Option {
 		}
 	}
 }
+
+// WithSearchConfig sets search configuration
+func WithSearchConfig(searchConfig *config.Search) Option {
+	return func(d *Data) {
+		if d.conf == nil {
+			d.conf = &config.Config{}
+		}
+		d.conf.Search = searchConfig
+	}
+}
+
+// WithIndexPrefix sets custom search index prefix
+func WithIndexPrefix(prefix string) Option {
+	return func(d *Data) {
+		if d.conf == nil {
+			d.conf = &config.Config{}
+		}
+		if d.conf.Search == nil {
+			d.conf.Search = &config.Search{}
+		}
+		d.conf.Search.IndexPrefix = prefix
+	}
+}

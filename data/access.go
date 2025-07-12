@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/ncobase/ncore/data/config"
 	"github.com/ncobase/ncore/data/connection"
 	"github.com/ncobase/ncore/data/search"
 	"github.com/ncobase/ncore/data/search/elastic"
@@ -86,7 +87,6 @@ func (d *Data) GetMongoManager() *connection.MongoManager {
 // initSearchClient initializes search client lazily and safely
 func (d *Data) initSearchClient() {
 	d.searchOnce.Do(func() {
-		// Double-check locking pattern for search client initialization
 		d.mu.RLock()
 		if d.searchClient != nil {
 			d.mu.RUnlock()
@@ -97,20 +97,80 @@ func (d *Data) initSearchClient() {
 		d.mu.Lock()
 		defer d.mu.Unlock()
 
-		// Check again after acquiring write lock
 		if d.searchClient != nil {
 			return
 		}
 
 		if !d.closed {
-			d.searchClient = search.NewClient(
+			var searchConfig *config.Search
+			if d.conf != nil {
+				searchConfig = d.conf.Search
+			}
+
+			d.searchClient = search.NewClientWithConfig(
 				d.getElasticsearchUnsafe(),
 				d.getOpenSearchUnsafe(),
 				d.getMeilisearchUnsafe(),
 				d.collector,
+				searchConfig,
 			)
 		}
 	})
+}
+
+// SetSearchIndexPrefix sets custom index prefix for search operations
+func (d *Data) SetSearchIndexPrefix(prefix string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if d.conf != nil && d.conf.Search != nil {
+		d.conf.Search.IndexPrefix = prefix
+	}
+
+	if d.searchClient != nil {
+		d.searchClient.SetIndexPrefix(prefix)
+	}
+}
+
+// GetSearchIndexPrefix returns current search index prefix
+func (d *Data) GetSearchIndexPrefix() string {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	if d.searchClient != nil {
+		return d.searchClient.GetIndexPrefix()
+	}
+
+	if d.conf != nil && d.conf.Search != nil {
+		return d.conf.Search.IndexPrefix
+	}
+
+	return ""
+}
+
+// GetSearchConfig returns current search configuration
+func (d *Data) GetSearchConfig() *config.Search {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	if d.conf != nil {
+		return d.conf.Search
+	}
+	return nil
+}
+
+// UpdateSearchConfig updates search configuration
+func (d *Data) UpdateSearchConfig(searchConfig *config.Search) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if d.conf != nil {
+		d.conf.Search = searchConfig
+	}
+
+	if d.searchClient != nil {
+		d.searchClient.UpdateSearchConfig(searchConfig)
+	}
 }
 
 // getSearchClient returns initialized search client

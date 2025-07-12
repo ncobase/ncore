@@ -91,9 +91,6 @@ func (l *Logger) Init(c *config.Config) (func(), error) {
 		}
 	}
 
-	// Set the index name for search engines
-	l.indexName = c.IndexName
-
 	// Initialize desensitizer
 	if c.Desensitization != nil {
 		l.desensitizer = NewDesensitizer(c.Desensitization)
@@ -102,10 +99,7 @@ func (l *Logger) Init(c *config.Config) (func(), error) {
 	// Initialize MeiliSearch hook
 	if c.Meilisearch != nil && c.Meilisearch.Host != "" {
 		l.meiliClient = meili.NewMeilisearch(c.Meilisearch.Host, c.Meilisearch.APIKey)
-		l.AddHook(&MeiliSearchHook{
-			client: l.meiliClient,
-			index:  l.indexName,
-		})
+		l.AddHook(NewMeiliSearchHook(l.meiliClient, c))
 	}
 
 	// Initialize Elasticsearch hook
@@ -115,10 +109,7 @@ func (l *Logger) Init(c *config.Config) (func(), error) {
 		if err != nil {
 			return nil, fmt.Errorf("error initializing Elasticsearch client: %w", err)
 		}
-		l.AddHook(&ElasticSearchHook{
-			client: l.esClient,
-			index:  l.indexName,
-		})
+		l.AddHook(NewElasticSearchHook(l.esClient, c))
 	}
 
 	// Initialize OpenSearch hook
@@ -128,14 +119,9 @@ func (l *Logger) Init(c *config.Config) (func(), error) {
 		if err != nil {
 			return nil, fmt.Errorf("error initializing OpenSearch client: %w", err)
 		}
-		l.indexName = c.IndexName
-		l.AddHook(&OpenSearchHook{
-			client: l.osClient,
-			index:  l.indexName,
-		})
+		l.AddHook(NewOpenSearchHook(l.osClient, c))
 	}
 
-	// Return cleanup function
 	return func() {
 		if l.logFile != nil {
 			_ = l.logFile.Close()

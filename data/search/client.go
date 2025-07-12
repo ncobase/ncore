@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ncobase/ncore/data/config"
 	"github.com/ncobase/ncore/data/metrics"
 	"github.com/ncobase/ncore/data/search/elastic"
 	"github.com/ncobase/ncore/data/search/meili"
@@ -21,7 +22,7 @@ var (
 	ErrEngineNotFound    = errors.New("search engine not found")
 )
 
-// Client unified search client
+// Client unified search client with configuration support
 type Client struct {
 	elasticsearch *elastic.Client
 	opensearch    *opensearch.Client
@@ -30,16 +31,45 @@ type Client struct {
 	engine        Engine
 	indexCache    map[string]bool
 	cacheMu       sync.RWMutex
+	indexPrefix   string
+	searchConfig  *config.Search
 }
 
 // NewClient creates new unified search client
 func NewClient(es *elastic.Client, os *opensearch.Client, ms *meili.Client, collector metrics.Collector) *Client {
+	return NewClientWithConfig(es, os, ms, collector, nil)
+}
+
+// NewClientWithPrefix creates new unified search client with index prefix
+func NewClientWithPrefix(es *elastic.Client, os *opensearch.Client, ms *meili.Client, collector metrics.Collector, prefix string) *Client {
+	searchConfig := &config.Search{
+		IndexPrefix:     prefix,
+		DefaultEngine:   "elasticsearch",
+		AutoCreateIndex: true,
+		IndexSettings:   nil,
+	}
+	return NewClientWithConfig(es, os, ms, collector, searchConfig)
+}
+
+// NewClientWithConfig creates new unified search client with search config
+func NewClientWithConfig(es *elastic.Client, os *opensearch.Client, ms *meili.Client, collector metrics.Collector, searchConfig *config.Search) *Client {
+	if searchConfig == nil {
+		searchConfig = &config.Search{
+			IndexPrefix:     "",
+			DefaultEngine:   "elasticsearch",
+			AutoCreateIndex: true,
+			IndexSettings:   nil,
+		}
+	}
+
 	c := &Client{
 		elasticsearch: es,
 		opensearch:    os,
 		meilisearch:   ms,
 		collector:     collector,
 		indexCache:    make(map[string]bool),
+		indexPrefix:   searchConfig.IndexPrefix,
+		searchConfig:  searchConfig,
 	}
 
 	if collector == nil {
@@ -50,12 +80,70 @@ func NewClient(es *elastic.Client, os *opensearch.Client, ms *meili.Client, coll
 	return c
 }
 
-// setEngine determines the engine based on availability
+// SetIndexPrefix sets the index prefix
+func (c *Client) SetIndexPrefix(prefix string) {
+	c.indexPrefix = prefix
+	if c.searchConfig != nil {
+		c.searchConfig.IndexPrefix = prefix
+	}
+	c.cacheMu.Lock()
+	c.indexCache = make(map[string]bool)
+	c.cacheMu.Unlock()
+}
+
+// GetIndexPrefix returns the current index prefix
+func (c *Client) GetIndexPrefix() string {
+	return c.indexPrefix
+}
+
+// GetSearchConfig returns current search configuration
+func (c *Client) GetSearchConfig() *config.Search {
+	return c.searchConfig
+}
+
+// UpdateSearchConfig updates search configuration
+func (c *Client) UpdateSearchConfig(searchConfig *config.Search) {
+	c.searchConfig = searchConfig
+	if searchConfig != nil {
+		c.SetIndexPrefix(searchConfig.IndexPrefix)
+	}
+}
+
+// buildIndexName builds full index name with prefix
+func (c *Client) buildIndexName(index string) string {
+	if c.indexPrefix == "" {
+		return index
+	}
+	return fmt.Sprintf("%s-%s", c.indexPrefix, index)
+}
+
+// setEngine determines the engine based on availability and config
 func (c *Client) setEngine() {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	// Priority:  OpenSearch > Elasticsearch > Meilisearch
+	// Use configured default engine if specified and available
+	if c.searchConfig != nil && c.searchConfig.DefaultEngine != "" {
+		switch c.searchConfig.DefaultEngine {
+		case "elasticsearch":
+			if c.elasticsearch != nil && c.healthElasticsearch(ctx) == nil {
+				c.engine = Elasticsearch
+				return
+			}
+		case "opensearch":
+			if c.opensearch != nil && c.healthOpenSearch(ctx) == nil {
+				c.engine = OpenSearch
+				return
+			}
+		case "meilisearch":
+			if c.meilisearch != nil && c.healthMeilisearch(ctx) == nil {
+				c.engine = Meilisearch
+				return
+			}
+		}
+	}
+
+	// Fallback to priority order
 	if c.opensearch != nil && c.healthOpenSearch(ctx) == nil {
 		c.engine = OpenSearch
 	} else if c.elasticsearch != nil && c.healthElasticsearch(ctx) == nil {
@@ -77,16 +165,20 @@ func (c *Client) Search(ctx context.Context, req *Request) (*Response, error) {
 func (c *Client) SearchWith(ctx context.Context, engine Engine, req *Request) (*Response, error) {
 	start := time.Now()
 
+	fullIndex := c.buildIndexName(req.Index)
+	prefixedReq := *req
+	prefixedReq.Index = fullIndex
+
 	var resp *Response
 	var err error
 
 	switch engine {
 	case Elasticsearch:
-		resp, err = c.searchElasticsearch(ctx, req)
+		resp, err = c.searchElasticsearch(ctx, &prefixedReq)
 	case OpenSearch:
-		resp, err = c.searchOpenSearch(ctx, req)
+		resp, err = c.searchOpenSearch(ctx, &prefixedReq)
 	case Meilisearch:
-		resp, err = c.searchMeilisearch(ctx, req)
+		resp, err = c.searchMeilisearch(ctx, &prefixedReq)
 	default:
 		err = fmt.Errorf("%w: %s", ErrEngineNotFound, engine)
 	}
@@ -115,23 +207,26 @@ func (c *Client) Index(ctx context.Context, req *IndexRequest) error {
 func (c *Client) IndexWith(ctx context.Context, engine Engine, req *IndexRequest) error {
 	start := time.Now()
 
-	// Ensure index exists before indexing
-	if err := c.ensureIndex(ctx, engine, req.Index); err != nil {
-		return fmt.Errorf("failed to ensure index exists: %w", err)
+	fullIndex := c.buildIndexName(req.Index)
+
+	if c.shouldAutoCreateIndex() {
+		if err := c.ensureIndex(ctx, engine, fullIndex); err != nil {
+			return fmt.Errorf("failed to ensure index exists: %w", err)
+		}
 	}
 
 	var err error
 	switch engine {
 	case Elasticsearch:
-		err = c.elasticsearch.IndexDocument(ctx, req.Index, req.DocumentID, req.Document)
+		err = c.elasticsearch.IndexDocument(ctx, fullIndex, req.DocumentID, req.Document)
 	case OpenSearch:
-		err = c.opensearch.IndexDocument(ctx, req.Index, req.DocumentID, req.Document)
+		err = c.opensearch.IndexDocument(ctx, fullIndex, req.DocumentID, req.Document)
 	case Meilisearch:
 		documents := []any{req.Document}
 		if docMap, ok := req.Document.(map[string]any); ok && req.DocumentID != "" {
 			docMap["id"] = req.DocumentID
 		}
-		err = c.meilisearch.IndexDocuments(req.Index, documents)
+		err = c.meilisearch.IndexDocuments(fullIndex, documents)
 	default:
 		err = fmt.Errorf("%w: %s", ErrEngineNotFound, engine)
 	}
@@ -149,15 +244,16 @@ func (c *Client) Delete(ctx context.Context, index, documentID string) error {
 	}
 
 	start := time.Now()
+	fullIndex := c.buildIndexName(index)
 	var err error
 
 	switch c.engine {
 	case Elasticsearch:
-		err = c.elasticsearch.DeleteDocument(ctx, index, documentID)
+		err = c.elasticsearch.DeleteDocument(ctx, fullIndex, documentID)
 	case OpenSearch:
-		err = c.opensearch.DeleteDocument(ctx, index, documentID)
+		err = c.opensearch.DeleteDocument(ctx, fullIndex, documentID)
 	case Meilisearch:
-		err = c.meilisearch.DeleteDocuments(index, documentID)
+		err = c.meilisearch.DeleteDocuments(fullIndex, documentID)
 	default:
 		err = fmt.Errorf("%w: %s", ErrEngineNotFound, c.engine)
 	}
@@ -180,19 +276,22 @@ func (c *Client) BulkIndex(ctx context.Context, index string, documents []any) e
 func (c *Client) BulkIndexWith(ctx context.Context, engine Engine, index string, documents []any) error {
 	start := time.Now()
 
-	// Ensure index exists before bulk indexing
-	if err := c.ensureIndex(ctx, engine, index); err != nil {
-		return fmt.Errorf("failed to ensure index exists: %w", err)
+	fullIndex := c.buildIndexName(index)
+
+	if c.shouldAutoCreateIndex() {
+		if err := c.ensureIndex(ctx, engine, fullIndex); err != nil {
+			return fmt.Errorf("failed to ensure index exists: %w", err)
+		}
 	}
 
 	var err error
 	switch engine {
 	case Elasticsearch:
-		err = c.bulkIndexElasticsearch(ctx, index, documents)
+		err = c.bulkIndexElasticsearch(ctx, fullIndex, documents)
 	case OpenSearch:
-		err = c.opensearch.BulkIndex(ctx, index, documents)
+		err = c.opensearch.BulkIndex(ctx, fullIndex, documents)
 	case Meilisearch:
-		err = c.meilisearch.IndexDocuments(index, documents)
+		err = c.meilisearch.IndexDocuments(fullIndex, documents)
 	default:
 		err = fmt.Errorf("%w: %s", ErrEngineNotFound, engine)
 	}
@@ -210,21 +309,22 @@ func (c *Client) BulkDelete(ctx context.Context, index string, documentIDs []str
 	}
 
 	start := time.Now()
+	fullIndex := c.buildIndexName(index)
 	var err error
 
 	switch c.engine {
 	case Elasticsearch:
-		err = c.bulkDeleteElasticsearch(ctx, index, documentIDs)
+		err = c.bulkDeleteElasticsearch(ctx, fullIndex, documentIDs)
 	case OpenSearch:
 		for _, docID := range documentIDs {
-			if delErr := c.opensearch.DeleteDocument(ctx, index, docID); delErr != nil {
+			if delErr := c.opensearch.DeleteDocument(ctx, fullIndex, docID); delErr != nil {
 				err = delErr
 				break
 			}
 		}
 	case Meilisearch:
 		for _, docID := range documentIDs {
-			if delErr := c.meilisearch.DeleteDocuments(index, docID); delErr != nil {
+			if delErr := c.meilisearch.DeleteDocuments(fullIndex, docID); delErr != nil {
 				err = delErr
 				break
 			}
@@ -237,6 +337,11 @@ func (c *Client) BulkDelete(ctx context.Context, index string, documentIDs []str
 	duration := time.Since(start)
 	c.collectMetrics("bulk_delete", err, duration)
 	return err
+}
+
+// shouldAutoCreateIndex checks if auto index creation is enabled
+func (c *Client) shouldAutoCreateIndex() bool {
+	return c.searchConfig != nil && c.searchConfig.AutoCreateIndex
 }
 
 // GetAvailableEngines returns available engines
@@ -336,7 +441,7 @@ func (c *Client) searchOpenSearch(ctx context.Context, req *Request) (*Response,
 		return nil, errors.New("opensearch client not available")
 	}
 
-	query := c.buildElasticsearchQuery(req) // OpenSearch uses same query format
+	query := c.buildElasticsearchQuery(req)
 	osResp, err := c.opensearch.Search(ctx, req.Index, query)
 	if err != nil {
 		return nil, err
@@ -403,26 +508,27 @@ func (c *Client) searchMeilisearch(ctx context.Context, req *Request) (*Response
 		}
 	}
 
-	total := int64(msResp.EstimatedTotalHits)
 	return &Response{
-		Total: total,
+		Total: int64(msResp.EstimatedTotalHits),
 		Hits:  hits,
 	}, nil
 }
 
-// buildElasticsearchQuery builds Elasticsearch query
+// buildElasticsearchQuery builds Elasticsearch query with config-aware fields
 func (c *Client) buildElasticsearchQuery(req *Request) string {
+	searchableFields := c.getSearchableFields()
+
 	if len(req.Filter) == 0 {
 		return fmt.Sprintf(`{
 			"query": {
 				"multi_match": {
 					"query": "%s",
-					"fields": ["title^2", "content", "details"]
+					"fields": %s
 				}
 			},
 			"from": %d,
 			"size": %d
-		}`, req.Query, req.From, req.Size)
+		}`, req.Query, c.buildFieldsArray(searchableFields), req.From, req.Size)
 	}
 
 	filterQueries := make([]string, 0, len(req.Filter))
@@ -436,7 +542,7 @@ func (c *Client) buildElasticsearchQuery(req *Request) string {
 				"must": {
 					"multi_match": {
 						"query": "%s",
-						"fields": ["title^2", "content", "details"]
+						"fields": %s
 					}
 				},
 				"filter": [%s]
@@ -444,7 +550,24 @@ func (c *Client) buildElasticsearchQuery(req *Request) string {
 		},
 		"from": %d,
 		"size": %d
-	}`, req.Query, strings.Join(filterQueries, ","), req.From, req.Size)
+	}`, req.Query, c.buildFieldsArray(searchableFields), strings.Join(filterQueries, ","), req.From, req.Size)
+}
+
+// getSearchableFields returns searchable fields from config or defaults
+func (c *Client) getSearchableFields() []string {
+	if c.searchConfig != nil && c.searchConfig.IndexSettings != nil && len(c.searchConfig.IndexSettings.SearchableFields) > 0 {
+		return c.searchConfig.IndexSettings.SearchableFields
+	}
+	return []string{"title^2", "content", "details", "name", "description"}
+}
+
+// buildFieldsArray builds JSON array string from fields
+func (c *Client) buildFieldsArray(fields []string) string {
+	quotedFields := make([]string, len(fields))
+	for i, field := range fields {
+		quotedFields[i] = fmt.Sprintf(`"%s"`, field)
+	}
+	return fmt.Sprintf("[%s]", strings.Join(quotedFields, ","))
 }
 
 // bulkIndexElasticsearch indexes documents to Elasticsearch
@@ -572,7 +695,6 @@ func (c *Client) healthMeilisearch(ctx context.Context) error {
 func (c *Client) ensureIndex(ctx context.Context, engine Engine, indexName string) error {
 	cacheKey := fmt.Sprintf("%s:%s", engine, indexName)
 
-	// Check cache first
 	c.cacheMu.RLock()
 	exists := c.indexCache[cacheKey]
 	c.cacheMu.RUnlock()
@@ -581,26 +703,22 @@ func (c *Client) ensureIndex(ctx context.Context, engine Engine, indexName strin
 		return nil
 	}
 
-	// Check if index actually exists
 	indexExists, err := c.checkIndexExists(ctx, engine, indexName)
 	if err != nil {
 		return fmt.Errorf("failed to check index existence: %w", err)
 	}
 
 	if indexExists {
-		// Update cache
 		c.cacheMu.Lock()
 		c.indexCache[cacheKey] = true
 		c.cacheMu.Unlock()
 		return nil
 	}
 
-	// Create index if it doesn't exist
 	if err := c.createIndexForEngine(ctx, engine, indexName); err != nil {
 		return fmt.Errorf("failed to create index: %w", err)
 	}
 
-	// Update cache on success
 	c.cacheMu.Lock()
 	c.indexCache[cacheKey] = true
 	c.cacheMu.Unlock()
@@ -676,10 +794,8 @@ func (c *Client) indexExistsMeilisearch(ctx context.Context, indexName string) (
 		return false, errors.New("meilisearch client is nil")
 	}
 
-	// Try to get index info - if it fails, index doesn't exist
 	_, err := client.Index(indexName).GetStats()
 	if err != nil {
-		// Check if it's a "index not found" error
 		if strings.Contains(err.Error(), "index_not_found") ||
 			strings.Contains(err.Error(), "not found") {
 			return false, nil
@@ -701,29 +817,8 @@ func (c *Client) createElasticsearchIndex(ctx context.Context, indexName string)
 		return errors.New("elasticsearch client is nil")
 	}
 
-	// Create index with default mapping
-	mapping := `{
-		"settings": {
-			"number_of_shards": 1,
-			"number_of_replicas": 0,
-			"refresh_interval": "1s"
-		},
-		"mappings": {
-			"properties": {
-				"id": {"type": "keyword"},
-				"user_id": {"type": "keyword"},
-				"type": {"type": "keyword"},
-				"title": {"type": "text"},
-				"content": {"type": "text"},
-				"details": {"type": "text"},
-				"metadata": {"type": "object"},
-				"created_at": {"type": "long"},
-				"updated_at": {"type": "long"}
-			}
-		}
-	}`
-
-	createRes, err := client.Indices.Create(indexName, client.Indices.Create.WithBody(strings.NewReader(mapping)))
+	settings := c.buildElasticsearchSettings()
+	createRes, err := client.Indices.Create(indexName, client.Indices.Create.WithBody(strings.NewReader(settings)))
 	if err != nil {
 		return fmt.Errorf("failed to create elasticsearch index: %w", err)
 	}
@@ -742,29 +837,8 @@ func (c *Client) createOpenSearchIndex(ctx context.Context, indexName string) er
 		return errors.New("opensearch client not available")
 	}
 
-	// Create index with default mapping
-	mapping := `{
-		"settings": {
-			"number_of_shards": 1,
-			"number_of_replicas": 0,
-			"refresh_interval": "1s"
-		},
-		"mappings": {
-			"properties": {
-				"id": {"type": "keyword"},
-				"user_id": {"type": "keyword"},
-				"type": {"type": "keyword"},
-				"title": {"type": "text"},
-				"content": {"type": "text"},
-				"details": {"type": "text"},
-				"metadata": {"type": "object"},
-				"created_at": {"type": "long"},
-				"updated_at": {"type": "long"}
-			}
-		}
-	}`
-
-	return c.opensearch.CreateIndex(ctx, indexName, mapping)
+	settings := c.buildElasticsearchSettings()
+	return c.opensearch.CreateIndex(ctx, indexName, settings)
 }
 
 // createMeilisearchIndex creates Meilisearch index
@@ -778,8 +852,6 @@ func (c *Client) createMeilisearchIndex(ctx context.Context, indexName string) e
 		return errors.New("meilisearch client is nil")
 	}
 
-	// For Meilisearch, we create index by indexing a dummy document
-	// This is because Meilisearch creates indexes automatically when documents are added
 	dummyDoc := map[string]any{
 		"id":    "init_doc_" + indexName,
 		"_init": true,
@@ -791,30 +863,94 @@ func (c *Client) createMeilisearchIndex(ctx context.Context, indexName string) e
 		return fmt.Errorf("failed to create meilisearch index: %w", err)
 	}
 
-	// Wait a bit for index creation and then delete the dummy document
 	time.Sleep(100 * time.Millisecond)
 	_ = c.meilisearch.DeleteDocuments(indexName, "init_doc_"+indexName)
 
-	// Configure searchable attributes and other settings
 	index := client.Index(indexName)
 
-	// Set searchable attributes
-	_, err = index.UpdateSearchableAttributes(&[]string{
-		"title", "content", "details", "type", "user_id",
-	})
+	// Configure index settings from config
+	searchableFields := c.getSearchableFields()
+	_, err = index.UpdateSearchableAttributes(&searchableFields)
 	if err != nil {
-		// Log warning but don't fail - index is still usable
 		fmt.Printf("Warning: failed to set searchable attributes for meilisearch index %s: %v\n", indexName, err)
 	}
 
-	// Set filterable attributes
-	_, err = index.UpdateFilterableAttributes(&[]string{
-		"id", "user_id", "type", "created_at", "updated_at",
-	})
+	filterableFields := c.getFilterableFields()
+	_, err = index.UpdateFilterableAttributes(&filterableFields)
 	if err != nil {
-		// Log warning but don't fail
 		fmt.Printf("Warning: failed to set filterable attributes for meilisearch index %s: %v\n", indexName, err)
 	}
 
 	return nil
+}
+
+// buildElasticsearchSettings builds Elasticsearch/OpenSearch index settings
+func (c *Client) buildElasticsearchSettings() string {
+	shards := 1
+	replicas := 0
+	refreshInterval := "1s"
+	searchableFields := c.getSearchableFields()
+	filterableFields := c.getFilterableFields()
+
+	if c.searchConfig != nil && c.searchConfig.IndexSettings != nil {
+		if c.searchConfig.IndexSettings.Shards > 0 {
+			shards = c.searchConfig.IndexSettings.Shards
+		}
+		if c.searchConfig.IndexSettings.Replicas >= 0 {
+			replicas = c.searchConfig.IndexSettings.Replicas
+		}
+		if c.searchConfig.IndexSettings.RefreshInterval != "" {
+			refreshInterval = c.searchConfig.IndexSettings.RefreshInterval
+		}
+	}
+
+	// Build properties for searchable and filterable fields
+	properties := make(map[string]string)
+
+	// Add searchable fields as text fields
+	for _, field := range searchableFields {
+		fieldName := strings.TrimSuffix(field, "^2") // Remove boost notation
+		properties[fieldName] = `{"type": "text"}`
+	}
+
+	// Add filterable fields as keyword fields
+	for _, field := range filterableFields {
+		if field == "created_at" || field == "updated_at" {
+			properties[field] = `{"type": "long"}`
+		} else {
+			properties[field] = `{"type": "keyword"}`
+		}
+	}
+
+	// Build properties string
+	var propsBuilder strings.Builder
+	i := 0
+	for field, mapping := range properties {
+		if i > 0 {
+			propsBuilder.WriteString(",")
+		}
+		propsBuilder.WriteString(fmt.Sprintf(`"%s": %s`, field, mapping))
+		i++
+	}
+
+	return fmt.Sprintf(`{
+		"settings": {
+			"number_of_shards": %d,
+			"number_of_replicas": %d,
+			"refresh_interval": "%s"
+		},
+		"mappings": {
+			"properties": {
+				%s
+			}
+		}
+	}`, shards, replicas, refreshInterval, propsBuilder.String())
+}
+
+// getFilterableFields returns filterable fields from config or defaults
+func (c *Client) getFilterableFields() []string {
+	if c.searchConfig != nil && c.searchConfig.IndexSettings != nil && len(c.searchConfig.IndexSettings.FilterableFields) > 0 {
+		return c.searchConfig.IndexSettings.FilterableFields
+	}
+	return []string{"id", "user_id", "type", "status", "created_at", "updated_at"}
 }
