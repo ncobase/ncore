@@ -3,8 +3,10 @@ package version
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -27,6 +29,9 @@ var (
 
 	// GoVersion is the go version used to build
 	GoVersion = "unknown"
+
+	// Flag variables
+	showVersion bool
 )
 
 // Info contains version information
@@ -36,6 +41,18 @@ type Info struct {
 	Revision  string `json:"revision"`
 	BuiltAt   string `json:"builtAt"`
 	GoVersion string `json:"goVersion"`
+}
+
+func init() {
+	flag.BoolVar(&showVersion, "version", false, "show version information")
+}
+
+// Flags handle version flags
+func Flags() {
+	if showVersion {
+		Print()
+		os.Exit(0)
+	}
 }
 
 // GetVersionInfo returns version information with runtime git info

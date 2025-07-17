@@ -84,7 +84,7 @@ func (m *Manager) checkInfrastructure(ctx context.Context) error {
 
 	// Test messaging if enabled
 	if m.data != nil && m.data.IsMessagingEnabled() {
-		if !m.data.IsMessagingAvailable() {
+		if !m.data.IsQueueAvailable() {
 			logger.Warnf(nil, "Messaging enabled but not available")
 		}
 	}

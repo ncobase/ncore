@@ -61,15 +61,22 @@ func (c *Config) IsProd(envs ...string) bool {
 }
 
 func init() {
-	flag.StringVar(&path, "conf", "", "e.g: bin ./config.yaml")
-	v = viper.New()
+	flag.StringVar(&path, "conf", "", fmt.Sprintf("e.g: %s -conf ./config.yaml", os.Args[0]))
 }
 
 // Init initializes and loads the configuration.
 func Init() (cfg *Config, err error) {
+	// Initialize viper instance
+	v = viper.New()
+
+	// Ensure configuration is loaded only once using sync.Once
 	once.Do(func() {
 		cfg, err = loadConfiguration()
+		if err != nil {
+			err = fmt.Errorf("failed to load configuration: %w", err)
+		}
 	})
+
 	return cfg, err
 }
 
@@ -93,7 +100,6 @@ func BindConfigToContext(ctx context.Context) context.Context {
 
 // loadConfiguration loads the configuration from the file and sets it globally.
 func loadConfiguration() (*Config, error) {
-	flag.Parse()
 	cfg, err := LoadConfig(path)
 	if err != nil {
 		return nil, fmt.Errorf("error loading config: %w", err)
