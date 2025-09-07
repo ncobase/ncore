@@ -83,7 +83,6 @@ func CompareValues(a, b any) int {
 		if ok {
 			return CompareString(aVal, bVal)
 		}
-		// TODO: Add more type comparisons as needed
 	}
 	// Consider them equal if types don't match or are unsupported
 	return 0

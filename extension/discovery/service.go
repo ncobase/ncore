@@ -83,7 +83,7 @@ func (sc *ServiceCache) Clear() {
 	sc.metrics.evictions.Add(evicted)
 }
 
-// GetStats returns comprehensive cache statistics
+// GetStats returns cache statistics
 func (sc *ServiceCache) GetStats() map[string]any {
 	sc.mu.RLock()
 	defer sc.mu.RUnlock()
@@ -321,7 +321,7 @@ func (sd *ServiceDiscovery) ClearCache() {
 	sd.serviceCache.Clear()
 }
 
-// GetCacheStats returns comprehensive cache and discovery metrics
+// GetCacheStats returns cache and discovery metrics
 func (sd *ServiceDiscovery) GetCacheStats() map[string]any {
 	cacheStats := sd.serviceCache.GetStats()
 

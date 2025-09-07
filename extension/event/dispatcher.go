@@ -162,7 +162,7 @@ func (d *Dispatcher) wrapHandler(handler func(any)) func(any) {
 	}
 }
 
-// GetMetrics returns comprehensive metrics
+// GetMetrics returns metrics
 func (d *Dispatcher) GetMetrics() map[string]any {
 	lastEventTime := d.metrics.lastEventTime.Load().(time.Time)
 	published := d.metrics.published.Load()

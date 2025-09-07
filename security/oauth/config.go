@@ -366,7 +366,7 @@ func GetProviderInfo(provider string) *ProviderInfo {
 		},
 		"wechat": {
 			Name:               "wechat",
-			DisplayName:        "微信",
+			DisplayName:        "WeChat",
 			Icon:               "wechat",
 			SupportedScopes:    []string{"snsapi_login", "snsapi_userinfo"},
 			RequiredScopes:     []string{"snsapi_login"},
@@ -376,7 +376,7 @@ func GetProviderInfo(provider string) *ProviderInfo {
 		},
 		"alipay": {
 			Name:               "alipay",
-			DisplayName:        "支付宝",
+			DisplayName:        "Alipay",
 			Icon:               "alipay",
 			SupportedScopes:    []string{"auth_user", "auth_base"},
 			RequiredScopes:     []string{"auth_user"},
@@ -386,7 +386,7 @@ func GetProviderInfo(provider string) *ProviderInfo {
 		},
 		"baidu": {
 			Name:               "baidu",
-			DisplayName:        "百度",
+			DisplayName:        "Baidu",
 			Icon:               "baidu",
 			SupportedScopes:    []string{"basic", "netdisk"},
 			RequiredScopes:     []string{"basic"},
@@ -396,7 +396,7 @@ func GetProviderInfo(provider string) *ProviderInfo {
 		},
 		"weibo": {
 			Name:               "weibo",
-			DisplayName:        "微博",
+			DisplayName:        "Weibo",
 			Icon:               "weibo",
 			SupportedScopes:    []string{"email", "direct_messages_read"},
 			RequiredScopes:     []string{"email"},

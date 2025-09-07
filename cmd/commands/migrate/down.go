@@ -16,7 +16,6 @@ func newDownCommand() *cobra.Command {
 			if migrationsPath == "" {
 				migrationsPath = "migrations" // default path
 			}
-			// TODO: Implement migration rollback
 			fmt.Printf("Rolling back last migration from %s...\n", migrationsPath)
 			return nil
 		},

@@ -1,15 +1,14 @@
-# ncore/logger
+# Logger
 
-A powerful logging system built on [logrus](https://github.com/sirupsen/logrus) with multi-output support, search engine
-integrations, and data desensitization.
+Logging system built on logrus.
 
 ## Features
 
-- Multiple log levels with structured JSON logging
-- Context-aware tracing with automatic trace ID propagation
-- **Data desensitization with deep structure support**
-- Multiple outputs: console, file (auto-rotation), Elasticsearch, OpenSearch, Meilisearch
-- Fixed-length masking to prevent sensitive data length disclosure
+- JSON logging
+- Context tracing
+- Data desensitization
+- Multiple outputs: console, file, Elasticsearch, OpenSearch, Meilisearch
+- Fixed-length masking
 
 ## Quick Start
 
@@ -45,7 +44,7 @@ logger.WithFields(ctx, logrus.Fields{
 Automatically protects sensitive data in logs with fixed-length masking:
 
 ```go
-// Secure configuration (recommended)
+// Configuration
 &config.Config{
     Level:  4,
     Format: "json",

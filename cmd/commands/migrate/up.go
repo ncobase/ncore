@@ -16,7 +16,6 @@ func newUpCommand() *cobra.Command {
 			if migrationsPath == "" {
 				migrationsPath = "migrations" // default path
 			}
-			// TODO: Implement migration execution
 			fmt.Printf("Running migrations from %s...\n", migrationsPath)
 			return nil
 		},

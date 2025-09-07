@@ -1,62 +1,45 @@
 # NCore
 
-> A set of reusable components for Go applications.
+Go application components library.
 
 ## Features
 
-- Extensible modular architecture
-  - Core domain and business domain module development
-  - Plugin system for feature extensions
-  - Event-driven module communication
-- Universal proxy system
-  - Platform API integration
-  - Third-party service adapters
+- Modular architecture
+  - Core and business modules
+  - Plugin system
+  - Event-driven communication
+- Proxy system
+  - API integration
+  - Service adapters
   - Protocol transformation
-- Comprehensive business logic helpers
-- Flexible configuration management
-- Secure authentication (JWT, OAuth)
-- Multiple database support
+- Business logic helpers
+- Configuration management
+- Authentication (JWT, OAuth)
+- Database support
 - Search engine integrations
-- File storage solutions
+- File storage
 
 ## Installation
 
 ```bash
-# Install the latest version
 go get github.com/ncobase/ncore
-
-# Install a specific version
 go get github.com/ncobase/ncore@v1.0.0
 ```
 
 ## Quick Start
 
 ```bash
-# Install the CLI tool
 go install github.com/ncobase/ncore/cmd@latest
-
-# View available commands and options
 ncore --help
-
-# Start with example project
 ncore create example --standalone
 ```
 
 ## Code Generation
 
-Provides a powerful code generation tool to scaffold extensions and applications:
-
 ```bash
-# Create a core extension
 ncore create core auth-service
-
-# Create with cmd directory (extension + executable)
 ncore create core auth-service --with-cmd
-
-# Create standalone application
 ncore create core auth-service --standalone
-
-# Additional options
 ncore create business payment --use-mongo --with-test
 ```
 
@@ -114,12 +97,12 @@ ncore create business payment --use-mongo --with-test
 
 ## Dependencies
 
-- Go 1.21 or higher
+Go 1.21+
 
 ## Support
 
-- Issue Tracker: [https://github.com/ncobase/ncore/issues](https://github.com/ncobase/ncore/issues)
+[Issues](https://github.com/ncobase/ncore/issues)
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+Apache License 2.0

@@ -549,7 +549,7 @@ func parseQueryOptions(c *gin.Context) (*metrics.QueryOptions, error) {
 	return opts, nil
 }
 
-// buildSystemHealth builds comprehensive system health status
+// buildSystemHealth builds system health status
 func (m *Manager) buildSystemHealth(ctx context.Context) map[string]any {
 	health := map[string]any{
 		"status":     "healthy",

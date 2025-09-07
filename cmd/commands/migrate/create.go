@@ -28,11 +28,11 @@ func newCreateCommand() *cobra.Command {
 
 			content := fmt.Sprintf(`-- migrate:up
 
--- TODO: Add your UP migration SQL here
+
 
 -- migrate:down
 
--- TODO: Add your DOWN migration SQL here
+
 `)
 
 			if err := utils.EnsureDir(migrationsPath); err != nil {
