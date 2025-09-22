@@ -1,55 +1,78 @@
 # NCore
 
-Go application components library.
+A comprehensive Go application components library for building modern, scalable applications.
 
 ## Features
 
-- Modular architecture
+- **Modular Architecture**
   - Core and business modules
   - Plugin system
   - Event-driven communication
-- Proxy system
-  - API integration
-  - Service adapters
-  - Protocol transformation
-- Business logic helpers
-- Configuration management
-- Authentication (JWT, OAuth)
-- Database support
-- Search engine integrations
-- File storage
+- **Rich Integrations**
+  - Database support (PostgreSQL, MySQL, MongoDB, etc.)
+  - Search engines (Elasticsearch, OpenSearch, Meilisearch)
+  - Message queues (RabbitMQ, Kafka, Redis)
+  - Storage solutions (AWS S3, cloud storage)
+- **Security & Authentication**
+  - JWT and OAuth utilities
+  - Encryption and crypto utilities
+  - Security middleware
+- **Observability**
+  - OpenTelemetry integration
+  - Logging and monitoring
+  - Error tracking
 
 ## Installation
 
 ```bash
 go get github.com/ncobase/ncore
-go get github.com/ncobase/ncore@v1.0.0
 ```
 
 ## Quick Start
 
-```bash
-go install github.com/ncobase/ncore/cmd@latest
-ncore --help
-ncore create example --standalone
+```go
+package main
+
+import (
+    "github.com/ncobase/ncore/config"
+    "github.com/ncobase/ncore/data/databases"
+    "github.com/ncobase/ncore/security/jwt"
+)
+
+func main() {
+    // Load configuration
+    cfg, err := config.LoadConfig("config.yaml")
+    if err != nil {
+        panic(err)
+    }
+
+    // Initialize database
+    db, err := databases.NewPostgreSQL(cfg.Database.DSN)
+    if err != nil {
+        panic(err)
+    }
+
+    // Create JWT manager
+    jwtManager := jwt.NewManager(cfg.Security.JWTSecret)
+}
 ```
 
 ## Code Generation
 
+For scaffolding new projects and components, use the separate CLI tool:
+
 ```bash
-ncore create core auth-service
-ncore create core auth-service --with-cmd
-ncore create core auth-service --standalone
-ncore create business payment --use-mongo --with-test
+# Install CLI tool
+go install github.com/ncobase/cli@latest
+
+# Generate new components
+nco create core auth-service
+nco create business payment --use-mongo --with-test
 ```
 
-## Structure
+## Library Structure
 
 ```plaintext
-├── cmd/               # Application entry points and code generation
-│   ├── commands/      # Command-line tools
-│   ├── generator/     # Code generation utilities
-│   └── main.go        # Main application entry point
 ├── concurrency/       # Concurrency management tools
 │   └── worker/        # Worker pool implementation
 ├── config/            # Configuration management
@@ -95,9 +118,33 @@ ncore create business payment --use-mongo --with-test
 └── version/           # Version information
 ```
 
-## Dependencies
+## Core Components
 
-Go 1.21+
+### Database Support
+
+- **PostgreSQL**: Full-featured support with connection pooling
+- **MySQL**: High-performance MySQL integration
+- **MongoDB**: Document database support
+- **SQLite**: Embedded database for development/testing
+- **Neo4j**: Graph database integration
+
+### Search Engines
+
+- **Elasticsearch**: Full-text search and analytics
+- **OpenSearch**: Open-source search and analytics
+- **Meilisearch**: Fast, typo-tolerant search
+
+### Messaging Systems
+
+- **RabbitMQ**: Message queuing and pub/sub
+- **Kafka**: Event streaming platform
+- **Redis**: Caching and real-time messaging
+
+### Security Features
+
+- **JWT**: Token generation and validation
+- **OAuth**: Multiple provider integration
+- **Cryptography**: Encryption, hashing, signing utilities
 
 ## Support
 
@@ -105,4 +152,4 @@ Go 1.21+
 
 ## License
 
-Apache License 2.0
+See [LICENSE](LICENSE) file for details.
