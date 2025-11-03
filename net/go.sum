@@ -1,0 +1,7 @@
+github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
+github.com/google/go-cmp v0.7.0/go.mod h1:pXiqmnSA92OHEEa9HXL2W4E7lf9JzCmGVUdgjX3N/iU=
+github.com/ncobase/ncore/ecode v0.0.0-20251022025300-781956ac0776 h1:cIxcUBxiMQ+ASLE8KYGlUqA2bmfd7K7Re9zYzUXadJg=
+github.com/ncobase/ncore/ecode v0.0.0-20251022025300-781956ac0776/go.mod h1:UCiP8yYS6XLoX4bzKsrRtvOr/VmaiaCeDYsymsEHhqM=
+github.com/ncobase/ncore/utils v0.0.0-20251022025300-781956ac0776 h1:hJ1hWJpnHtolY+8aGmv+LQY5KZ3CrLr1hDBccOG+51c=
+github.com/ncobase/ncore/utils v0.0.0-20251022025300-781956ac0776/go.mod h1:qy9llDF9ro4oAPM2eA1Hzs4Wu120yMJ3ux4MhMEG3Zk=
+google.golang.org/protobuf v1.36.10 h1:AYd7cD/uASjIL6Q9LiTjz8JLcrh/88q5UObnmY3aOOE=

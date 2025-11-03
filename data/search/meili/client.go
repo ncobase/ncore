@@ -70,7 +70,13 @@ func (c *Client) AddDocuments(index string, documents any, primaryKey ...string)
 		docs = []any{documents}
 	}
 
-	_, err := c.client.Index(index).AddDocuments(docs, primaryKey...)
+	// Convert variadic primaryKey to *string
+	var pk *string
+	if len(primaryKey) > 0 && primaryKey[0] != "" {
+		pk = &primaryKey[0]
+	}
+
+	_, err := c.client.Index(index).AddDocuments(docs, pk)
 	if err != nil {
 		return fmt.Errorf("meilisearch add documents error: %v", err)
 	}
@@ -99,7 +105,13 @@ func (c *Client) UpdateDocuments(index string, documents any, primaryKey ...stri
 		docs = []any{documents}
 	}
 
-	_, err := c.client.Index(index).UpdateDocuments(docs, primaryKey...)
+	// Convert variadic primaryKey to *string
+	var pk *string
+	if len(primaryKey) > 0 && primaryKey[0] != "" {
+		pk = &primaryKey[0]
+	}
+
+	_, err := c.client.Index(index).UpdateDocuments(docs, pk)
 	if err != nil {
 		return fmt.Errorf("meilisearch update documents error: %v", err)
 	}
@@ -126,7 +138,13 @@ func (c *Client) AddDocumentsInBatches(index string, documents any, batchSize in
 		return fmt.Errorf("unsupported document type for batch operation: %T", documents)
 	}
 
-	_, err := c.client.Index(index).AddDocumentsInBatches(docs, batchSize, primaryKey...)
+	// Convert variadic primaryKey to *string
+	var pk *string
+	if len(primaryKey) > 0 && primaryKey[0] != "" {
+		pk = &primaryKey[0]
+	}
+
+	_, err := c.client.Index(index).AddDocumentsInBatches(docs, batchSize, pk)
 	if err != nil {
 		return fmt.Errorf("meilisearch add documents in batches error: %v", err)
 	}
@@ -153,7 +171,13 @@ func (c *Client) UpdateDocumentsInBatches(index string, documents any, batchSize
 		return fmt.Errorf("unsupported document type for batch operation: %T", documents)
 	}
 
-	_, err := c.client.Index(index).UpdateDocumentsInBatches(docs, batchSize, primaryKey...)
+	// Convert variadic primaryKey to *string
+	var pk *string
+	if len(primaryKey) > 0 && primaryKey[0] != "" {
+		pk = &primaryKey[0]
+	}
+
+	_, err := c.client.Index(index).UpdateDocumentsInBatches(docs, batchSize, pk)
 	if err != nil {
 		return fmt.Errorf("meilisearch update documents in batches error: %v", err)
 	}
@@ -334,7 +358,12 @@ func (c *Client) UpdateIndex(indexUID, primaryKey string) (*meilisearch.TaskInfo
 		return nil, errors.New("meilisearch client is nil, cannot update index")
 	}
 
-	taskInfo, err := c.client.Index(indexUID).UpdateIndex(primaryKey)
+	// Create UpdateIndexRequestParams with the primary key
+	params := &meilisearch.UpdateIndexRequestParams{
+		PrimaryKey: primaryKey,
+	}
+
+	taskInfo, err := c.client.Index(indexUID).UpdateIndex(params)
 	if err != nil {
 		return nil, fmt.Errorf("meilisearch update index error: %v", err)
 	}

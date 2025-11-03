@@ -495,16 +495,23 @@ func (c *Client) searchMeilisearch(ctx context.Context, req *Request) (*Response
 
 	hits := make([]Hit, len(msResp.Hits))
 	for i, hit := range msResp.Hits {
-		if hitMap, ok := hit.(map[string]any); ok {
-			var id string
-			if idVal, exists := hitMap["id"]; exists {
-				id = fmt.Sprintf("%v", idVal)
+		// Convert hit (map[string]json.RawMessage) to map[string]any
+		hitMap := make(map[string]any)
+		for key, rawValue := range hit {
+			var value any
+			if err := json.Unmarshal(rawValue, &value); err == nil {
+				hitMap[key] = value
 			}
-			hits[i] = Hit{
-				ID:     id,
-				Score:  1.0,
-				Source: hitMap,
-			}
+		}
+
+		var id string
+		if idVal, exists := hitMap["id"]; exists {
+			id = fmt.Sprintf("%v", idVal)
+		}
+		hits[i] = Hit{
+			ID:     id,
+			Score:  1.0,
+			Source: hitMap,
 		}
 	}
 
@@ -875,7 +882,12 @@ func (c *Client) createMeilisearchIndex(ctx context.Context, indexName string) e
 		fmt.Printf("Warning: failed to set searchable attributes for meilisearch index %s: %v\n", indexName, err)
 	}
 
-	filterableFields := c.getFilterableFields()
+	filterableFieldsStr := c.getFilterableFields()
+	// Convert []string to []interface{} for UpdateFilterableAttributes
+	filterableFields := make([]interface{}, len(filterableFieldsStr))
+	for i, field := range filterableFieldsStr {
+		filterableFields[i] = field
+	}
 	_, err = index.UpdateFilterableAttributes(&filterableFields)
 	if err != nil {
 		fmt.Printf("Warning: failed to set filterable attributes for meilisearch index %s: %v\n", indexName, err)

@@ -4,28 +4,43 @@ A comprehensive Go application components library for building modern, scalable 
 
 ## Features
 
-- **Modular Architecture**
-  - Core and business modules
-  - Plugin system
-  - Event-driven communication
-- **Rich Integrations**
-  - Database support (PostgreSQL, MySQL, MongoDB, etc.)
-  - Search engines (Elasticsearch, OpenSearch, Meilisearch)
-  - Message queues (RabbitMQ, Kafka, Redis)
-  - Storage solutions (AWS S3, cloud storage)
-- **Security & Authentication**
-  - JWT and OAuth utilities
-  - Encryption and crypto utilities
-  - Security middleware
-- **Observability**
-  - OpenTelemetry integration
-  - Logging and monitoring
-  - Error tracking
+- **Modular Architecture**: Import only the modules you need
+- **Rich Integrations**: Database, search, messaging, and storage solutions
+- **Security & Authentication**: JWT, OAuth, encryption utilities
+- **Observability**: OpenTelemetry, logging, and monitoring
+
+## Multi-Module Architecture
+
+NCore uses a **multi-module architecture** where each sub-package is an independent Go module, providing minimal dependencies and independent versioning.
+
+### Available Modules
+
+```text
+github.com/ncobase/ncore/concurrency    - Concurrency utilities
+github.com/ncobase/ncore/config         - Configuration management
+github.com/ncobase/ncore/consts         - Constants
+github.com/ncobase/ncore/ctxutil        - Context utilities
+github.com/ncobase/ncore/data           - Data layer (DB, cache, search)
+github.com/ncobase/ncore/ecode          - Error codes
+github.com/ncobase/ncore/extension      - Extension system
+github.com/ncobase/ncore/logging        - Logging
+github.com/ncobase/ncore/messaging      - Message queue
+github.com/ncobase/ncore/net            - Network utilities
+github.com/ncobase/ncore/security       - Security features
+github.com/ncobase/ncore/types          - Common types
+github.com/ncobase/ncore/utils          - Utility functions
+github.com/ncobase/ncore/validation     - Validation
+github.com/ncobase/ncore/version        - Version info
+```
 
 ## Installation
 
+Import only the modules you need:
+
 ```bash
-go get github.com/ncobase/ncore
+go get github.com/ncobase/ncore/config
+go get github.com/ncobase/ncore/data
+go get github.com/ncobase/ncore/security
 ```
 
 ## Quick Start
@@ -35,8 +50,7 @@ package main
 
 import (
     "github.com/ncobase/ncore/config"
-    "github.com/ncobase/ncore/data/databases"
-    "github.com/ncobase/ncore/security/jwt"
+    "github.com/ncobase/ncore/logging"
 )
 
 func main() {
@@ -46,109 +60,40 @@ func main() {
         panic(err)
     }
 
-    // Initialize database
-    db, err := databases.NewPostgreSQL(cfg.Database.DSN)
-    if err != nil {
-        panic(err)
-    }
-
-    // Create JWT manager
-    jwtManager := jwt.NewManager(cfg.Security.JWTSecret)
+    // Initialize logger
+    logger := logging.NewLogger(cfg.Logging)
+    logger.Info("Application started")
 }
 ```
 
-## Code Generation
-
-For scaffolding new projects and components, use the separate CLI tool:
+## Development
 
 ```bash
-# Install CLI tool
-go install github.com/ncobase/cli@latest
+# Clone the repository
+git clone https://github.com/ncobase/ncore.git
+cd ncore
 
-# Generate new components
+# Sync dependencies
+go work sync
+
+# Run tests
+bash scripts/test.sh
+```
+
+## Documentation
+
+- [DEVELOPMENT.md](DEVELOPMENT.md) - Development guide
+- [MODULES.md](MODULES.md) - Multi-module architecture explanation
+
+## Code Generation
+
+For scaffolding new projects and components, use the CLI tool:
+
+```bash
+go install github.com/ncobase/cli@latest
 nco create core auth-service
 nco create business payment --use-mongo --with-test
 ```
-
-## Library Structure
-
-```plaintext
-├── concurrency/       # Concurrency management tools
-│   └── worker/        # Worker pool implementation
-├── config/            # Configuration management
-├── consts/            # Constant definitions
-├── ctxutil/           # Context utilities and helpers
-├── data/              # Data access and management
-│   ├── config/        # Data source configurations
-│   ├── connection/    # Connection management for data sources
-│   ├── databases/     # Database specific implementations
-│   ├── messaging/     # Data messaging implementations
-│   ├── paging/        # Pagination utilities
-│   ├── search/        # Search engine integrations
-│   └── storage/       # File storage solutions
-├── ecode/             # Error codes and error handling
-├── extension/         # Extension system
-│   ├── discovery/     # Service discovery
-│   ├── event/         # Event handling
-│   ├── manager/       # Extension management
-│   ├── plugin/        # Plugin system
-│   └── types/         # Extension system types and interfaces
-├── logging/           # Logging and monitoring
-│   ├── logger/        # Logging utilities
-│   ├── monitor/       # System monitoring
-│   └── observes/      # Observability tools
-├── messaging/         # Messaging services
-│   ├── email/         # Email functionality
-│   └── queue/         # Queue management
-├── net/               # Network utilities
-│   ├── cookie/        # Cookie handling
-│   └── resp/          # HTTP responses
-├── security/          # Security utilities
-│   ├── crypto/        # Encryption utilities
-│   ├── jwt/           # JWT handling
-│   └── oauth/         # OAuth utilities
-├── types/             # Common types and type utilities
-├── utils/             # Utility functions
-│   ├── nanoid/        # ID generation
-│   ├── slug/          # URL slugs
-│   └── uuid/          # UUID utilities
-├── validation/        # Validation utilities
-│   ├── expression/    # Expression evaluation and parsing
-│   └── validator/     # Validation tools
-└── version/           # Version information
-```
-
-## Core Components
-
-### Database Support
-
-- **PostgreSQL**: Full-featured support with connection pooling
-- **MySQL**: High-performance MySQL integration
-- **MongoDB**: Document database support
-- **SQLite**: Embedded database for development/testing
-- **Neo4j**: Graph database integration
-
-### Search Engines
-
-- **Elasticsearch**: Full-text search and analytics
-- **OpenSearch**: Open-source search and analytics
-- **Meilisearch**: Fast, typo-tolerant search
-
-### Messaging Systems
-
-- **RabbitMQ**: Message queuing and pub/sub
-- **Kafka**: Event streaming platform
-- **Redis**: Caching and real-time messaging
-
-### Security Features
-
-- **JWT**: Token generation and validation
-- **OAuth**: Multiple provider integration
-- **Cryptography**: Encryption, hashing, signing utilities
-
-## Support
-
-[Issues](https://github.com/ncobase/ncore/issues)
 
 ## License
 
