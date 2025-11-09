@@ -7,6 +7,7 @@ import (
 
 	"github.com/ncobase/ncore/data/config"
 	"github.com/redis/go-redis/v9"
+	"github.com/redis/go-redis/v9/maintnotifications"
 )
 
 // newRedisClient creates a new Redis client
@@ -24,6 +25,11 @@ func newRedisClient(conf *config.Redis) (*redis.Client, error) {
 		WriteTimeout: conf.WriteTimeout,
 		DialTimeout:  conf.DialTimeout,
 		PoolSize:     10,
+		// Explicitly disable maintenance notifications
+		// This prevents the client from sending CLIENT MAINT_NOTIFICATIONS ON
+		MaintNotificationsConfig: &maintnotifications.Config{
+			Mode: maintnotifications.ModeDisabled,
+		},
 	})
 
 	timeout, cancelFunc := context.WithTimeout(context.Background(), conf.DialTimeout)
