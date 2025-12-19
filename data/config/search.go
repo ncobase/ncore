@@ -142,11 +142,32 @@ type OpenSearch struct {
 
 // getOpenSearchConfigs reads OpenSearch configurations
 func getOpenSearchConfigs(v *viper.Viper) *OpenSearch {
+	// Prefer `data.search.opensearch.*` but keep backward compatibility with `data.opensearch.*`.
+	addresses := v.GetStringSlice("data.search.opensearch.addresses")
+	if len(addresses) == 0 {
+		addresses = v.GetStringSlice("data.opensearch.addresses")
+	}
+
+	username := v.GetString("data.search.opensearch.username")
+	if username == "" {
+		username = v.GetString("data.opensearch.username")
+	}
+
+	password := v.GetString("data.search.opensearch.password")
+	if password == "" {
+		password = v.GetString("data.opensearch.password")
+	}
+
+	insecureSkipTLS := v.GetBool("data.search.opensearch.insecure_skip_tls")
+	if !v.IsSet("data.search.opensearch.insecure_skip_tls") {
+		insecureSkipTLS = v.GetBool("data.opensearch.insecure_skip_tls")
+	}
+
 	return &OpenSearch{
-		Addresses:       v.GetStringSlice("data.opensearch.addresses"),
-		Username:        v.GetString("data.opensearch.username"),
-		Password:        v.GetString("data.opensearch.password"),
-		InsecureSkipTLS: v.GetBool("data.opensearch.insecure_skip_tls"),
+		Addresses:       addresses,
+		Username:        username,
+		Password:        password,
+		InsecureSkipTLS: insecureSkipTLS,
 	}
 }
 
@@ -159,10 +180,26 @@ type Elasticsearch struct {
 
 // getElasticsearchConfigs reads Elasticsearch configurations
 func getElasticsearchConfigs(v *viper.Viper) *Elasticsearch {
+	// Prefer `data.search.elasticsearch.*` but keep backward compatibility with `data.elasticsearch.*`.
+	addresses := v.GetStringSlice("data.search.elasticsearch.addresses")
+	if len(addresses) == 0 {
+		addresses = v.GetStringSlice("data.elasticsearch.addresses")
+	}
+
+	username := v.GetString("data.search.elasticsearch.username")
+	if username == "" {
+		username = v.GetString("data.elasticsearch.username")
+	}
+
+	password := v.GetString("data.search.elasticsearch.password")
+	if password == "" {
+		password = v.GetString("data.elasticsearch.password")
+	}
+
 	return &Elasticsearch{
-		Addresses: v.GetStringSlice("data.elasticsearch.addresses"),
-		Username:  v.GetString("data.elasticsearch.username"),
-		Password:  v.GetString("data.elasticsearch.password"),
+		Addresses: addresses,
+		Username:  username,
+		Password:  password,
 	}
 }
 
@@ -174,8 +211,19 @@ type Meilisearch struct {
 
 // getMeilisearchConfigs reads Meilisearch configurations
 func getMeilisearchConfigs(v *viper.Viper) *Meilisearch {
+	// Prefer `data.search.meilisearch.*` but keep backward compatibility with `data.meilisearch.*`.
+	host := v.GetString("data.search.meilisearch.host")
+	if host == "" {
+		host = v.GetString("data.meilisearch.host")
+	}
+
+	apiKey := v.GetString("data.search.meilisearch.api_key")
+	if apiKey == "" {
+		apiKey = v.GetString("data.meilisearch.api_key")
+	}
+
 	return &Meilisearch{
-		Host:   v.GetString("data.meilisearch.host"),
-		APIKey: v.GetString("data.meilisearch.api_key"),
+		Host:   host,
+		APIKey: apiKey,
 	}
 }
