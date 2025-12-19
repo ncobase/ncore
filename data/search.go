@@ -11,7 +11,7 @@ import (
 
 // Search performs search using best available engine
 func (d *Data) Search(ctx context.Context, req *search.Request) (*search.Response, error) {
-	client := d.getSearchClient()
+	client := d.GetSearchClient()
 	if client == nil {
 		return nil, errors.New("search client not available")
 	}
@@ -20,7 +20,7 @@ func (d *Data) Search(ctx context.Context, req *search.Request) (*search.Respons
 
 // SearchWith performs search using specified engine
 func (d *Data) SearchWith(ctx context.Context, engine search.Engine, req *search.Request) (*search.Response, error) {
-	client := d.getSearchClient()
+	client := d.GetSearchClient()
 	if client == nil {
 		return nil, errors.New("search client not available")
 	}
@@ -31,7 +31,7 @@ func (d *Data) SearchWith(ctx context.Context, engine search.Engine, req *search
 
 // IndexDocument indexes document using best available engine
 func (d *Data) IndexDocument(ctx context.Context, req *search.IndexRequest) error {
-	client := d.getSearchClient()
+	client := d.GetSearchClient()
 	if client == nil {
 		return errors.New("search client not available")
 	}
@@ -40,7 +40,7 @@ func (d *Data) IndexDocument(ctx context.Context, req *search.IndexRequest) erro
 
 // IndexDocumentWith indexes document using specified engine
 func (d *Data) IndexDocumentWith(ctx context.Context, engine search.Engine, req *search.IndexRequest) error {
-	client := d.getSearchClient()
+	client := d.GetSearchClient()
 	if client == nil {
 		return errors.New("search client not available")
 	}
@@ -49,7 +49,7 @@ func (d *Data) IndexDocumentWith(ctx context.Context, engine search.Engine, req 
 
 // DeleteDocument deletes document using best available engine
 func (d *Data) DeleteDocument(ctx context.Context, index, documentID string) error {
-	client := d.getSearchClient()
+	client := d.GetSearchClient()
 	if client == nil {
 		return errors.New("search client not available")
 	}
@@ -60,7 +60,7 @@ func (d *Data) DeleteDocument(ctx context.Context, index, documentID string) err
 
 // BulkIndexDocuments indexes multiple documents using best available engine
 func (d *Data) BulkIndexDocuments(ctx context.Context, index string, documents []any) error {
-	client := d.getSearchClient()
+	client := d.GetSearchClient()
 	if client == nil {
 		return errors.New("search client not available")
 	}
@@ -69,7 +69,7 @@ func (d *Data) BulkIndexDocuments(ctx context.Context, index string, documents [
 
 // BulkIndexDocumentsWith indexes multiple documents using specified engine
 func (d *Data) BulkIndexDocumentsWith(ctx context.Context, engine search.Engine, index string, documents []any) error {
-	client := d.getSearchClient()
+	client := d.GetSearchClient()
 	if client == nil {
 		return errors.New("search client not available")
 	}
@@ -78,7 +78,7 @@ func (d *Data) BulkIndexDocumentsWith(ctx context.Context, engine search.Engine,
 
 // BulkDeleteDocuments deletes multiple documents using best available engine
 func (d *Data) BulkDeleteDocuments(ctx context.Context, index string, documentIDs []string) error {
-	client := d.getSearchClient()
+	client := d.GetSearchClient()
 	if client == nil {
 		return errors.New("search client not available")
 	}
@@ -89,7 +89,7 @@ func (d *Data) BulkDeleteDocuments(ctx context.Context, index string, documentID
 
 // GetAvailableSearchEngines returns available search engines
 func (d *Data) GetAvailableSearchEngines() []search.Engine {
-	client := d.getSearchClient()
+	client := d.GetSearchClient()
 	if client == nil {
 		return nil
 	}
@@ -98,7 +98,7 @@ func (d *Data) GetAvailableSearchEngines() []search.Engine {
 
 // GetSearchEngine returns search engine
 func (d *Data) GetSearchEngine() search.Engine {
-	client := d.getSearchClient()
+	client := d.GetSearchClient()
 	if client == nil {
 		return ""
 	}
@@ -107,7 +107,7 @@ func (d *Data) GetSearchEngine() search.Engine {
 
 // SearchHealth checks search engines health
 func (d *Data) SearchHealth(ctx context.Context) map[search.Engine]error {
-	client := d.getSearchClient()
+	client := d.GetSearchClient()
 	if client == nil {
 		return nil
 	}

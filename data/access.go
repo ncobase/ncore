@@ -173,8 +173,10 @@ func (d *Data) UpdateSearchConfig(searchConfig *config.Search) {
 	}
 }
 
-// getSearchClient returns initialized search client
-func (d *Data) getSearchClient() *search.Client {
+// GetSearchClient returns initialized search client that abstracts Meilisearch, Elasticsearch, and OpenSearch.
+// The client automatically selects the best available search engine based on configuration.
+// Returns nil if no search engine is configured.
+func (d *Data) GetSearchClient() *search.Client {
 	d.initSearchClient()
 
 	d.mu.RLock()
