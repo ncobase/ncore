@@ -60,8 +60,11 @@ func (m *Manager) initExtensionsInternal(ctx context.Context) error {
 		return err
 	}
 
-	// Start optional services async
-	go m.initOptionalServicesAsync()
+	// Start optional services async after a short delay to avoid races with service discovery/maps.
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		m.initOptionalServicesAsync()
+	}()
 
 	// Publish ready events
 	m.publishReadyEvents()
