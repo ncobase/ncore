@@ -76,7 +76,7 @@ func (c *Client) AddDocuments(index string, documents any, primaryKey ...string)
 		pk = &primaryKey[0]
 	}
 
-	_, err := c.client.Index(index).AddDocuments(docs, pk)
+	_, err := c.client.Index(index).AddDocuments(docs, &meilisearch.DocumentOptions{PrimaryKey: pk})
 	if err != nil {
 		return fmt.Errorf("meilisearch add documents error: %v", err)
 	}
@@ -111,7 +111,7 @@ func (c *Client) UpdateDocuments(index string, documents any, primaryKey ...stri
 		pk = &primaryKey[0]
 	}
 
-	_, err := c.client.Index(index).UpdateDocuments(docs, pk)
+	_, err := c.client.Index(index).UpdateDocuments(docs, &meilisearch.DocumentOptions{PrimaryKey: pk})
 	if err != nil {
 		return fmt.Errorf("meilisearch update documents error: %v", err)
 	}
@@ -144,7 +144,7 @@ func (c *Client) AddDocumentsInBatches(index string, documents any, batchSize in
 		pk = &primaryKey[0]
 	}
 
-	_, err := c.client.Index(index).AddDocumentsInBatches(docs, batchSize, pk)
+	_, err := c.client.Index(index).AddDocumentsInBatches(docs, batchSize, &meilisearch.DocumentOptions{PrimaryKey: pk})
 	if err != nil {
 		return fmt.Errorf("meilisearch add documents in batches error: %v", err)
 	}
@@ -177,7 +177,7 @@ func (c *Client) UpdateDocumentsInBatches(index string, documents any, batchSize
 		pk = &primaryKey[0]
 	}
 
-	_, err := c.client.Index(index).UpdateDocumentsInBatches(docs, batchSize, pk)
+	_, err := c.client.Index(index).UpdateDocumentsInBatches(docs, batchSize, &meilisearch.DocumentOptions{PrimaryKey: pk})
 	if err != nil {
 		return fmt.Errorf("meilisearch update documents in batches error: %v", err)
 	}
@@ -217,7 +217,7 @@ func (c *Client) DeleteDocument(index, documentID string) error {
 		return errors.New("meilisearch client is nil, cannot delete document")
 	}
 
-	_, err := c.client.Index(index).DeleteDocument(documentID)
+	_, err := c.client.Index(index).DeleteDocument(documentID, nil)
 	if err != nil {
 		return fmt.Errorf("meilisearch delete document error: %v", err)
 	}
@@ -240,7 +240,7 @@ func (c *Client) DeleteDocuments(index string, documentIDs ...string) error {
 	}
 
 	// For multiple document deletion
-	_, err := c.client.Index(index).DeleteDocuments(documentIDs)
+	_, err := c.client.Index(index).DeleteDocuments(documentIDs, nil)
 	if err != nil {
 		return fmt.Errorf("meilisearch delete documents error: %v", err)
 	}
@@ -253,7 +253,7 @@ func (c *Client) DeleteAllDocuments(index string) error {
 		return errors.New("meilisearch client is nil, cannot delete all documents")
 	}
 
-	_, err := c.client.Index(index).DeleteAllDocuments()
+	_, err := c.client.Index(index).DeleteAllDocuments(nil)
 	if err != nil {
 		return fmt.Errorf("meilisearch delete all documents error: %v", err)
 	}
@@ -266,7 +266,7 @@ func (c *Client) DeleteDocumentsByFilter(index string, filter any) error {
 		return errors.New("meilisearch client is nil, cannot delete documents by filter")
 	}
 
-	_, err := c.client.Index(index).DeleteDocumentsByFilter(filter)
+	_, err := c.client.Index(index).DeleteDocumentsByFilter(filter, nil)
 	if err != nil {
 		return fmt.Errorf("meilisearch delete documents by filter error: %v", err)
 	}
