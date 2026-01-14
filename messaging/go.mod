@@ -3,6 +3,7 @@ module github.com/ncobase/ncore/messaging
 go 1.25.3
 
 require (
+	github.com/google/wire v0.7.0
 	github.com/mailgun/mailgun-go/v4 v4.23.0
 	github.com/ncobase/ncore/concurrency v0.1.23
 	github.com/sendgrid/sendgrid-go v3.16.1+incompatible

@@ -154,6 +154,88 @@ go fmt ./...
 golangci-lint run
 ```
 
+### 6. 依赖注入 (Google Wire)
+
+NCore 模块提供 `ProviderSet` 用于 Google Wire 集成 (v0.7.0)。
+
+#### 可用的 ProviderSets
+
+| 模块                 | ProviderSet               | 提供内容                                                               | 清理函数 |
+| -------------------- | ------------------------- | ---------------------------------------------------------------------- | -------- |
+| `config`             | `config.ProviderSet`      | `*Config`, `*Logger`, `*Data`, `*Auth`, `*Storage`, `*Email`, `*OAuth` | 否       |
+| `logging/logger`     | `logger.ProviderSet`      | `*Logger`                                                              | 是       |
+| `data`               | `data.ProviderSet`        | `*Data`                                                                | 是       |
+| `extension/manager`  | `manager.ProviderSet`     | `*Manager`                                                             | 是       |
+| `security`           | `security.ProviderSet`    | JWT `*TokenManager`                                                    | 否       |
+| `security/jwt`       | `jwt.ProviderSet`         | `*TokenManager`, `TokenValidator` 接口                                 | 否       |
+| `messaging`          | `messaging.ProviderSet`   | Email `Sender`                                                         | 否       |
+| `messaging/email`    | `email.ProviderSet`       | Email `Sender`                                                         | 否       |
+| `concurrency`        | `concurrency.ProviderSet` | Worker `*Pool`                                                         | 是       |
+| `concurrency/worker` | `worker.ProviderSet`      | Worker `*Pool`                                                         | 是       |
+
+#### 基础示例
+
+```go
+//go:build wireinject
+// +build wireinject
+
+package main
+
+import (
+    "github.com/google/wire"
+    "github.com/ncobase/ncore/config"
+    "github.com/ncobase/ncore/logging/logger"
+    "github.com/ncobase/ncore/data"
+    "github.com/ncobase/ncore/extension/manager"
+)
+
+func InitializeApp() (*App, func(), error) {
+    panic(wire.Build(
+        config.ProviderSet,
+        logger.ProviderSet,
+        data.ProviderSet,
+        manager.ProviderSet,
+        NewApp,
+    ))
+}
+```
+
+#### 带安全模块和消息模块的示例
+
+```go
+//go:build wireinject
+
+package main
+
+import (
+    "github.com/google/wire"
+    "github.com/ncobase/ncore/config"
+    "github.com/ncobase/ncore/security"
+    "github.com/ncobase/ncore/messaging"
+)
+
+func InitializeApp() (*App, func(), error) {
+    panic(wire.Build(
+        config.ProviderSet,
+        security.ProviderSet,
+        messaging.ProviderSet,
+        NewApp,
+    ))
+}
+```
+
+#### 生成 Wire 代码
+
+```bash
+# 安装 Wire CLI
+go install github.com/google/wire/cmd/wire@latest
+
+# 生成 wire_gen.go
+wire ./...
+```
+
+完整示例请参见 `examples/wire/wire.go`。
+
 ## 与应用集成
 
 ### 方式 1：使用发布版本
@@ -334,19 +416,19 @@ git push origin data/v0.1.0
 
 ## Makefile 目标
 
-| 命令 | 说明 |
-|------|------|
-| `make help` | 显示帮助信息 |
-| `make sync` | 同步 workspace 依赖 |
-| `make test` | 运行所有测试 |
-| `make test-v` | 运行所有测试（详细） |
-| `make test-cover` | 运行测试带覆盖率 |
-| `make update` | 更新所有依赖 |
-| `make check-outdated` | 检查过期依赖 |
-| `make tag VERSION=v0.1.0` | 打标签 |
-| `make fmt` | 格式化代码 |
-| `make lint` | 运行 linter |
-| `make clean` | 清理构建产物 |
+| 命令                      | 说明                 |
+| ------------------------- | -------------------- |
+| `make help`               | 显示帮助信息         |
+| `make sync`               | 同步 workspace 依赖  |
+| `make test`               | 运行所有测试         |
+| `make test-v`             | 运行所有测试（详细） |
+| `make test-cover`         | 运行测试带覆盖率     |
+| `make update`             | 更新所有依赖         |
+| `make check-outdated`     | 检查过期依赖         |
+| `make tag VERSION=v0.1.0` | 打标签               |
+| `make fmt`                | 格式化代码           |
+| `make lint`               | 运行 linter          |
+| `make clean`              | 清理构建产物         |
 
 ## 常见问题
 
@@ -414,7 +496,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.24'
+          go-version: "1.24"
 
       - name: Sync workspace
         run: go work sync

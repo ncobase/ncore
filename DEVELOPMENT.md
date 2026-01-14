@@ -154,6 +154,88 @@ go fmt ./...
 golangci-lint run
 ```
 
+### 6. Dependency Injection (Google Wire)
+
+NCore modules provide `ProviderSet` for Google Wire integration (v0.7.0).
+
+#### Available ProviderSets
+
+| Module               | ProviderSet               | Provides                                                               | Cleanup |
+| -------------------- | ------------------------- | ---------------------------------------------------------------------- | ------- |
+| `config`             | `config.ProviderSet`      | `*Config`, `*Logger`, `*Data`, `*Auth`, `*Storage`, `*Email`, `*OAuth` | No      |
+| `logging/logger`     | `logger.ProviderSet`      | `*Logger`                                                              | Yes     |
+| `data`               | `data.ProviderSet`        | `*Data`                                                                | Yes     |
+| `extension/manager`  | `manager.ProviderSet`     | `*Manager`                                                             | Yes     |
+| `security`           | `security.ProviderSet`    | JWT `*TokenManager`                                                    | No      |
+| `security/jwt`       | `jwt.ProviderSet`         | `*TokenManager`, `TokenValidator` interface                            | No      |
+| `messaging`          | `messaging.ProviderSet`   | Email `Sender`                                                         | No      |
+| `messaging/email`    | `email.ProviderSet`       | Email `Sender`                                                         | No      |
+| `concurrency`        | `concurrency.ProviderSet` | Worker `*Pool`                                                         | Yes     |
+| `concurrency/worker` | `worker.ProviderSet`      | Worker `*Pool`                                                         | Yes     |
+
+#### Basic Example
+
+```go
+//go:build wireinject
+// +build wireinject
+
+package main
+
+import (
+    "github.com/google/wire"
+    "github.com/ncobase/ncore/config"
+    "github.com/ncobase/ncore/logging/logger"
+    "github.com/ncobase/ncore/data"
+    "github.com/ncobase/ncore/extension/manager"
+)
+
+func InitializeApp() (*App, func(), error) {
+    panic(wire.Build(
+        config.ProviderSet,
+        logger.ProviderSet,
+        data.ProviderSet,
+        manager.ProviderSet,
+        NewApp,
+    ))
+}
+```
+
+#### With Security and Messaging
+
+```go
+//go:build wireinject
+
+package main
+
+import (
+    "github.com/google/wire"
+    "github.com/ncobase/ncore/config"
+    "github.com/ncobase/ncore/security"
+    "github.com/ncobase/ncore/messaging"
+)
+
+func InitializeApp() (*App, func(), error) {
+    panic(wire.Build(
+        config.ProviderSet,
+        security.ProviderSet,
+        messaging.ProviderSet,
+        NewApp,
+    ))
+}
+```
+
+#### Generate Wire Code
+
+```bash
+# Install Wire CLI
+go install github.com/google/wire/cmd/wire@latest
+
+# Generate wire_gen.go
+wire ./...
+```
+
+See `examples/wire/wire.go` for complete examples.
+
 ## Integration with Applications
 
 ### Method 1: Using Released Versions
@@ -334,19 +416,19 @@ Batch tagging
 
 ## Makefile Targets
 
-| Command | Description |
-|---------|-------------|
-| `make help` | Show help information |
-| `make sync` | Sync workspace dependencies |
-| `make test` | Run all tests |
-| `make test-v` | Run all tests (verbose) |
-| `make test-cover` | Run tests with coverage |
-| `make update` | Update all dependencies |
-| `make check-outdated` | Check outdated dependencies |
-| `make tag VERSION=v0.1.0` | Create tags |
-| `make fmt` | Format code |
-| `make lint` | Run linter |
-| `make clean` | Clean build artifacts |
+| Command                   | Description                 |
+| ------------------------- | --------------------------- |
+| `make help`               | Show help information       |
+| `make sync`               | Sync workspace dependencies |
+| `make test`               | Run all tests               |
+| `make test-v`             | Run all tests (verbose)     |
+| `make test-cover`         | Run tests with coverage     |
+| `make update`             | Update all dependencies     |
+| `make check-outdated`     | Check outdated dependencies |
+| `make tag VERSION=v0.1.0` | Create tags                 |
+| `make fmt`                | Format code                 |
+| `make lint`               | Run linter                  |
+| `make clean`              | Clean build artifacts       |
 
 ## Common Issues
 
@@ -414,7 +496,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.24'
+          go-version: "1.24"
 
       - name: Sync workspace
         run: go work sync

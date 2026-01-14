@@ -8,6 +8,7 @@ A comprehensive Go application components library for building modern, scalable 
 - **Rich Integrations**: Database, search, messaging, and storage solutions
 - **Security & Authentication**: JWT, OAuth, encryption utilities
 - **Observability**: OpenTelemetry, logging, and monitoring
+- **Dependency Injection**: Native support for Google Wire
 
 ## Multi-Module Architecture
 
@@ -45,7 +46,7 @@ go get github.com/ncobase/ncore/security
 
 ## Quick Start
 
-```go
+````go
 package main
 
 import (
@@ -63,6 +64,77 @@ func main() {
     // Initialize logger
     logger := logging.NewLogger(cfg.Logging)
     logger.Info("Application started")
+}
+
+## Dependency Injection (Google Wire)
+
+NCore provides native support for [Google Wire](https://github.com/google/wire). You can use the pre-defined `ProviderSet` in each module to easily wire up your application.
+
+### Available ProviderSets
+
+| Module | ProviderSet | Provides |
+|--------|-------------|----------|
+| `config` | `config.ProviderSet` | `*Config`, `*Logger`, `*Data`, `*Auth`, etc. |
+| `logging/logger` | `logger.ProviderSet` | `*Logger` with cleanup |
+| `data` | `data.ProviderSet` | `*Data` with cleanup |
+| `extension/manager` | `manager.ProviderSet` | `*Manager` with cleanup |
+| `security` | `security.ProviderSet` | JWT `*TokenManager` |
+| `messaging` | `messaging.ProviderSet` | Email `Sender` |
+| `concurrency` | `concurrency.ProviderSet` | Worker `*Pool` with cleanup |
+
+### Basic Usage
+
+```go
+//go:build wireinject
+// +build wireinject
+
+package main
+
+import (
+    "github.com/google/wire"
+    "github.com/ncobase/ncore/config"
+    "github.com/ncobase/ncore/logging/logger"
+    "github.com/ncobase/ncore/data"
+    "github.com/ncobase/ncore/extension/manager"
+)
+
+func InitializeApp() (*App, func(), error) {
+    panic(wire.Build(
+        // Import NCore's core ProviderSets
+        config.ProviderSet,
+        logger.ProviderSet,
+        data.ProviderSet,
+        manager.ProviderSet,
+
+        // Your own providers
+        NewApp,
+    ))
+}
+````
+
+### With Security and Messaging
+
+```go
+//go:build wireinject
+
+package main
+
+import (
+    "github.com/google/wire"
+    "github.com/ncobase/ncore/config"
+    "github.com/ncobase/ncore/data"
+    "github.com/ncobase/ncore/security"
+    "github.com/ncobase/ncore/messaging"
+)
+
+func InitializeApp() (*App, func(), error) {
+    panic(wire.Build(
+        config.ProviderSet,
+        data.ProviderSet,
+        security.ProviderSet,
+        messaging.ProviderSet,
+        NewApp,
+    ))
 }
 ```
 

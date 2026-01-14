@@ -124,8 +124,72 @@ import (
 
 在本地开发时，go.work 会自动解析这些引用。
 
+## 依赖注入支持 (Google Wire)
+
+NCore 模块提供原生的 [Google Wire](https://github.com/google/wire) 支持，每个模块都暴露了 `ProviderSet` 用于依赖注入。
+
+### 支持的模块
+
+| 模块                | ProviderSet               | 提供内容            | 清理函数 |
+| ------------------- | ------------------------- | ------------------- | -------- |
+| `config`            | `config.ProviderSet`      | `*Config` 及子配置  | 否       |
+| `logging/logger`    | `logger.ProviderSet`      | `*Logger`           | 是       |
+| `data`              | `data.ProviderSet`        | `*Data`             | 是       |
+| `extension/manager` | `manager.ProviderSet`     | `*Manager`          | 是       |
+| `security`          | `security.ProviderSet`    | JWT `*TokenManager` | 否       |
+| `messaging`         | `messaging.ProviderSet`   | Email `Sender`      | 否       |
+| `concurrency`       | `concurrency.ProviderSet` | Worker `*Pool`      | 是       |
+
+### Wire 使用示例
+
+```go
+//go:build wireinject
+// +build wireinject
+
+package main
+
+import (
+    "github.com/google/wire"
+    "github.com/ncobase/ncore/config"
+    "github.com/ncobase/ncore/logging/logger"
+    "github.com/ncobase/ncore/data"
+    "github.com/ncobase/ncore/extension/manager"
+)
+
+// InitializeApp 初始化应用程序
+func InitializeApp() (*App, func(), error) {
+    panic(wire.Build(
+        // 配置管理
+        config.ProviderSet,
+
+        // 核心组件
+        logger.ProviderSet,
+        data.ProviderSet,
+        manager.ProviderSet,
+
+        // 应用构造函数
+        NewApp,
+    ))
+}
+```
+
+### 特性
+
+1. **清理函数支持**: `data`、`logger`、`manager` 和 `concurrency` 模块的 Provider 返回清理函数
+2. **配置提取**: `config.ProviderSet` 自动提取各模块所需的子配置
+3. **接口绑定**: `security` 模块使用 `wire.Bind` 进行接口绑定
+4. **错误处理**: 所有 Provider 正确处理和传播错误
+
+详细文档请参见：
+
+- [English README](README.md#dependency-injection-google-wire)
+- [中文 README](README_zh-CN.md#依赖注入-google-wire)
+- [DEVELOPMENT.md](DEVELOPMENT.md#6-dependency-injection-google-wire)
+- [示例代码](examples/wire/wire.go)
+
 ## 相关资源
 
 - [Go Modules 官方文档](https://go.dev/doc/modules/managing-dependencies)
 - [Go Workspaces 官方文档](https://go.dev/doc/tutorial/workspaces)
 - [Multi-module repositories 最佳实践](https://github.com/golang/go/wiki/Modules#faqs--multi-module-repositories)
+- [Google Wire 官方文档](https://github.com/google/wire)

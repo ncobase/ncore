@@ -124,8 +124,71 @@ import (
 
 During local development, go.work will automatically resolve these references.
 
+## Dependency Injection Support (Google Wire)
+
+NCore modules provide native [Google Wire](https://github.com/google/wire) support, with each module exposing a `ProviderSet` for dependency injection.
+
+### Supported Modules
+
+| Module              | ProviderSet               | Provides                         | Cleanup |
+| ------------------- | ------------------------- | -------------------------------- | ------- |
+| `config`            | `config.ProviderSet`      | `*Config` and sub-configurations | No      |
+| `logging/logger`    | `logger.ProviderSet`      | `*Logger`                        | Yes     |
+| `data`              | `data.ProviderSet`        | `*Data`                          | Yes     |
+| `extension/manager` | `manager.ProviderSet`     | `*Manager`                       | Yes     |
+| `security`          | `security.ProviderSet`    | JWT `*TokenManager`              | No      |
+| `messaging`         | `messaging.ProviderSet`   | Email `Sender`                   | No      |
+| `concurrency`       | `concurrency.ProviderSet` | Worker `*Pool`                   | Yes     |
+
+### Wire Usage Example
+
+```go
+//go:build wireinject
+// +build wireinject
+
+package main
+
+import (
+    "github.com/google/wire"
+    "github.com/ncobase/ncore/config"
+    "github.com/ncobase/ncore/logging/logger"
+    "github.com/ncobase/ncore/data"
+    "github.com/ncobase/ncore/extension/manager"
+)
+
+// InitializeApp initializes the application
+func InitializeApp() (*App, func(), error) {
+    panic(wire.Build(
+        // Configuration management
+        config.ProviderSet,
+
+        // Core components
+        logger.ProviderSet,
+        data.ProviderSet,
+        manager.ProviderSet,
+
+        // Application constructor
+        NewApp,
+    ))
+}
+```
+
+### Features
+
+1. **Cleanup Function Support**: Providers for `data`, `logger`, `manager`, and `concurrency` modules return cleanup functions
+2. **Configuration Extraction**: `config.ProviderSet` automatically extracts sub-configurations required by other modules
+3. **Interface Binding**: `security` module uses `wire.Bind` for interface binding
+4. **Error Handling**: All providers properly handle and propagate errors
+
+For detailed documentation, see:
+
+- [README](README.md#dependency-injection-google-wire)
+- [DEVELOPMENT.md](DEVELOPMENT.md#6-dependency-injection-google-wire)
+- [Example Code](examples/wire/wire.go)
+
 ## Related Resources
 
 - [Go Modules Official Documentation](https://go.dev/doc/modules/managing-dependencies)
 - [Go Workspaces Official Documentation](https://go.dev/doc/tutorial/workspaces)
 - [Multi-module repositories Best Practices](https://github.com/golang/go/wiki/Modules#faqs--multi-module-repositories)
+- [Google Wire Official Documentation](https://github.com/google/wire)

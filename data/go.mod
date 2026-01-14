@@ -8,6 +8,7 @@ require (
 	github.com/casdoor/oss v1.8.0
 	github.com/elastic/go-elasticsearch/v8 v8.19.1
 	github.com/go-sql-driver/mysql v1.9.3
+	github.com/google/wire v0.7.0
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/mattn/go-sqlite3 v1.14.33
 	github.com/meilisearch/meilisearch-go v0.35.1

@@ -8,6 +8,7 @@
 - **丰富的集成**：数据库、搜索、消息传递和存储解决方案
 - **安全与认证**：JWT、OAuth、加密工具
 - **可观测性**：OpenTelemetry、日志记录和监控
+- **依赖注入**：原生支持 Google Wire
 
 ## 多模块架构
 
@@ -63,6 +64,77 @@ func main() {
     // 初始化日志记录器
     logger := logging.NewLogger(cfg.Logging)
     logger.Info("应用程序已启动")
+}
+
+## 依赖注入 (Google Wire)
+
+NCore 原生支持 [Google Wire](https://github.com/google/wire)。您可以使用每个模块中预定义的 `ProviderSet` 轻松组装您的应用程序。
+
+### 可用的 ProviderSets
+
+| 模块 | ProviderSet | 提供内容 |
+|--------|-------------|----------|
+| `config` | `config.ProviderSet` | `*Config`, `*Logger`, `*Data`, `*Auth` 等 |
+| `logging/logger` | `logger.ProviderSet` | `*Logger` 带清理函数 |
+| `data` | `data.ProviderSet` | `*Data` 带清理函数 |
+| `extension/manager` | `manager.ProviderSet` | `*Manager` 带清理函数 |
+| `security` | `security.ProviderSet` | JWT `*TokenManager` |
+| `messaging` | `messaging.ProviderSet` | 邮件 `Sender` |
+| `concurrency` | `concurrency.ProviderSet` | Worker `*Pool` 带清理函数 |
+
+### 基础用法
+
+```go
+//go:build wireinject
+// +build wireinject
+
+package main
+
+import (
+    "github.com/google/wire"
+    "github.com/ncobase/ncore/config"
+    "github.com/ncobase/ncore/logging/logger"
+    "github.com/ncobase/ncore/data"
+    "github.com/ncobase/ncore/extension/manager"
+)
+
+func InitializeApp() (*App, func(), error) {
+    panic(wire.Build(
+        // 引入 NCore 的核心 ProviderSet
+        config.ProviderSet,
+        logger.ProviderSet,
+        data.ProviderSet,
+        manager.ProviderSet,
+
+        // 您自己的 Provider
+        NewApp,
+    ))
+}
+````
+
+### 带安全模块和消息模块
+
+```go
+//go:build wireinject
+
+package main
+
+import (
+    "github.com/google/wire"
+    "github.com/ncobase/ncore/config"
+    "github.com/ncobase/ncore/data"
+    "github.com/ncobase/ncore/security"
+    "github.com/ncobase/ncore/messaging"
+)
+
+func InitializeApp() (*App, func(), error) {
+    panic(wire.Build(
+        config.ProviderSet,
+        data.ProviderSet,
+        security.ProviderSet,
+        messaging.ProviderSet,
+        NewApp,
+    ))
 }
 ```
 

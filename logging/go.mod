@@ -4,6 +4,7 @@ go 1.25.3
 
 require (
 	github.com/getsentry/sentry-go v0.40.0
+	github.com/google/wire v0.7.0
 	github.com/ncobase/ncore/ctxutil v0.1.23
 	github.com/ncobase/ncore/data v0.1.23
 	github.com/sirupsen/logrus v1.9.3
