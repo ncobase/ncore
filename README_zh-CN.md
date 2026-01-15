@@ -152,6 +152,10 @@ go work sync
 bash scripts/test.sh
 ```
 
+## 示例
+
+详见 [examples/README.md](./examples/README.md) 以获取详细概览和学习路线。
+
 ## 文档
 
 - [DEVELOPMENT_zh-CN.md](DEVELOPMENT_zh-CN.md) - 开发指南

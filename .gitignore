@@ -3,6 +3,10 @@
 dist/
 ncore
 .DS_Store
+main
+jobs.db
+events.db
+auth.db
 
 # Go workspace sum file (local only)
 go.work.sum

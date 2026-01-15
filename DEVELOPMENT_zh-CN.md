@@ -234,7 +234,7 @@ go install github.com/google/wire/cmd/wire@latest
 wire ./...
 ```
 
-完整示例请参见 `examples/wire/wire.go`。
+完整示例请参见 [examples/09-wire](examples/09-wire)。
 
 ## 与应用集成
 

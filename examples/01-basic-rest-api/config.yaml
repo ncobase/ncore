@@ -1,0 +1,20 @@
+server:
+  host: 0.0.0.0
+  port: 8080
+  mode: debug
+
+data:
+  database:
+    master:
+      driver: postgres
+      source: "host=localhost port=5432 user=postgres password=postgres dbname=taskdb sslmode=disable"
+      max_idle_conns: 10
+      max_open_conns: 100
+      conn_max_lifetime: 3600
+
+logger:
+  level: debug
+  format: json
+  output: stdout
+  enable_caller: true
+  enable_stacktrace: false

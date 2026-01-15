@@ -884,7 +884,7 @@ func (c *Client) createMeilisearchIndex(ctx context.Context, indexName string) e
 
 	filterableFieldsStr := c.getFilterableFields()
 	// Convert []string to []interface{} for UpdateFilterableAttributes
-	filterableFields := make([]interface{}, len(filterableFieldsStr))
+	filterableFields := make([]any, len(filterableFieldsStr))
 	for i, field := range filterableFieldsStr {
 		filterableFields[i] = field
 	}

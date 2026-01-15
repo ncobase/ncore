@@ -1,0 +1,47 @@
+.DS_Store
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+dist/
+
+# Test binary
+*.test
+*.out
+
+# Go workspace file
+go.work
+
+# Wire generated files
+wire_gen.go
+
+# Ent generated files (keep schema)
+internal/data/ent/*
+!internal/data/ent/schema/
+
+# Config (sensitive data)
+config.local.yaml
+*.env
+.env.*
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# Coverage
+coverage.out
+coverage.html

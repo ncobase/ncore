@@ -1,0 +1,21 @@
+server:
+  host: 0.0.0.0
+  port: 8080
+  mode: debug
+
+data:
+  database:
+    master:
+      driver: mongodb
+      source: "mongodb://username:password@localhost:27017/userdb"
+
+logger:
+  level: debug
+  format: json
+  output: stdout
+
+extension:
+  enabled:
+    - user
+    - post
+    - comment

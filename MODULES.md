@@ -184,7 +184,7 @@ For detailed documentation, see:
 
 - [README](README.md#dependency-injection-google-wire)
 - [DEVELOPMENT.md](DEVELOPMENT.md#6-dependency-injection-google-wire)
-- [Example Code](examples/wire/wire.go)
+- [Example Code](examples/09-wire)
 
 ## Related Resources
 

@@ -185,7 +185,7 @@ func InitializeApp() (*App, func(), error) {
 - [English README](README.md#dependency-injection-google-wire)
 - [中文 README](README_zh-CN.md#依赖注入-google-wire)
 - [DEVELOPMENT.md](DEVELOPMENT.md#6-dependency-injection-google-wire)
-- [示例代码](examples/wire/wire.go)
+- [示例代码](examples/09-wire)
 
 ## 相关资源
 

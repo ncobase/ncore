@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Real-time Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        #messages {
+            border: 1px solid #ccc;
+            height: 400px;
+            overflow-y: scroll;
+            padding: 10px;
+            margin-bottom: 20px;
+            background-color: #f9f9f9;
+        }
+        .message {
+            padding: 5px;
+            margin: 5px 0;
+            border-radius: 3px;
+        }
+        .message.sent {
+            background-color: #e3f2fd;
+        }
+        .message.received {
+            background-color: #fff3e0;
+        }
+        .message.system {
+            background-color: #f5f5f5;
+            font-style: italic;
+        }
+        input, select {
+            padding: 10px;
+            margin: 5px;
+            width: 200px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        #status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        #status.connected {
+            background-color: #4caf50;
+            color: white;
+        }
+        #status.disconnected {
+            background-color: #f44336;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>WebSocket Real-time Demo</h1>
+    
+    <div id="status" class="disconnected">Disconnected</div>
+    
+    <div>
+        <button id="connectBtn">Connect</button>
+        <button id="disconnectBtn" disabled>Disconnect</button>
+    </div>
+    
+    <div>
+        <input type="text" id="roomInput" placeholder="Room name" />
+        <button id="joinBtn" disabled>Join Room</button>
+        <button id="leaveBtn" disabled>Leave Room</button>
+    </div>
+    
+    <div id="messages"></div>
+    
+    <div>
+        <input type="text" id="messageInput" placeholder="Type a message..." />
+        <button id="sendBtn" disabled>Send</button>
+        <button id="broadcastBtn" disabled>Broadcast to All</button>
+    </div>
+    
+    <script>
+        let ws = null;
+        let currentRoom = null;
+        
+        const statusDiv = document.getElementById('status');
+        const messagesDiv = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const roomInput = document.getElementById('roomInput');
+        
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const joinBtn = document.getElementById('joinBtn');
+        const leaveBtn = document.getElementById('leaveBtn');
+        const sendBtn = document.getElementById('sendBtn');
+        const broadcastBtn = document.getElementById('broadcastBtn');
+        
+        function connect() {
+            ws = new WebSocket('ws://localhost:8080/ws');
+            
+            ws.onopen = () => {
+                addMessage('Connected to server', 'system');
+                statusDiv.textContent = 'Connected';
+                statusDiv.className = 'connected';
+                
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                joinBtn.disabled = false;
+                sendBtn.disabled = false;
+                broadcastBtn.disabled = false;
+            };
+            
+            ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                if (msg.type === 'pong') return;
+                
+                addMessage(`[${msg.type}] ${msg.from || 'server'}: ${msg.content || JSON.stringify(msg.data)}`, 'received');
+            };
+            
+            ws.onclose = () => {
+                addMessage('Disconnected from server', 'system');
+                statusDiv.textContent = 'Disconnected';
+                statusDiv.className = 'disconnected';
+                
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+                joinBtn.disabled = true;
+                leaveBtn.disabled = true;
+                sendBtn.disabled = true;
+                broadcastBtn.disabled = true;
+            };
+            
+            ws.onerror = (error) => {
+                addMessage('Error: ' + error, 'system');
+            };
+        }
+        
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+        
+        function joinRoom() {
+            const room = roomInput.value.trim();
+            if (!room) {
+                alert('Please enter a room name');
+                return;
+            }
+            
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'join',
+                    room: room
+                }));
+                currentRoom = room;
+                leaveBtn.disabled = false;
+                addMessage(`Joined room: ${room}`, 'system');
+            }
+        }
+        
+        function leaveRoom() {
+            if (currentRoom && ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'leave',
+                    room: currentRoom
+                }));
+                addMessage(`Left room: ${currentRoom}`, 'system');
+                currentRoom = null;
+                leaveBtn.disabled = true;
+            }
+        }
+        
+        function sendMessage() {
+            const content = messageInput.value.trim();
+            if (!content) return;
+            
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const msg = {
+                    type: 'message',
+                    room: currentRoom,
+                    content: content
+                };
+                ws.send(JSON.stringify(msg));
+                addMessage(`You: ${content}`, 'sent');
+                messageInput.value = '';
+            }
+        }
+        
+        function broadcast() {
+            const content = messageInput.value.trim();
+            if (!content) return;
+            
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const msg = {
+                    type: 'broadcast',
+                    content: content
+                };
+                ws.send(JSON.stringify(msg));
+                addMessage(`Broadcast: ${content}`, 'sent');
+                messageInput.value = '';
+            }
+        }
+        
+        function addMessage(text, type) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${type}`;
+            msgDiv.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
+            messagesDiv.appendChild(msgDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        // Event listeners
+        connectBtn.onclick = connect;
+        disconnectBtn.onclick = disconnect;
+        joinBtn.onclick = joinRoom;
+        leaveBtn.onclick = leaveRoom;
+        sendBtn.onclick = sendMessage;
+        broadcastBtn.onclick = broadcast;
+        
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+        
+        roomInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') joinRoom();
+        });
+        
+        // Ping/pong to keep connection alive
+        setInterval(() => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'ping' }));
+            }
+        }, 30000);
+    </script>
+</body>
+</html>

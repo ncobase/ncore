@@ -1,0 +1,35 @@
+.DS_Store
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+dist/
+
+# Test binary
+*.test
+*.out
+
+# Go workspace file
+go.work
+
+# Config (sensitive data)
+config.local.yaml
+*.env
+.env.*
+
+# Logs
+*.log
+logs/
+
+# Coverage
+coverage.out
+coverage.html

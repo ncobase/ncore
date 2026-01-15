@@ -1,0 +1,27 @@
+server:
+  host: 0.0.0.0
+  port: 8080
+  mode: debug
+
+data:
+  database:
+    master:
+      driver: sqlite3
+      source: "file:auth.db?cache=shared&_fk=1"
+
+auth:
+  jwt:
+    secret: "your-secret-key-change-in-production"
+    access_token_ttl: 900    # 15 minutes
+    refresh_token_ttl: 604800 # 7 days
+  password:
+    min_length: 8
+    require_uppercase: true
+    require_number: true
+  session:
+    max_concurrent: 5
+
+logger:
+  level: debug
+  format: json
+  output: stdout

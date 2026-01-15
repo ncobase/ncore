@@ -1,0 +1,16 @@
+server:
+  host: 0.0.0.0
+  port: 8080
+  mode: debug
+
+logger:
+  level: debug
+  format: json
+  output: stdout
+
+websocket:
+  read_buffer_size: 1024
+  write_buffer_size: 1024
+  ping_period: 54s
+  pong_wait: 60s
+  write_wait: 10s

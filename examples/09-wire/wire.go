@@ -1,15 +1,5 @@
 //go:build wireinject
-// +build wireinject
 
-// Package main demonstrates how to use Google Wire with NCore's ProviderSets.
-//
-// This file contains the Wire injector definitions. Run `wire` command to generate
-// the actual dependency injection code in wire_gen.go.
-//
-// To generate the wire_gen.go file:
-//
-//	go install github.com/google/wire/cmd/wire@latest
-//	wire ./examples/wire/...
 package main
 
 import (
@@ -21,29 +11,6 @@ import (
 	"github.com/ncobase/ncore/logging/logger"
 	"github.com/ncobase/ncore/security/jwt"
 )
-
-// App represents the main application with all core dependencies.
-type App struct {
-	Config  *config.Config
-	Logger  *logger.Logger
-	Data    *data.Data
-	Manager *manager.Manager
-}
-
-// NewApp creates a new App instance with injected dependencies.
-func NewApp(
-	cfg *config.Config,
-	log *logger.Logger,
-	d *data.Data,
-	m *manager.Manager,
-) *App {
-	return &App{
-		Config:  cfg,
-		Logger:  log,
-		Data:    d,
-		Manager: m,
-	}
-}
 
 // InitializeApp wires up the main application with all core dependencies.
 // Returns the App, a cleanup function, and any initialization error.
@@ -96,16 +63,6 @@ func InitializeTokenManager() (*jwt.TokenManager, error) {
 	))
 }
 
-// ProvideJWTConfig extracts JWT configuration from the auth config.
-func ProvideJWTConfig(auth *config.Auth) *jwt.Config {
-	if auth == nil || auth.JWT == nil {
-		return &jwt.Config{}
-	}
-	return &jwt.Config{
-		Secret: auth.JWT.Secret,
-	}
-}
-
 // ============================================================================
 // Worker Pool Example
 // ============================================================================
@@ -119,20 +76,9 @@ func InitializeWorkerPool() (*worker.Pool, func(), error) {
 	))
 }
 
-// ProvideDefaultWorkerConfig provides default worker pool configuration.
-func ProvideDefaultWorkerConfig() *worker.Config {
-	return worker.DefaultConfig()
-}
-
 // ============================================================================
 // Custom Worker Pool Example
 // ============================================================================
-
-// CustomWorkerConfig represents custom worker configuration.
-type CustomWorkerConfig struct {
-	MaxWorkers int
-	QueueSize  int
-}
 
 // InitializeCustomWorkerPool creates a worker pool with custom configuration.
 func InitializeCustomWorkerPool(customCfg *CustomWorkerConfig) (*worker.Pool, func(), error) {
@@ -140,19 +86,4 @@ func InitializeCustomWorkerPool(customCfg *CustomWorkerConfig) (*worker.Pool, fu
 		ProvideWorkerConfigFromCustom,
 		worker.ProviderSet,
 	))
-}
-
-// ProvideWorkerConfigFromCustom converts custom config to worker.Config.
-func ProvideWorkerConfigFromCustom(custom *CustomWorkerConfig) *worker.Config {
-	if custom == nil {
-		return worker.DefaultConfig()
-	}
-	cfg := worker.DefaultConfig()
-	if custom.MaxWorkers > 0 {
-		cfg.MaxWorkers = custom.MaxWorkers
-	}
-	if custom.QueueSize > 0 {
-		cfg.QueueSize = custom.QueueSize
-	}
-	return cfg
 }

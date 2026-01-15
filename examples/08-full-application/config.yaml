@@ -1,0 +1,85 @@
+server:
+  host: 0.0.0.0
+  port: 8080
+  mode: debug
+
+data:
+  database:
+    master:
+      driver: postgres
+      source: "host=localhost port=5432 user=postgres password=postgres dbname=fullappdb sslmode=disable"
+      max_idle_conns: 10
+      max_open_conns: 100
+      conn_max_lifetime: 3600
+  mongodb:
+    master:
+      uri: "mongodb://localhost:27017/fullappdb"
+      logging: false
+    strategy: "round_robin"
+    max_retry: 3
+  redis:
+    addr: "localhost:6379"
+    db: 0
+    read_timeout: 3s
+    write_timeout: 3s
+    dial_timeout: 5s
+
+auth:
+  jwt:
+    secret: "your-secret-key-change-in-production-very-long-secret"
+    access_token_ttl: 900    # 15 minutes
+    refresh_token_ttl: 604800 # 7 days
+  password:
+    min_length: 8
+    require_uppercase: true
+    require_number: true
+  session:
+    max_concurrent: 5
+
+websocket:
+  read_buffer_size: 1024
+  write_buffer_size: 1024
+  ping_period: 54       # 54 seconds
+  pong_wait: 60         # 60 seconds
+  write_wait: 10        # 10 seconds
+
+worker:
+  pool_size: 10
+  queue_size: 1000
+  shutdown_timeout: 30
+
+email:
+  smtp:
+    host: "smtp.gmail.com"
+    port: "587"
+    username: "noreply@example.com"
+    password: "your-smtp-password"
+    from: "noreply@example.com"
+
+logger:
+  level: debug
+  format: json
+  output: stdout
+  enable_caller: true
+  enable_stacktrace: false
+
+modules:
+  core:
+    - name: auth
+      enabled: true
+    - name: user
+      enabled: true
+    - name: workspace
+      enabled: true
+  biz:
+    - name: task
+      enabled: true
+    - name: comment
+      enabled: true
+    - name: realtime
+      enabled: true
+  plugin:
+    - name: notification
+      enabled: true
+    - name: export
+      enabled: true

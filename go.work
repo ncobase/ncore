@@ -7,6 +7,15 @@ use (
 	./ctxutil
 	./data
 	./ecode
+	./examples/01-basic-rest-api
+	./examples/02-mongodb-api
+	./examples/03-multi-module
+	./examples/04-realtime-websocket
+	./examples/05-background-jobs
+	./examples/06-event-driven
+	./examples/07-authentication
+	./examples/08-full-application
+	./examples/09-wire
 	./extension
 	./logging
 	./messaging

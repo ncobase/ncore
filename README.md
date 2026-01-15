@@ -152,6 +152,10 @@ go work sync
 bash scripts/test.sh
 ```
 
+## Examples
+
+See [examples/README.md](./examples/README.md) for a detailed overview and learning paths.
+
 ## Documentation
 
 - [DEVELOPMENT.md](DEVELOPMENT.md) - Development guide

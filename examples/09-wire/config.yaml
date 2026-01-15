@@ -1,0 +1,11 @@
+app_name: wire-example
+environment: development
+
+logger:
+  level: debug
+  format: json
+  output: stdout
+
+auth:
+  jwt:
+    secret: wire-example-secret

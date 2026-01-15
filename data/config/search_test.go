@@ -53,4 +53,3 @@ func TestOpenSearchConfigs_InsecureSkipTLSPreferSearchNamespace(t *testing.T) {
 		t.Fatalf("expected insecure_skip_tls from data.search.opensearch, got %v", os.InsecureSkipTLS)
 	}
 }
-
