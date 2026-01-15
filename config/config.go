@@ -110,6 +110,11 @@ func loadConfiguration() (*Config, error) {
 
 // LoadConfig loads the configuration from the file.
 func LoadConfig(configPath string) (*Config, error) {
+	// Initialize viper instance if not already initialized
+	if v == nil {
+		v = viper.New()
+	}
+
 	if configPath != "" {
 		v.SetConfigFile(configPath)
 	} else {
