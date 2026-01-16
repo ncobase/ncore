@@ -8,20 +8,22 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/ncobase/ncore/config"
+	"github.com/ncobase/ncore/data"
 	"github.com/ncobase/ncore/extension/manager"
 	"github.com/ncobase/ncore/logging/logger"
 	"github.com/ncobase/ncore/net/resp"
+	"github.com/ncobase/ncore/oss"
+	"go.mongodb.org/mongo-driver/mongo"
 
-	"github.com/ncobase/ncore/examples/full-application/biz/realtime"
-	"github.com/ncobase/ncore/examples/full-application/internal/event"
-
-	_ "github.com/ncobase/ncore/examples/full-application/biz/comment"
-	_ "github.com/ncobase/ncore/examples/full-application/biz/task"
-	_ "github.com/ncobase/ncore/examples/full-application/core/auth"
-	_ "github.com/ncobase/ncore/examples/full-application/core/user"
-	_ "github.com/ncobase/ncore/examples/full-application/core/workspace"
-	_ "github.com/ncobase/ncore/examples/full-application/plugin/export"
-	_ "github.com/ncobase/ncore/examples/full-application/plugin/notification"
+	_ "github.com/ncobase/ncore/examples/08-full-application/biz/comment"
+	"github.com/ncobase/ncore/examples/08-full-application/biz/realtime"
+	_ "github.com/ncobase/ncore/examples/08-full-application/biz/task"
+	_ "github.com/ncobase/ncore/examples/08-full-application/core/auth"
+	_ "github.com/ncobase/ncore/examples/08-full-application/core/user"
+	_ "github.com/ncobase/ncore/examples/08-full-application/core/workspace"
+	"github.com/ncobase/ncore/examples/08-full-application/internal/event"
+	_ "github.com/ncobase/ncore/examples/08-full-application/plugin/export"
+	_ "github.com/ncobase/ncore/examples/08-full-application/plugin/notification"
 )
 
 type Server struct {
@@ -55,9 +57,14 @@ func NewServer(cfg *config.Config, log *logger.Logger) (*Server, error) {
 		dbName = "fullappdb"
 	}
 
-	collection, err := dataLayer.GetMongoCollection(dbName, "events", false)
+	collectionAny, err := dataLayer.GetMongoCollection(dbName, "events", false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get event collection: %w", err)
+	}
+
+	collection, ok := collectionAny.(*mongo.Collection)
+	if !ok {
+		return nil, fmt.Errorf("event collection type mismatch")
 	}
 
 	store, err := event.NewMongoStore(collection, log)
@@ -68,6 +75,20 @@ func NewServer(cfg *config.Config, log *logger.Logger) (*Server, error) {
 	eventBus := event.NewBus(1000, log, store)
 	mgr.RegisterCrossService("app.EventBus", eventBus)
 	mgr.RegisterCrossService("app.Data", dataLayer)
+
+	// Initialize Search
+	searchClient := data.NewSearchClient(dataLayer)
+	mgr.RegisterCrossService("app.Search", searchClient)
+
+	// Initialize OSS
+	if cfg.Storage != nil {
+		ossClient, err := oss.NewStorage(cfg.Storage)
+		if err != nil {
+			log.Warn(context.Background(), "Failed to initialize OSS", "error", err)
+		} else {
+			mgr.RegisterCrossService("app.OSS", ossClient)
+		}
+	}
 
 	if err := mgr.InitExtensions(); err != nil {
 		return nil, fmt.Errorf("failed to initialize extensions: %w", err)

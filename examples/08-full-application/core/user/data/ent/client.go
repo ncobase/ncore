@@ -9,12 +9,12 @@ import (
 	"log"
 	"reflect"
 
-	"github.com/ncobase/ncore/examples/full-application/core/user/data/ent/migrate"
+	"github.com/ncobase/ncore/examples/08-full-application/core/user/data/ent/migrate"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
-	"github.com/ncobase/ncore/examples/full-application/core/user/data/ent/user"
+	"github.com/ncobase/ncore/examples/08-full-application/core/user/data/ent/user"
 
 	stdsql "database/sql"
 )

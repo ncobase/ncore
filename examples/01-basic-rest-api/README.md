@@ -1,6 +1,7 @@
 # Example 01: Basic REST API
 
-A simple REST API demonstrating the fundamental usage of NCore with Google Wire dependency injection, PostgreSQL database using Ent ORM, and basic CRUD operations.
+A simple REST API demonstrating the fundamental usage of NCore with Google Wire dependency injection, PostgreSQL
+database using Ent ORM, and basic CRUD operations.
 
 ## Features
 

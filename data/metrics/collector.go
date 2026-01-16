@@ -4,11 +4,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/redis/go-redis/v9"
 )
 
-// Collector interface for data layer metrics
 type Collector interface {
 	DBQuery(duration time.Duration, err error)
 	DBTransaction(err error)
@@ -23,7 +20,10 @@ type Collector interface {
 	HealthCheck(component string, healthy bool)
 }
 
-// NoOpCollector implements Collector with no-op methods
+type CacheMetricsCollector interface {
+	RedisCommand(command string, err error)
+}
+
 type NoOpCollector struct{}
 
 func (NoOpCollector) DBQuery(time.Duration, error) {}
@@ -38,9 +38,7 @@ func (NoOpCollector) MQPublish(string, error)      {}
 func (NoOpCollector) MQConsume(string, error)      {}
 func (NoOpCollector) HealthCheck(string, bool)     {}
 
-// DataCollector collects data layer metrics
 type DataCollector struct {
-	// Database metrics
 	dbQueries      atomic.Int64
 	dbQueryErrors  atomic.Int64
 	dbTransactions atomic.Int64
@@ -48,45 +46,37 @@ type DataCollector struct {
 	dbConnections  atomic.Int32
 	dbSlowQueries  atomic.Int64
 
-	// Redis metrics
 	redisCommands    atomic.Int64
 	redisErrors      atomic.Int64
 	redisConnections atomic.Int32
 
-	// MongoDB metrics
 	mongoOperations atomic.Int64
 	mongoErrors     atomic.Int64
 
-	// Search metrics
 	searchQueries  atomic.Int64
 	searchErrors   atomic.Int64
 	searchIndexOps atomic.Int64
 
-	// Message queue metrics
 	mqPublished     atomic.Int64
 	mqPublishErrors atomic.Int64
 	mqConsumed      atomic.Int64
 	mqConsumeErrors atomic.Int64
 
-	// Health metrics
 	healthChecks map[string]*atomic.Bool
 	healthMu     sync.RWMutex
 
-	// Timing metrics
-	lastDBQuery      atomic.Value // time.Time
-	lastRedisCommand atomic.Value // time.Time
-	lastMongoOp      atomic.Value // time.Time
-	lastSearchQuery  atomic.Value // time.Time
-	lastMQOperation  atomic.Value // time.Time
+	lastDBQuery      atomic.Value
+	lastRedisCommand atomic.Value
+	lastMongoOp      atomic.Value
+	lastSearchQuery  atomic.Value
+	lastMQOperation  atomic.Value
 
-	// Storage
 	storage   Storage
 	batchSize int
 	buffer    []Metric
 	bufferMu  sync.Mutex
 }
 
-// Metric represents a data layer metric
 type Metric struct {
 	Type      string    `json:"type"`
 	Value     int64     `json:"value"`
@@ -94,17 +84,14 @@ type Metric struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
-// Labels for metric categorization
 type Labels map[string]string
 
-// Storage interface for metrics persistence
 type Storage interface {
 	Store(metrics []Metric) error
 	Query(query QueryRequest) ([]Metric, error)
 	Close() error
 }
 
-// QueryRequest for querying metrics
 type QueryRequest struct {
 	Type      string    `json:"type"`
 	StartTime time.Time `json:"start_time"`
@@ -113,7 +100,6 @@ type QueryRequest struct {
 	Limit     int       `json:"limit"`
 }
 
-// NewDataCollector creates a new data collector with memory storage
 func NewDataCollector(batchSize int) *DataCollector {
 	if batchSize <= 0 {
 		batchSize = 100
@@ -136,30 +122,6 @@ func NewDataCollector(batchSize int) *DataCollector {
 	return c
 }
 
-// NewDataCollectorWithRedis creates a new data collector with Redis storage
-func NewDataCollectorWithRedis(client *redis.Client, keyPrefix string, retention time.Duration, batchSize int) *DataCollector {
-	if batchSize <= 0 {
-		batchSize = 100
-	}
-
-	c := &DataCollector{
-		healthChecks: make(map[string]*atomic.Bool),
-		storage:      NewRedisStorage(client, keyPrefix, retention),
-		batchSize:    batchSize,
-		buffer:       make([]Metric, 0, batchSize),
-	}
-
-	now := time.Now()
-	c.lastDBQuery.Store(now)
-	c.lastRedisCommand.Store(now)
-	c.lastMongoOp.Store(now)
-	c.lastSearchQuery.Store(now)
-	c.lastMQOperation.Store(now)
-
-	return c
-}
-
-// DBQuery records database query metrics
 func (c *DataCollector) DBQuery(duration time.Duration, err error) {
 	c.dbQueries.Add(1)
 	c.lastDBQuery.Store(time.Now())
@@ -178,7 +140,6 @@ func (c *DataCollector) DBQuery(duration time.Duration, err error) {
 	})
 }
 
-// DBTransaction records database transaction metrics
 func (c *DataCollector) DBTransaction(err error) {
 	c.dbTransactions.Add(1)
 	if err != nil {
@@ -190,13 +151,11 @@ func (c *DataCollector) DBTransaction(err error) {
 	})
 }
 
-// DBConnections records database connection count
 func (c *DataCollector) DBConnections(count int) {
 	c.dbConnections.Store(int32(count))
 	c.recordMetric("db_connections", int64(count), nil)
 }
 
-// RedisCommand records Redis command metrics
 func (c *DataCollector) RedisCommand(command string, err error) {
 	c.redisCommands.Add(1)
 	c.lastRedisCommand.Store(time.Now())
@@ -211,13 +170,11 @@ func (c *DataCollector) RedisCommand(command string, err error) {
 	})
 }
 
-// RedisConnections records Redis connection count
 func (c *DataCollector) RedisConnections(count int) {
 	c.redisConnections.Store(int32(count))
 	c.recordMetric("redis_connections", int64(count), nil)
 }
 
-// MongoOperation records MongoDB operation metrics
 func (c *DataCollector) MongoOperation(operation string, err error) {
 	c.mongoOperations.Add(1)
 	c.lastMongoOp.Store(time.Now())
@@ -232,7 +189,6 @@ func (c *DataCollector) MongoOperation(operation string, err error) {
 	})
 }
 
-// SearchQuery records search query metrics
 func (c *DataCollector) SearchQuery(engine string, err error) {
 	c.searchQueries.Add(1)
 	c.lastSearchQuery.Store(time.Now())
@@ -247,7 +203,6 @@ func (c *DataCollector) SearchQuery(engine string, err error) {
 	})
 }
 
-// SearchIndex records search index operation metrics
 func (c *DataCollector) SearchIndex(engine, operation string) {
 	c.searchIndexOps.Add(1)
 
@@ -257,7 +212,6 @@ func (c *DataCollector) SearchIndex(engine, operation string) {
 	})
 }
 
-// MQPublish records message queue publish metrics
 func (c *DataCollector) MQPublish(system string, err error) {
 	c.mqPublished.Add(1)
 	c.lastMQOperation.Store(time.Now())
@@ -272,7 +226,6 @@ func (c *DataCollector) MQPublish(system string, err error) {
 	})
 }
 
-// MQConsume records message queue consume metrics
 func (c *DataCollector) MQConsume(system string, err error) {
 	c.mqConsumed.Add(1)
 	c.lastMQOperation.Store(time.Now())
@@ -287,7 +240,6 @@ func (c *DataCollector) MQConsume(system string, err error) {
 	})
 }
 
-// HealthCheck records health check metrics
 func (c *DataCollector) HealthCheck(component string, healthy bool) {
 	c.healthMu.Lock()
 	if _, exists := c.healthChecks[component]; !exists {
@@ -303,7 +255,6 @@ func (c *DataCollector) HealthCheck(component string, healthy bool) {
 	})
 }
 
-// recordMetric records a metric to storage
 func (c *DataCollector) recordMetric(metricType string, value int64, labels Labels) {
 	metric := Metric{
 		Type:      metricType,
@@ -322,7 +273,6 @@ func (c *DataCollector) recordMetric(metricType string, value int64, labels Labe
 	}
 }
 
-// flush writes buffered metrics to storage
 func (c *DataCollector) flush() {
 	c.bufferMu.Lock()
 	if len(c.buffer) == 0 {
@@ -336,11 +286,10 @@ func (c *DataCollector) flush() {
 	c.bufferMu.Unlock()
 
 	if c.storage != nil {
-		_ = c.storage.Store(metrics) // Ignore errors for now
+		_ = c.storage.Store(metrics)
 	}
 }
 
-// GetStats returns current statistics
 func (c *DataCollector) GetStats() map[string]any {
 	c.healthMu.RLock()
 	healthStatus := make(map[string]bool)
@@ -388,7 +337,6 @@ func (c *DataCollector) GetStats() map[string]any {
 	}
 }
 
-// Close closes the collector and flushes remaining metrics
 func (c *DataCollector) Close() error {
 	c.flush()
 	if c.storage != nil {
@@ -397,7 +345,12 @@ func (c *DataCollector) Close() error {
 	return nil
 }
 
-// Helper functions
+func (c *DataCollector) SetStorage(storage Storage) {
+	if storage != nil {
+		c.storage = storage
+	}
+}
+
 func boolToString(b bool) string {
 	if b {
 		return "true"

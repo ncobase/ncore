@@ -30,18 +30,14 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Auto-discover all subdirectories containing Go files
+# Auto-discover all directories containing go.mod
 MODULES=()
-for dir in */; do
-    # Remove trailing slash
-    dir=${dir%/}
-    # Skip non-directories and hidden ones
-    [[ -d "$dir" && "$dir" != .* ]] || continue
-    # Check if there are any Go files in this directory or its subdirs
-    if find "$dir" -name "*.go" -type f | grep -q .; then
-        MODULES+=("$dir")
-    fi
-done
+while IFS= read -r file; do
+    dir=$(dirname "$file")
+    # Skip the root directory itself if it has a go.mod (though in this repo root has go.work)
+    if [ "$dir" == "." ]; then continue; fi
+    MODULES+=("$dir")
+done < <(find . -name "go.mod" | sort)
 
 if [[ ${#MODULES[@]} -eq 0 ]]; then
     echo "No Go modules found."
@@ -58,7 +54,7 @@ for module in "${MODULES[@]}"; do
     echo "🧪 Testing module: $module"
     echo "----------------------------"
 
-    cd "$module"
+    pushd "$module" > /dev/null
 
     if go test $VERBOSE $COVERAGE ./...; then
         echo "✅ $module tests passed"
@@ -67,7 +63,7 @@ for module in "${MODULES[@]}"; do
         FAILED_MODULES+=("$module")
     fi
 
-    cd ..
+    popd > /dev/null
 done
 
 echo ""

@@ -12,7 +12,7 @@ import (
 	"github.com/ncobase/ncore/examples/01-basic-rest-api/service"
 	"github.com/ncobase/ncore/logging/logger"
 
-	_ "github.com/lib/pq" // PostgreSQL driver
+	_ "github.com/ncobase/ncore/data/postgres"
 )
 
 // InitializeApp wires up the entire application with all dependencies.

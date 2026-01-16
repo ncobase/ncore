@@ -4,34 +4,26 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/ncobase/ncore/data/config"
-	"github.com/ncobase/ncore/data/search/elastic"
-	"github.com/ncobase/ncore/data/search/meili"
-	"github.com/ncobase/ncore/data/search/opensearch"
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
-	amqp "github.com/rabbitmq/amqp091-go"
-	"github.com/redis/go-redis/v9"
-	"github.com/segmentio/kafka-go"
 )
 
-// Connections struct to hold all database connections and clients
 type Connections struct {
 	DBM    *DBManager
-	RC     *redis.Client
-	MS     *meili.Client
-	ES     *elastic.Client
-	OS     *opensearch.Client
-	MGM    *MongoManager
-	Neo    neo4j.DriverWithContext
-	RMQ    *amqp.Connection
-	KFK    *kafka.Conn
+	RC     any
+	MS     any
+	ES     any
+	OS     any
+	MGM    any
+	Neo    any
+	RMQ    any
+	KFK    any
 	closed bool
 	mu     sync.Mutex
 }
 
-// New creates a new Connections
 func New(conf *config.Config) (*Connections, error) {
 	c := &Connections{}
 	var err error
@@ -72,10 +64,18 @@ func New(conf *config.Config) (*Connections, error) {
 	}
 
 	if conf.MongoDB != nil && conf.MongoDB.Master.URI != "" {
-		c.MGM, err = NewMongoManager(conf.MongoDB)
+		if driverRegistry == nil {
+			return nil, errors.New("driver registry not initialized, ensure drivers are imported")
+		}
+		driver, err := driverRegistry.GetDatabaseDriver("mongodb")
 		if err != nil {
 			return nil, err
 		}
+		conn, err := driver.Connect(context.Background(), conf.MongoDB)
+		if err != nil {
+			return nil, err
+		}
+		c.MGM = conn
 	}
 
 	if conf.Neo4j != nil && conf.Neo4j.URI != "" {
@@ -85,19 +85,20 @@ func New(conf *config.Config) (*Connections, error) {
 		}
 	}
 
-	// Initialize messaging connections
 	if conf.Messaging != nil && conf.Messaging.IsEnabled() {
 		if conf.RabbitMQ != nil && conf.RabbitMQ.URL != "" {
 			c.RMQ, err = newRabbitMQConnection(conf.RabbitMQ)
 			if err != nil {
-				return nil, err
+				// RabbitMQ connection is optional - log warning but don't fail
+				fmt.Printf("[WARN] RabbitMQ connection failed (optional): %v\n", err)
 			}
 		}
 
 		if conf.Kafka != nil && conf.Kafka.Brokers != nil && len(conf.Kafka.Brokers) > 0 {
 			c.KFK, err = newKafkaConnection(conf.Kafka)
 			if err != nil {
-				return nil, err
+				// Kafka connection is optional - log warning but don't fail
+				fmt.Printf("[WARN] Kafka connection failed (optional): %v\n", err)
 			}
 		}
 	}
@@ -105,27 +106,25 @@ func New(conf *config.Config) (*Connections, error) {
 	return c, nil
 }
 
-// Close closes all data connections
 func (d *Connections) Close() (errs []error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	// Check if already closed
 	if d.closed {
 		return nil
 	}
 
-	// Close Redis client if connected
 	if d.RC != nil {
 		if err := d.pingRedis(context.Background()); err == nil {
-			if err := d.RC.Close(); err != nil {
-				errs = append(errs, errors.New("redis close error: "+err.Error()))
+			if closer, ok := d.RC.(interface{ Close() error }); ok {
+				if err := closer.Close(); err != nil {
+					errs = append(errs, errors.New("redis close error: "+err.Error()))
+				}
 			}
 		}
 		d.RC = nil
 	}
 
-	// Close database connections if connected
 	if d.DBM != nil {
 		if err := d.DBM.Close(); err != nil {
 			errs = append(errs, errors.New("database close error: "+err.Error()))
@@ -133,43 +132,49 @@ func (d *Connections) Close() (errs []error) {
 		d.DBM = nil
 	}
 
-	// Disconnect MongoDB client if connected
 	if d.MGM != nil {
-		if err := d.MGM.Close(context.Background()); err != nil {
-			errs = append(errs, errors.New("mongodb close error: "+err.Error()))
+		if closer, ok := d.MGM.(interface{ Close(context.Context) error }); ok {
+			if err := closer.Close(context.Background()); err != nil {
+				errs = append(errs, errors.New("mongodb close error: "+err.Error()))
+			}
 		}
 		d.MGM = nil
 	}
 
-	// Close Neo4j client if connected
 	if d.Neo != nil {
-		if err := d.Neo.Close(context.Background()); err != nil {
-			errs = append(errs, errors.New("neo4j close error: "+err.Error()))
+		if closer, ok := d.Neo.(interface{ Close(context.Context) error }); ok {
+			if err := closer.Close(context.Background()); err != nil {
+				errs = append(errs, errors.New("neo4j close error: "+err.Error()))
+			}
 		}
 		d.Neo = nil
 	}
 
-	// Close RabbitMQ client if connected
 	if d.RMQ != nil {
-		if !d.RMQ.IsClosed() {
-			if err := d.RMQ.Close(); err != nil {
-				errs = append(errs, errors.New("rabbitmq close error: "+err.Error()))
+		if conn, ok := d.RMQ.(interface {
+			IsClosed() bool
+			Close() error
+		}); ok {
+			if !conn.IsClosed() {
+				if err := conn.Close(); err != nil {
+					errs = append(errs, errors.New("rabbitmq close error: "+err.Error()))
+				}
 			}
 		}
 		d.RMQ = nil
 	}
 
-	// Close Kafka client if connected
 	if d.KFK != nil {
 		if err := d.pingKafka(); err == nil {
-			if err := d.KFK.Close(); err != nil {
-				errs = append(errs, errors.New("kafka close error: "+err.Error()))
+			if closer, ok := d.KFK.(interface{ Close() error }); ok {
+				if err := closer.Close(); err != nil {
+					errs = append(errs, errors.New("kafka close error: "+err.Error()))
+				}
 			}
 		}
 		d.KFK = nil
 	}
 
-	// Set search clients to nil
 	d.MS = nil
 	d.ES = nil
 	d.OS = nil
@@ -179,7 +184,6 @@ func (d *Connections) Close() (errs []error) {
 	return errs
 }
 
-// Ping checks all database connections
 func (d *Connections) Ping(ctx context.Context) error {
 	if d.DBM != nil {
 		return d.DBM.Health(ctx)
@@ -187,7 +191,6 @@ func (d *Connections) Ping(ctx context.Context) error {
 	return nil
 }
 
-// DB returns the master database connection for write operations
 func (d *Connections) DB() *sql.DB {
 	if d.DBM == nil {
 		return nil
@@ -195,7 +198,6 @@ func (d *Connections) DB() *sql.DB {
 	return d.DBM.Master()
 }
 
-// ReadDB returns a slave database connection for read operations
 func (d *Connections) ReadDB() (*sql.DB, error) {
 	if d.DBM == nil {
 		return nil, errors.New("database manager is nil")
@@ -203,27 +205,35 @@ func (d *Connections) ReadDB() (*sql.DB, error) {
 	return d.DBM.Slave()
 }
 
-// DBRead returns a slave database connection for read operations
-// Deprecated: Use ReadDB() for better clarity
 func (d *Connections) DBRead() (*sql.DB, error) {
 	return d.ReadDB()
 }
 
-// pingRedis checks if Redis connection is alive
 func (d *Connections) pingRedis(ctx context.Context) error {
 	if d.RC == nil {
 		return errors.New("redis client is nil")
 	}
-	return d.RC.Ping(ctx).Err()
+	if pinger, ok := d.RC.(interface {
+		Ping(context.Context) error
+	}); ok {
+		return pinger.Ping(ctx)
+	}
+	if pinger, ok := d.RC.(interface {
+		Ping(context.Context) interface{ Err() error }
+	}); ok {
+		return pinger.Ping(ctx).Err()
+	}
+	return errors.New("redis client ping not supported")
 }
 
-// pingKafka checks if Kafka connection is alive
 func (d *Connections) pingKafka() error {
 	if d.KFK == nil {
 		return errors.New("kafka connection is nil")
 	}
 
-	// Try to read connection properties as a connection check
-	_, err := d.KFK.Controller()
-	return err
+	if controller, ok := d.KFK.(interface{ Controller() (any, error) }); ok {
+		_, err := controller.Controller()
+		return err
+	}
+	return errors.New("kafka connection controller not supported")
 }

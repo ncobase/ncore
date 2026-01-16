@@ -2,7 +2,7 @@
 
 package runtime
 
-// The schema-stitching logic is generated in github.com/ncobase/ncore/examples/full-application/core/user/data/ent/runtime.go
+// The schema-stitching logic is generated in github.com/ncobase/ncore/examples/08-full-application/core/user/data/ent/runtime.go
 
 const (
 	Version = "v0.14.5"                                         // Version of ent codegen.

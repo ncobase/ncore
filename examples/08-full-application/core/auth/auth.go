@@ -6,9 +6,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/ncobase/ncore/config"
-	"github.com/ncobase/ncore/examples/full-application/core/auth/data/repository"
-	"github.com/ncobase/ncore/examples/full-application/core/auth/middleware"
-	"github.com/ncobase/ncore/examples/full-application/core/auth/service"
+	"github.com/ncobase/ncore/examples/08-full-application/core/auth/data/repository"
+	"github.com/ncobase/ncore/examples/08-full-application/core/auth/middleware"
+	"github.com/ncobase/ncore/examples/08-full-application/core/auth/service"
 	"github.com/ncobase/ncore/extension/registry"
 	"github.com/ncobase/ncore/extension/types"
 	"github.com/ncobase/ncore/logging/logger"

@@ -3,30 +3,25 @@ package ctxutil
 import (
 	"context"
 
-	"github.com/ncobase/ncore/data/storage"
+	"github.com/ncobase/ncore/oss"
 )
 
-// SetStorage sets storage to context.Context
-func SetStorage(ctx context.Context, s storage.Interface) context.Context {
+func SetStorage(ctx context.Context, s oss.Interface) context.Context {
 	return SetValue(ctx, storageKey, s)
 }
 
-// GetStorage gets storage from context.Context
-func GetStorage(ctx context.Context) (storage.Interface, *storage.Config) {
-	if s, ok := GetValue(ctx, storageKey).(storage.Interface); ok {
+func GetStorage(ctx context.Context) (oss.Interface, *oss.Config) {
+	if s, ok := GetValue(ctx, storageKey).(oss.Interface); ok {
 		return s, GetConfig(ctx).Storage
 	}
 
-	// Get config
 	storageConfig := GetConfig(ctx).Storage
 
-	// Initialize storage
-	s, err := storage.NewStorage(storageConfig)
+	s, err := oss.NewStorage(storageConfig)
 	if err != nil {
 		return nil, nil
 	}
 
-	// Set storage to context.Context
 	ctx = SetStorage(ctx, s)
 	return s, storageConfig
 }

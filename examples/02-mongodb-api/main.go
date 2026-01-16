@@ -18,6 +18,8 @@ import (
 	"github.com/ncobase/ncore/examples/02-mongodb-api/service"
 	"github.com/ncobase/ncore/logging/logger"
 	"github.com/ncobase/ncore/net/resp"
+
+	_ "github.com/ncobase/ncore/data/mongodb"
 )
 
 // App represents the main application.

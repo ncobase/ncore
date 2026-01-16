@@ -45,4 +45,5 @@ go generate ./...
 go run main.go -conf config.yaml
 ```
 
-The program initializes core dependencies, a JWT token manager, and a worker pool, then exits after executing a sample task.
+The program initializes core dependencies, a JWT token manager, and a worker pool, then exits after executing a sample
+task.

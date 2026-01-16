@@ -1,4 +1,4 @@
-go 1.25.3
+go 1.25.5
 
 use (
 	./concurrency
@@ -6,6 +6,21 @@ use (
 	./consts
 	./ctxutil
 	./data
+	./data/all
+	./data/cache
+	./data/elasticsearch
+	./data/entgo
+	./data/kafka
+	./data/meilisearch
+	./data/mongodb
+	./data/mysql
+	./data/neo4j
+	./data/opensearch
+	./data/postgres
+	./data/rabbitmq
+	./data/redis
+	./data/search
+	./data/sqlite
 	./ecode
 	./examples/01-basic-rest-api
 	./examples/02-mongodb-api
@@ -18,11 +33,14 @@ use (
 	./examples/09-wire
 	./extension
 	./logging
+	./logging/hooks/elasticsearch
+	./logging/hooks/meilisearch
+	./logging/hooks/opensearch
 	./messaging
 	./net
+	./oss
 	./security
 	./types
 	./utils
 	./validation
-	./version
 )

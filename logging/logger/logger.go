@@ -10,9 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ncobase/ncore/data/search/elastic"
-	"github.com/ncobase/ncore/data/search/meili"
-	"github.com/ncobase/ncore/data/search/opensearch"
 	"github.com/ncobase/ncore/logging/logger/config"
 	"github.com/sirupsen/logrus"
 )
@@ -22,7 +19,6 @@ const (
 	VersionKey      = "version"
 	SpanTitleKey    = "title"
 	SpanFunctionKey = "function"
-	timeFormat      = time.RFC3339
 )
 
 // Logger represents logger instance
@@ -31,10 +27,6 @@ type Logger struct {
 	version      string
 	logFile      *os.File
 	logPath      string
-	meiliClient  *meili.Client
-	esClient     *elastic.Client
-	osClient     *opensearch.Client
-	indexName    string // Search engine index name
 	desensitizer *Desensitizer
 }
 
@@ -96,30 +88,10 @@ func (l *Logger) Init(c *config.Config) (func(), error) {
 		l.desensitizer = NewDesensitizer(c.Desensitization)
 	}
 
-	// Initialize MeiliSearch hook
-	if c.Meilisearch != nil && c.Meilisearch.Host != "" {
-		l.meiliClient = meili.NewMeilisearch(c.Meilisearch.Host, c.Meilisearch.APIKey)
-		l.AddHook(NewMeiliSearchHook(l.meiliClient, c))
-	}
-
-	// Initialize Elasticsearch hook
-	if c.Elasticsearch != nil && len(c.Elasticsearch.Addresses) > 0 {
-		var err error
-		l.esClient, err = elastic.NewClient(c.Elasticsearch.Addresses, c.Elasticsearch.Username, c.Elasticsearch.Password)
-		if err != nil {
-			return nil, fmt.Errorf("error initializing Elasticsearch client: %w", err)
-		}
-		l.AddHook(NewElasticSearchHook(l.esClient, c))
-	}
-
-	// Initialize OpenSearch hook
-	if c.OpenSearch != nil && len(c.OpenSearch.Addresses) > 0 {
-		var err error
-		l.osClient, err = opensearch.NewClient(c.OpenSearch.Addresses, c.OpenSearch.Username, c.OpenSearch.Password, c.OpenSearch.InsecureSkipTLS)
-		if err != nil {
-			return nil, fmt.Errorf("error initializing OpenSearch client: %w", err)
-		}
-		l.AddHook(NewOpenSearchHook(l.osClient, c))
+	// Initialize search engine hooks (optional, requires driver imports)
+	if err := l.initSearchHooks(c); err != nil {
+		// Log warning but don't fail - hooks are optional
+		l.Logger.Warnf("Failed to initialize search hooks: %v", err)
 	}
 
 	return func() {

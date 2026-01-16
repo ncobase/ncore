@@ -2,32 +2,25 @@ package connection
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/ncobase/ncore/data/config"
-	"github.com/ncobase/ncore/data/search/opensearch"
 )
 
-// newOpenSearchClient creates a new OpenSearch client
-func newOpenSearchClient(conf *config.OpenSearch) (*opensearch.Client, error) {
-	if conf == nil || len(conf.Addresses) == 0 {
-		return nil, errors.New("opensearch configuration is nil or empty")
+func newOpenSearchClient(conf *config.OpenSearch) (any, error) {
+	if driverRegistry == nil {
+		return nil, fmt.Errorf("driver registry not initialized, ensure drivers are imported")
 	}
 
-	os, err := opensearch.NewClient(conf.Addresses, conf.Username, conf.Password, conf.InsecureSkipTLS)
+	driver, err := driverRegistry.GetSearchDriver("opensearch")
 	if err != nil {
-		return nil, fmt.Errorf("opensearch client creation error: %w", err)
+		return nil, fmt.Errorf("failed to get opensearch driver: %w", err)
 	}
 
-	// Test connection
-	health, err := os.Health(context.Background())
+	conn, err := driver.Connect(context.Background(), conf)
 	if err != nil {
-		return nil, fmt.Errorf("opensearch connect error: %w", err)
+		return nil, fmt.Errorf("failed to connect using opensearch driver: %w", err)
 	}
 
-	// Log cluster health status
-	fmt.Printf("OpenSearch cluster status: %s\n", health)
-
-	return os, nil
+	return conn, nil
 }

@@ -5,8 +5,8 @@ package ent
 import (
 	"time"
 
-	"github.com/ncobase/ncore/examples/full-application/core/user/data/ent/user"
-	"github.com/ncobase/ncore/examples/full-application/core/user/data/schema"
+	"github.com/ncobase/ncore/examples/08-full-application/core/user/data/ent/user"
+	"github.com/ncobase/ncore/examples/08-full-application/core/user/data/schema"
 )
 
 // The init function reads all schema descriptors with runtime code

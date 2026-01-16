@@ -8,9 +8,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/ncobase/ncore/examples/full-application/biz/comment/data/repository"
-	"github.com/ncobase/ncore/examples/full-application/biz/comment/structs"
-	"github.com/ncobase/ncore/examples/full-application/internal/event"
+	"github.com/ncobase/ncore/examples/08-full-application/biz/comment/data/repository"
+	"github.com/ncobase/ncore/examples/08-full-application/biz/comment/structs"
+	"github.com/ncobase/ncore/examples/08-full-application/internal/event"
 	"github.com/ncobase/ncore/logging/logger"
 	"github.com/ncobase/ncore/net/resp"
 )

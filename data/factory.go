@@ -2,12 +2,9 @@ package data
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/ncobase/ncore/data/config"
 	"github.com/ncobase/ncore/data/connection"
-	"github.com/ncobase/ncore/data/messaging/kafka"
-	"github.com/ncobase/ncore/data/messaging/rabbitmq"
 	"github.com/ncobase/ncore/data/metrics"
 )
 
@@ -51,45 +48,6 @@ func New(cfg *config.Config, createNewInstance ...bool) (*Data, func(name ...str
 		sharedInstance = d
 	}
 
-	// Initialize messaging systems
-	d.initMessaging()
-
-	cleanup := func(name ...string) {
-		if errs := d.Close(); len(errs) > 0 {
-			fmt.Printf("cleanup errors: %v\n", errs)
-		}
-	}
-
-	return d, cleanup, nil
-}
-
-// NewWithOptions creates new data layer with options
-func NewWithOptions(cfg *config.Config, opts ...Option) (*Data, func(name ...string), error) {
-	conn, err := connection.New(cfg)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	d := &Data{
-		Conn:      conn,
-		collector: metrics.NoOpCollector{},
-	}
-
-	// Apply options
-	for _, opt := range opts {
-		opt(d)
-	}
-
-	// Initialize metrics collector if enabled
-	if cfg.Metrics != nil && cfg.Metrics.Enabled {
-		if err := d.initMetricsCollector(cfg.Metrics); err != nil {
-			fmt.Printf("failed to initialize metrics collector: %v\n", err)
-		}
-	}
-
-	// Initialize messaging systems
-	d.initMessaging()
-
 	cleanup := func(name ...string) {
 		if errs := d.Close(); len(errs) > 0 {
 			fmt.Printf("cleanup errors: %v\n", errs)
@@ -101,37 +59,7 @@ func NewWithOptions(cfg *config.Config, opts ...Option) (*Data, func(name ...str
 
 // initMetricsCollector initializes metrics collector based on config
 func (d *Data) initMetricsCollector(cfg *config.Metrics) error {
-	// Use Redis storage if configured and available
-	if cfg.StorageType == "redis" && d.Conn != nil && d.Conn.RC != nil {
-		keyPrefix := cfg.KeyPrefix
-		retention := time.Duration(cfg.RetentionDays) * 24 * time.Hour
-		batchSize := cfg.BatchSize
-
-		collector := metrics.NewDataCollectorWithRedis(d.Conn.RC, keyPrefix, retention, batchSize)
-		d.collector = collector
-		return nil
-	}
-
-	// Fallback to memory storage
 	collector := metrics.NewDataCollector(cfg.BatchSize)
 	d.collector = collector
 	return nil
-}
-
-// initMessaging initializes messaging systems if enabled
-func (d *Data) initMessaging() {
-	// Check if messaging is enabled
-	if d.conf.Messaging == nil || !d.conf.Messaging.IsEnabled() {
-		return
-	}
-
-	// Initialize RabbitMQ if connection exists
-	if d.Conn.RMQ != nil {
-		d.RabbitMQ = rabbitmq.NewRabbitMQWithConfig(d.Conn.RMQ, d.conf.Messaging)
-	}
-
-	// Initialize Kafka if connection exists
-	if d.Conn.KFK != nil {
-		d.Kafka = kafka.NewWithConfig(d.Conn.KFK, d.conf.Messaging)
-	}
 }

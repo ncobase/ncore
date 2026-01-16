@@ -4,6 +4,8 @@ package main
 import (
 	"fmt"
 	"os"
+
+	_ "github.com/ncobase/ncore/data/postgres"
 )
 
 func main() {

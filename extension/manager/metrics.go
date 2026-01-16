@@ -232,8 +232,8 @@ func (m *Manager) getMessagingStatus() map[string]any {
 	return map[string]any{
 		"available": m.data.IsMessagingAvailable(),
 		"services": map[string]bool{
-			"rabbitmq": m.data.RabbitMQ != nil && m.data.RabbitMQ.IsConnected(),
-			"kafka":    m.data.Kafka != nil && m.data.Kafka.IsConnected(),
+			"rabbitmq": false,
+			"kafka":    false,
 		},
 	}
 }

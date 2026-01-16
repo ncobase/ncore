@@ -13,8 +13,14 @@ import (
 	"time"
 
 	"github.com/ncobase/ncore/config"
-	"github.com/ncobase/ncore/examples/full-application/internal/server"
 	"github.com/ncobase/ncore/logging/logger"
+
+	"github.com/ncobase/ncore/examples/08-full-application/internal/server"
+
+	_ "github.com/ncobase/ncore/data/meilisearch"
+	_ "github.com/ncobase/ncore/data/mongodb"
+	_ "github.com/ncobase/ncore/data/postgres"
+	_ "github.com/ncobase/ncore/data/redis"
 )
 
 func main() {

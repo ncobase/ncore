@@ -10,13 +10,14 @@ import (
 	"github.com/ncobase/ncore/concurrency/worker"
 	"github.com/ncobase/ncore/config"
 	"github.com/ncobase/ncore/data"
-	taskrepo "github.com/ncobase/ncore/examples/full-application/biz/task/data/repository"
-	"github.com/ncobase/ncore/examples/full-application/internal/event"
-	exportrepo "github.com/ncobase/ncore/examples/full-application/plugin/export/data/repository"
-	"github.com/ncobase/ncore/examples/full-application/plugin/export/service"
+	taskrepo "github.com/ncobase/ncore/examples/08-full-application/biz/task/data/repository"
+	"github.com/ncobase/ncore/examples/08-full-application/internal/event"
+	exportrepo "github.com/ncobase/ncore/examples/08-full-application/plugin/export/data/repository"
+	"github.com/ncobase/ncore/examples/08-full-application/plugin/export/service"
 	"github.com/ncobase/ncore/extension/registry"
 	"github.com/ncobase/ncore/extension/types"
 	"github.com/ncobase/ncore/logging/logger"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type Module struct {
@@ -89,9 +90,14 @@ func (m *Module) Init(conf *config.Config, em types.ManagerInterface) error {
 	}
 
 	dbName := mongoDatabaseName(conf)
-	collection, err := dataLayer.GetMongoCollection(dbName, "export_jobs", false)
+	collectionAny, err := dataLayer.GetMongoCollection(dbName, "export_jobs", false)
 	if err != nil {
 		return err
+	}
+
+	collection, ok := collectionAny.(*mongo.Collection)
+	if !ok {
+		return fmt.Errorf("export job collection type mismatch")
 	}
 
 	jobRepo, err := exportrepo.NewJobRepository(collection)

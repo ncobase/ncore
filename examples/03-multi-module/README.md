@@ -1,6 +1,7 @@
 # Example 03: Multi-Module Application
 
-Demonstrates NCore's extension system with multiple modules communicating through the Extension Manager, showcasing patterns from real-world applications.
+Demonstrates NCore's extension system with multiple modules communicating through the Extension Manager, showcasing
+patterns from real-world applications.
 
 ## Features
 

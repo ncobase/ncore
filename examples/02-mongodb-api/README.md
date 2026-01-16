@@ -1,6 +1,7 @@
 # Example 02: MongoDB API
 
-A REST API demonstrating NCore usage with MongoDB (without Google Wire), showcasing manual dependency injection patterns used in production applications.
+A REST API demonstrating NCore usage with MongoDB (without Google Wire), showcasing manual dependency injection patterns
+used in production applications.
 
 ## Features
 
@@ -34,7 +35,7 @@ A REST API demonstrating NCore usage with MongoDB (without Google Wire), showcas
 ## Key Differences from Example 01
 
 | Feature     | Example 01              | Example 02                  |
-| ----------- | ----------------------- | --------------------------- |
+|-------------|-------------------------|-----------------------------|
 | Database    | PostgreSQL + Ent ORM    | MongoDB (native driver)     |
 | DI Strategy | Google Wire (automatic) | Manual (explicit)           |
 | Pattern     | Wire-based injection    | Constructor-based injection |

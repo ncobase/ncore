@@ -1,26 +1,25 @@
 package connection
 
 import (
-	"errors"
+	"context"
 	"fmt"
 
 	"github.com/ncobase/ncore/data/config"
-	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-// newRabbitMQConnection creates a new RabbitMQ connection
-func newRabbitMQConnection(conf *config.RabbitMQ) (*amqp.Connection, error) {
-	if conf == nil || conf.URL == "" {
-		return nil, errors.New("RabbitMQ configuration is nil or empty")
+func newRabbitMQConnection(conf *config.RabbitMQ) (any, error) {
+	if driverRegistry == nil {
+		return nil, fmt.Errorf("driver registry not initialized, ensure drivers are imported")
 	}
 
-	url := fmt.Sprintf("amqp://%s:%s@%s/%s", conf.Username, conf.Password, conf.URL, conf.Vhost)
-	conn, err := amqp.DialConfig(url, amqp.Config{
-		Heartbeat: conf.HeartbeatInterval,
-		Vhost:     conf.Vhost,
-	})
+	driver, err := driverRegistry.GetMessageDriver("rabbitmq")
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)
+		return nil, fmt.Errorf("failed to get rabbitmq driver: %w", err)
+	}
+
+	conn, err := driver.Connect(context.Background(), conf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect using rabbitmq driver: %w", err)
 	}
 
 	return conn, nil
