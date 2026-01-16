@@ -1,6 +1,7 @@
 # Example 04: Real-time WebSocket Server
 
-Demonstrates real-time communication with WebSocket, connection hub management, and broadcasting patterns used in production applications.
+Demonstrates real-time communication with WebSocket, connection hub management, and broadcasting patterns used in
+production applications.
 
 ## Features
 
@@ -153,7 +154,7 @@ ws.send(
 ## Message Types
 
 | Type        | Description          | Example                                              |
-| ----------- | -------------------- | ---------------------------------------------------- |
+|-------------|----------------------|------------------------------------------------------|
 | `join`      | Join a room          | `{"type":"join","room":"general"}`                   |
 | `leave`     | Leave a room         | `{"type":"leave","room":"general"}`                  |
 | `message`   | Send message to room | `{"type":"message","room":"general","content":"Hi"}` |

@@ -1,15 +1,17 @@
 # NCore Examples
 
-Comprehensive, production-ready examples demonstrating all NCore features and patterns. Each example is self-contained with complete code, documentation, and real-world patterns from actual NCore-based applications.
+Comprehensive, production-ready examples demonstrating all NCore features and patterns. Each example is self-contained
+with complete code, documentation, and real-world patterns from actual NCore-based applications.
 
 ## Overview
 
-These examples are designed to teach NCore from basics to advanced patterns, with each example building on concepts from previous ones. They incorporate real patterns from production applications.
+These examples are designed to teach NCore from basics to advanced patterns, with each example building on concepts from
+previous ones. They incorporate real patterns from production applications.
 
 ## Examples Index
 
 | #                             | Name              | Focus               | Difficulty   | Key Features                       |
-| ----------------------------- | ----------------- | ------------------- | ------------ | ---------------------------------- |
+|-------------------------------|-------------------|---------------------|--------------|------------------------------------|
 | [01](./01-basic-rest-api)     | Basic REST API    | Wire + PostgreSQL   | Beginner     | Wire DI, Ent ORM, CRUD operations  |
 | [02](./02-mongodb-api)        | MongoDB API       | Manual DI + MongoDB | Beginner     | No Wire, MongoDB, Manual DI        |
 | [03](./03-multi-module)       | Multi-Module App  | Extension System    | Intermediate | Extension Manager, Wrapper Pattern |
@@ -46,7 +48,7 @@ These examples are designed to teach NCore from basics to advanced patterns, wit
 ## Feature Matrix
 
 | Feature               | 01  | 02  | 03  | 04  | 05  | 06  | 07  | 08  | 09  |
-| --------------------- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+|-----------------------|-----|-----|-----|-----|-----|-----|-----|-----|-----|
 | **Wire DI**           | Yes | No  | No  | No  | No  | No  | Yes | Yes | Yes |
 | **Manual DI**         | No  | Yes | Yes | Yes | Yes | Yes | No  | Yes | No  |
 | **PostgreSQL**        | Yes | No  | No  | No  | No  | Yes | Yes | Yes | No  |
@@ -65,7 +67,7 @@ These examples are designed to teach NCore from basics to advanced patterns, wit
 ## NCore Modules Used
 
 | Module               | Examples Using It          |
-| -------------------- | -------------------------- |
+|----------------------|----------------------------|
 | `config`             | All                        |
 | `logging`            | All                        |
 | `data`               | 01, 02, 03, 06, 07, 08, 09 |

@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/ncobase/ncore/examples/full-application/core/user/data/repository"
-	"github.com/ncobase/ncore/examples/full-application/core/user/structs"
+	"github.com/ncobase/ncore/examples/08-full-application/core/user/data/repository"
+	"github.com/ncobase/ncore/examples/08-full-application/core/user/structs"
 	"github.com/ncobase/ncore/logging/logger"
 )
 

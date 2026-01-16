@@ -1,23 +1,26 @@
 package connection
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/ncobase/ncore/data/config"
-	"github.com/ncobase/ncore/data/search/meili"
 )
 
-// newMeilisearchClient creates a new Meilisearch client
-func newMeilisearchClient(conf *config.Meilisearch) (*meili.Client, error) {
-	if conf == nil || conf.Host == "" {
-		return nil, fmt.Errorf("meilisearch configuration is nil or empty")
+func newMeilisearchClient(conf *config.Meilisearch) (any, error) {
+	if driverRegistry == nil {
+		return nil, fmt.Errorf("driver registry not initialized, ensure drivers are imported")
 	}
 
-	ms := meili.NewMeilisearch(conf.Host, conf.APIKey)
-
-	if _, err := ms.GetClient().Health(); err != nil {
-		return nil, fmt.Errorf("meilisearch connect error: %v", err)
+	driver, err := driverRegistry.GetSearchDriver("meilisearch")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get meilisearch driver: %w", err)
 	}
 
-	return ms, nil
+	conn, err := driver.Connect(context.Background(), conf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect using meilisearch driver: %w", err)
+	}
+
+	return conn, nil
 }

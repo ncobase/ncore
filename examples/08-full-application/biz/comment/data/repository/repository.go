@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ncobase/ncore/examples/full-application/biz/comment/structs"
+	"github.com/ncobase/ncore/examples/08-full-application/biz/comment/structs"
 )
 
 type CommentRepository interface {

@@ -5,8 +5,8 @@ import (
 	"errors"
 
 	"github.com/gin-gonic/gin"
-	"github.com/ncobase/ncore/examples/full-application/core/user/service"
-	"github.com/ncobase/ncore/examples/full-application/core/user/structs"
+	"github.com/ncobase/ncore/examples/08-full-application/core/user/service"
+	"github.com/ncobase/ncore/examples/08-full-application/core/user/structs"
 	"github.com/ncobase/ncore/net/resp"
 )
 

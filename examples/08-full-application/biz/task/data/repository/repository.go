@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ncobase/ncore/examples/full-application/biz/task/structs"
+	"github.com/ncobase/ncore/examples/08-full-application/biz/task/structs"
 )
 
 type TaskRepository interface {

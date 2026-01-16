@@ -19,6 +19,8 @@ import (
 	"github.com/ncobase/ncore/examples/06-event-driven/service"
 	"github.com/ncobase/ncore/logging/logger"
 	"github.com/ncobase/ncore/net/resp"
+
+	_ "github.com/ncobase/ncore/data/sqlite"
 )
 
 func main() {

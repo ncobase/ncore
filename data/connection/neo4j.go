@@ -2,27 +2,25 @@ package connection
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/ncobase/ncore/data/config"
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
-// newNeo4jClient creates a new Neo4j client
-func newNeo4jClient(conf *config.Neo4j) (neo4j.DriverWithContext, error) {
-	if conf == nil || conf.URI == "" {
-		return nil, errors.New("neo4j configuration is nil or empty")
+func newNeo4jClient(conf *config.Neo4j) (any, error) {
+	if driverRegistry == nil {
+		return nil, fmt.Errorf("driver registry not initialized, ensure drivers are imported")
 	}
 
-	driver, err := neo4j.NewDriverWithContext(conf.URI, neo4j.BasicAuth(conf.Username, conf.Password, ""))
+	driver, err := driverRegistry.GetDatabaseDriver("neo4j")
 	if err != nil {
-		return nil, fmt.Errorf("neo4j connect error: %w", err)
+		return nil, fmt.Errorf("failed to get neo4j driver: %w", err)
 	}
 
-	if err := driver.VerifyConnectivity(context.Background()); err != nil {
-		return nil, fmt.Errorf("neo4j verify connectivity error: %w", err)
+	conn, err := driver.Connect(context.Background(), conf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect using neo4j driver: %w", err)
 	}
 
-	return driver, nil
+	return conn, nil
 }

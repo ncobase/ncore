@@ -8,12 +8,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/ncobase/ncore/config"
 	"github.com/ncobase/ncore/data"
-	"github.com/ncobase/ncore/examples/full-application/core/workspace/data/repository"
-	"github.com/ncobase/ncore/examples/full-application/core/workspace/service"
-	"github.com/ncobase/ncore/examples/full-application/core/workspace/structs"
+	"github.com/ncobase/ncore/examples/08-full-application/core/workspace/data/repository"
+	"github.com/ncobase/ncore/examples/08-full-application/core/workspace/service"
+	"github.com/ncobase/ncore/examples/08-full-application/core/workspace/structs"
 	"github.com/ncobase/ncore/extension/registry"
 	"github.com/ncobase/ncore/extension/types"
 	"github.com/ncobase/ncore/logging/logger"
+	"github.com/redis/go-redis/v9"
 )
 
 type Workspace = structs.Workspace
@@ -87,7 +88,7 @@ func (m *Module) Init(conf *config.Config, em types.ManagerInterface) error {
 		return fmt.Errorf("master database not configured")
 	}
 
-	workspaceRepo, err := repository.NewWorkspaceRepository(db, m.logger, dataLayer.GetRedis())
+	workspaceRepo, err := repository.NewWorkspaceRepository(db, m.logger, dataLayer.GetRedis().(*redis.Client))
 	if err != nil {
 		return err
 	}

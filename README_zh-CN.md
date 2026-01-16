@@ -5,7 +5,8 @@
 ## 特性
 
 - **模块化架构**：只导入您需要的模块
-- **丰富的集成**：数据库、搜索、消息传递和存储解决方案
+- **模块化驱动系统** (v0.2.0+)：可选的数据库、缓存、搜索和消息驱动，最小化二进制体积
+- **丰富的集成**：PostgreSQL、MySQL、MongoDB、Redis、Elasticsearch、Kafka 等
 - **安全与认证**：JWT、OAuth、加密工具
 - **可观测性**：OpenTelemetry、日志记录和监控
 - **依赖注入**：原生支持 Google Wire
@@ -39,9 +40,15 @@ github.com/ncobase/ncore/version        - 版本信息
 只导入您需要的模块：
 
 ```bash
+# 核心模块
 go get github.com/ncobase/ncore/config
 go get github.com/ncobase/ncore/data
 go get github.com/ncobase/ncore/security
+
+# 数据驱动 (v0.2.0+) - 只导入您使用的驱动
+go get github.com/ncobase/ncore/data/postgres
+go get github.com/ncobase/ncore/data/redis
+go get github.com/ncobase/ncore/data/meilisearch
 ```
 
 ## 快速开始
@@ -51,7 +58,11 @@ package main
 
 import (
     "github.com/ncobase/ncore/config"
-    "github.com/ncobase/ncore/logging"
+    "github.com/ncobase/ncore/data"
+
+    // 只导入您需要的驱动 (v0.2.0+)
+    _ "github.com/ncobase/ncore/data/postgres"
+    _ "github.com/ncobase/ncore/data/redis"
 )
 
 func main() {
@@ -61,10 +72,58 @@ func main() {
         panic(err)
     }
 
-    // 初始化日志记录器
-    logger := logging.NewLogger(cfg.Logging)
-    logger.Info("应用程序已启动")
+    // 初始化数据层（驱动在导入时自动注册）
+    d, cleanup, err := data.New(cfg.Data)
+    if err != nil {
+        panic(err)
+    }
+    defer cleanup()
+
+    // 使用数据库和缓存
+    db := d.Conn.DB()
+    redis := d.Conn.RC
 }
+```
+
+### 从 v0.1.x 迁移
+
+如果您正在从 v0.1.x 升级，请在您的 main.go 或任何初始化文件中添加驱动导入：
+
+```go
+import (
+    _ "github.com/ncobase/ncore/data/postgres"  // 添加您需要的驱动
+    _ "github.com/ncobase/ncore/data/redis"
+)
+```
+
+对于搜索功能，导入搜索模块：
+
+```go
+import (
+    "github.com/ncobase/ncore/data/search"
+    _ "github.com/ncobase/ncore/data/elasticsearch"
+)
+```
+
+### 为什么使用模块化驱动？
+
+v0.2.0 引入了可选驱动，显著减少了二进制体积和依赖：
+
+| 指标          | v0.1.x | v0.2.0 | 改进       |
+|-------------|--------|--------|----------|
+| 二进制大小（基础应用） | ~92MB  | ~43MB  | **-53%** |
+| 依赖数量        | 466    | ~100   | **-78%** |
+| 编译时间        | ~45s   | ~20s   | **-56%** |
+
+**可用驱动：**
+
+- **数据库**: postgres, mysql, sqlite, mongodb, neo4j
+- **缓存**: redis
+- **搜索**: elasticsearch, opensearch, meilisearch（可选模块）
+- **消息队列**: kafka, rabbitmq
+- **存储**: local, s3, aliyun, minio
+
+模块化驱动系统使用基于 init 的注册模式来实现自动驱动发现。
 
 ## 依赖注入 (Google Wire)
 
@@ -72,15 +131,15 @@ NCore 原生支持 [Google Wire](https://github.com/google/wire)。您可以使�
 
 ### 可用的 ProviderSets
 
-| 模块 | ProviderSet | 提供内容 |
-|--------|-------------|----------|
-| `config` | `config.ProviderSet` | `*Config`, `*Logger`, `*Data`, `*Auth` 等 |
-| `logging/logger` | `logger.ProviderSet` | `*Logger` 带清理函数 |
-| `data` | `data.ProviderSet` | `*Data` 带清理函数 |
-| `extension/manager` | `manager.ProviderSet` | `*Manager` 带清理函数 |
-| `security` | `security.ProviderSet` | JWT `*TokenManager` |
-| `messaging` | `messaging.ProviderSet` | 邮件 `Sender` |
-| `concurrency` | `concurrency.ProviderSet` | Worker `*Pool` 带清理函数 |
+| 模块                  | ProviderSet               | 提供内容                                     |
+|---------------------|---------------------------|------------------------------------------|
+| `config`            | `config.ProviderSet`      | `*Config`, `*Logger`, `*Data`, `*Auth` 等 |
+| `logging/logger`    | `logger.ProviderSet`      | `*Logger` 带清理函数                          |
+| `data`              | `data.ProviderSet`        | `*Data` 带清理函数                            |
+| `extension/manager` | `manager.ProviderSet`     | `*Manager` 带清理函数                         |
+| `security`          | `security.ProviderSet`    | JWT `*TokenManager`                      |
+| `messaging`         | `messaging.ProviderSet`   | 邮件 `Sender`                              |
+| `concurrency`       | `concurrency.ProviderSet` | Worker `*Pool` 带清理函数                     |
 
 ### 基础用法
 
@@ -110,7 +169,7 @@ func InitializeApp() (*App, func(), error) {
         NewApp,
     ))
 }
-````
+```
 
 ### 带安全模块和消息模块
 

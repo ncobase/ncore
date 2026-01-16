@@ -3,10 +3,22 @@
 dist/
 ncore
 .DS_Store
+
+# Examples
+examples/01-basic-rest-api/01-basic-rest-api
+examples/02-mongodb-api/02-mongodb-api
+examples/03-multi-module/03-multi-module
+examples/04-realtime-websocket/04-realtime-websocket
+examples/05-background-jobs/05-background-jobs
+examples/06-event-driven/06-event-driven
+examples/07-authentication/07-authentication
+examples/08-full-application/08-full-application
+examples/09-wire/09-wire
 main
 jobs.db
 events.db
 auth.db
+
 
 # Go workspace sum file (local only)
 go.work.sum

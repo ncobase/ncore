@@ -161,7 +161,7 @@ NCore modules provide `ProviderSet` for Google Wire integration (v0.7.0).
 #### Available ProviderSets
 
 | Module               | ProviderSet               | Provides                                                               | Cleanup |
-| -------------------- | ------------------------- | ---------------------------------------------------------------------- | ------- |
+|----------------------|---------------------------|------------------------------------------------------------------------|---------|
 | `config`             | `config.ProviderSet`      | `*Config`, `*Logger`, `*Data`, `*Auth`, `*Storage`, `*Email`, `*OAuth` | No      |
 | `logging/logger`     | `logger.ProviderSet`      | `*Logger`                                                              | Yes     |
 | `data`               | `data.ProviderSet`        | `*Data`                                                                | Yes     |
@@ -417,7 +417,7 @@ Batch tagging
 ## Makefile Targets
 
 | Command                   | Description                 |
-| ------------------------- | --------------------------- |
+|---------------------------|-----------------------------|
 | `make help`               | Show help information       |
 | `make sync`               | Sync workspace dependencies |
 | `make test`               | Run all tests               |

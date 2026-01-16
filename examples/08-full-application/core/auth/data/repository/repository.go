@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"github.com/ncobase/ncore/examples/full-application/core/auth/structs"
+	"github.com/ncobase/ncore/examples/08-full-application/core/auth/structs"
 )
 
 type UserRepository interface {

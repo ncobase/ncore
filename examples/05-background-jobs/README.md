@@ -1,6 +1,7 @@
 # Example 05: Background Jobs & Worker Pools
 
-Demonstrates async task processing with NCore's worker pools, job queuing, and status tracking patterns used in production systems.
+Demonstrates async task processing with NCore's worker pools, job queuing, and status tracking patterns used in
+production systems.
 
 ## Features
 

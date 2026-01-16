@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ncobase/ncore/data/databases/cache"
-	"github.com/ncobase/ncore/examples/full-application/core/workspace/structs"
+	"github.com/ncobase/ncore/data/cache"
+	"github.com/ncobase/ncore/examples/08-full-application/core/workspace/structs"
 	"github.com/ncobase/ncore/logging/logger"
 	"github.com/redis/go-redis/v9"
 )

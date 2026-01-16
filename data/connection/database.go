@@ -9,11 +9,52 @@ import (
 	"sync"
 	"sync/atomic"
 
-	_ "github.com/go-sql-driver/mysql"
-	_ "github.com/jackc/pgx/v5/stdlib"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/ncobase/ncore/data/config"
 )
+
+// driverRegistry provides access to the driver registration without import cycle.
+// This is set by the parent data package during initialization.
+var driverRegistry DriverRegistry
+
+// DriverRegistry defines the minimal interface needed from data package.
+type DriverRegistry interface {
+	GetDatabaseDriver(name string) (DatabaseDriver, error)
+	GetCacheDriver(name string) (CacheDriver, error)
+	GetSearchDriver(name string) (SearchDriver, error)
+	GetMessageDriver(name string) (MessageDriver, error)
+}
+
+// DatabaseDriver mirrors the interface from data package to avoid import cycle.
+type DatabaseDriver interface {
+	Name() string
+	Connect(ctx context.Context, cfg any) (any, error)
+	Close(conn any) error
+	Ping(ctx context.Context, conn any) error
+}
+
+type CacheDriver interface {
+	Name() string
+	Connect(ctx context.Context, cfg any) (any, error)
+	Close(conn any) error
+	Ping(ctx context.Context, conn any) error
+}
+
+type SearchDriver interface {
+	Name() string
+	Connect(ctx context.Context, cfg any) (any, error)
+	Close(conn any) error
+}
+
+type MessageDriver interface {
+	Name() string
+	Connect(ctx context.Context, cfg any) (any, error)
+	Close(conn any) error
+}
+
+// SetDriverRegistry is called by the data package to inject the registry.
+func SetDriverRegistry(registry DriverRegistry) {
+	driverRegistry = registry
+}
 
 var (
 	ErrNoAvailableSlaves = errors.New("no available slave databases")
@@ -166,29 +207,25 @@ func NewDBManager(conf *config.Database) (*DBManager, error) {
 	}, nil
 }
 
-// newDBClient creates a new database client
 func newDBClient(conf *config.DBNode) (*sql.DB, error) {
-	var db *sql.DB
-	var err error
-
-	switch conf.Driver {
-	case "postgres":
-		db, err = sql.Open("pgx", conf.Source)
-	case "mysql":
-		db, err = sql.Open("mysql", conf.Source)
-	case "sqlite3":
-		db, err = sql.Open("sqlite3", conf.Source)
-	default:
-		return nil, fmt.Errorf("dialect %v not supported", conf.Driver)
+	if driverRegistry == nil {
+		return nil, fmt.Errorf("driver registry not initialized, ensure drivers are imported")
 	}
 
+	driver, err := driverRegistry.GetDatabaseDriver(conf.Driver)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %v", err)
+		return nil, fmt.Errorf("failed to get database driver: %w", err)
 	}
 
-	db.SetMaxIdleConns(conf.MaxIdleConn)
-	db.SetMaxOpenConns(conf.MaxOpenConn)
-	db.SetConnMaxLifetime(conf.ConnMaxLifeTime)
+	conn, err := driver.Connect(context.Background(), conf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect using %s driver: %w", conf.Driver, err)
+	}
+
+	db, ok := conn.(*sql.DB)
+	if !ok {
+		return nil, fmt.Errorf("driver %s returned invalid connection type, expected *sql.DB", conf.Driver)
+	}
 
 	return db, nil
 }

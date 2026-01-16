@@ -5,12 +5,12 @@ package enttest
 import (
 	"context"
 
-	"github.com/ncobase/ncore/examples/full-application/core/user/data/ent"
+	"github.com/ncobase/ncore/examples/08-full-application/core/user/data/ent"
 	// required by schema hooks.
-	_ "github.com/ncobase/ncore/examples/full-application/core/user/data/ent/runtime"
+	_ "github.com/ncobase/ncore/examples/08-full-application/core/user/data/ent/runtime"
 
 	"entgo.io/ent/dialect/sql/schema"
-	"github.com/ncobase/ncore/examples/full-application/core/user/data/ent/migrate"
+	"github.com/ncobase/ncore/examples/08-full-application/core/user/data/ent/migrate"
 )
 
 type (

@@ -12,7 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/ncobase/ncore/examples/full-application/core/user/data/ent/user"
+	"github.com/ncobase/ncore/examples/08-full-application/core/user/data/ent/user"
 )
 
 // UserCreate is the builder for creating a User entity.

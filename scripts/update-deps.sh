@@ -7,13 +7,14 @@
 
 set -e
 
-# Auto-detect all subdirectories that contain a go.mod file
+# Auto-detect all directories that contain a go.mod file
 MODULES=()
-for dir in */; do
-    if [ -f "${dir}go.mod" ]; then
-        MODULES+=("${dir%/}")
-    fi
-done
+while IFS= read -r file; do
+    dir=$(dirname "$file")
+    # Skip the root directory itself if it has a go.mod
+    if [ "$dir" == "." ]; then continue; fi
+    MODULES+=("$dir")
+done < <(find . -name "go.mod" | sort)
 
 # If a module name is provided, only update that module
 if [ -n "$1" ]; then
@@ -33,7 +34,7 @@ for module in "${MODULES[@]}"; do
     echo "📦 Updating module: $module"
     echo "----------------------------"
 
-    cd "$module"
+    pushd "$module" > /dev/null
 
     # Upgrade all dependencies to the latest minor or patch version
     echo "Running: go get -u ./..."
@@ -43,7 +44,7 @@ for module in "${MODULES[@]}"; do
     echo "Running: go mod tidy"
     go mod tidy
 
-    cd ..
+    popd > /dev/null
 
     echo "✅ $module updated"
 done

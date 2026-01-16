@@ -1,6 +1,7 @@
 # Example 06: Event-Driven Architecture
 
-Demonstrates event-driven patterns with NCore's event bus, pub/sub system, and async event handling from the extension system.
+Demonstrates event-driven patterns with NCore's event bus, pub/sub system, and async event handling from the extension
+system.
 
 ## Features
 

@@ -1,37 +1,26 @@
 package connection
 
 import (
-	"errors"
+	"context"
 	"fmt"
-	"io"
 
 	"github.com/ncobase/ncore/data/config"
-	"github.com/ncobase/ncore/data/search/elastic"
 )
 
-// newElasticsearchClient creates a new Elasticsearch client
-func newElasticsearchClient(conf *config.Elasticsearch) (*elastic.Client, error) {
-	if conf == nil || len(conf.Addresses) == 0 {
-		return nil, errors.New("elasticsearch configuration is nil or empty")
+func newElasticsearchClient(conf *config.Elasticsearch) (any, error) {
+	if driverRegistry == nil {
+		return nil, fmt.Errorf("driver registry not initialized, ensure drivers are imported")
 	}
 
-	es, err := elastic.NewClient(conf.Addresses, conf.Username, conf.Password)
+	driver, err := driverRegistry.GetSearchDriver("elasticsearch")
 	if err != nil {
-		return nil, fmt.Errorf("elasticsearch client creation error: %w", err)
+		return nil, fmt.Errorf("failed to get elasticsearch driver: %w", err)
 	}
 
-	res, err := es.GetClient().Info()
+	conn, err := driver.Connect(context.Background(), conf)
 	if err != nil {
-		return nil, fmt.Errorf("elasticsearch connect error: %w", err)
+		return nil, fmt.Errorf("failed to connect using elasticsearch driver: %w", err)
 	}
 
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(res.Body)
-
-	if res.IsError() {
-		return nil, fmt.Errorf("elasticsearch info error: %s", res.Status())
-	}
-
-	return es, nil
+	return conn, nil
 }

@@ -9,8 +9,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/ncobase/ncore/examples/full-application/core/workspace/data/repository"
-	"github.com/ncobase/ncore/examples/full-application/core/workspace/structs"
+	"github.com/ncobase/ncore/examples/08-full-application/core/workspace/data/repository"
+	"github.com/ncobase/ncore/examples/08-full-application/core/workspace/structs"
 	"github.com/ncobase/ncore/logging/logger"
 	"github.com/ncobase/ncore/net/resp"
 )

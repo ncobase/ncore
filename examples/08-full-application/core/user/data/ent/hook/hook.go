@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ncobase/ncore/examples/full-application/core/user/data/ent"
+	"github.com/ncobase/ncore/examples/08-full-application/core/user/data/ent"
 )
 
 // The UserFunc type is an adapter to allow the use of ordinary

@@ -57,11 +57,7 @@ func (d *Data) Close() []error {
 		d.Conn = nil
 	}
 
-	// Clear other references
-	d.RabbitMQ = nil
-	d.Kafka = nil
-	d.searchClient = nil
-	d.collector = metrics.NoOpCollector{} // Reset to no-op collector
+	d.collector = metrics.NoOpCollector{}
 
 	return errs
 }

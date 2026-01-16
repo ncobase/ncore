@@ -16,6 +16,7 @@ import (
 	"github.com/ncobase/ncore/extension/security"
 	"github.com/ncobase/ncore/extension/types"
 	"github.com/ncobase/ncore/logging/logger"
+	"github.com/redis/go-redis/v9"
 	"github.com/sony/gobreaker"
 )
 
@@ -140,8 +141,13 @@ func (m *Manager) upgradeMetricsStorageIfAvailable() {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	if err := redisClient.Ping(ctx).Err(); err != nil {
-		logger.Warnf(nil, "Redis connection test failed: %v", err)
+	if rc, ok := redisClient.(*redis.Client); ok {
+		if err := rc.Ping(ctx).Err(); err != nil {
+			logger.Warnf(nil, "Redis connection test failed: %v", err)
+			return
+		}
+	} else {
+		logger.Warnf(nil, "Redis client type assertion failed")
 		return
 	}
 

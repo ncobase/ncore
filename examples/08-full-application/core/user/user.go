@@ -8,12 +8,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/ncobase/ncore/config"
 	"github.com/ncobase/ncore/data"
-	"github.com/ncobase/ncore/examples/full-application/core/user/data/repository"
-	"github.com/ncobase/ncore/examples/full-application/core/user/handler"
-	"github.com/ncobase/ncore/examples/full-application/core/user/service"
+	"github.com/ncobase/ncore/examples/08-full-application/core/user/data/repository"
+	"github.com/ncobase/ncore/examples/08-full-application/core/user/handler"
+	"github.com/ncobase/ncore/examples/08-full-application/core/user/service"
 	"github.com/ncobase/ncore/extension/registry"
 	"github.com/ncobase/ncore/extension/types"
 	"github.com/ncobase/ncore/logging/logger"
+	"github.com/redis/go-redis/v9"
 )
 
 type Module struct {
@@ -77,7 +78,7 @@ func (m *Module) Init(conf *config.Config, em types.ManagerInterface) error {
 		return fmt.Errorf("master database not configured")
 	}
 
-	repo, err := repository.NewUserRepository(db, m.logger, dataLayer.GetRedis())
+	repo, err := repository.NewUserRepository(db, m.logger, dataLayer.GetRedis().(*redis.Client))
 	if err != nil {
 		return err
 	}

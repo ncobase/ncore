@@ -1,10 +1,13 @@
 # Example 08: Full Application
 
-A production-ready collaborative task management platform demonstrating comprehensive NCore features including multi-tenancy, real-time communication, event-driven architecture, authentication, background jobs, and WebSocket integration.
+A production-ready collaborative task management platform demonstrating comprehensive NCore features including
+multi-tenancy, real-time communication, event-driven architecture, authentication, background jobs, and WebSocket
+integration.
 
 ## Overview
 
-This example showcases a complete, production-ready application combining all NCore patterns from previous examples into a cohesive system. It implements a collaborative task management platform with:
+This example showcases a complete, production-ready application combining all NCore patterns from previous examples into
+a cohesive system. It implements a collaborative task management platform with:
 
 - **Multi-tenant Architecture**: Workspaces for isolation and team management
 - **Real-time Updates**: WebSocket-based live collaboration
@@ -729,12 +732,12 @@ go test -bench=. -benchmem
 This example incorporates patterns from actual NCore-based applications:
 
 | Application | Pattern | Implementation |
-| ----------- | ------- | -------------- |
+|-------------|---------|----------------|
 
 ## NCore Modules Used
 
 | Module               | Usage                               |
-| -------------------- | ----------------------------------- |
+|----------------------|-------------------------------------|
 | `config`             | Configuration management            |
 | `logging`            | Structured logging                  |
 | `extension/manager`  | Module registration and lifecycle   |

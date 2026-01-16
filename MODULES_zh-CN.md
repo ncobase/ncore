@@ -17,18 +17,123 @@ github.com/ncobase/ncore/
 ├── config         - 配置管理
 ├── consts         - 常量定义
 ├── ctxutil        - Context 工具
-├── data           - 数据层（数据库、缓存、搜索引擎等）
+├── data           - 数据层（核心抽象、驱动注册）
+│   ├── postgres       - PostgreSQL 驱动
+│   ├── mysql          - MySQL 驱动
+│   ├── sqlite         - SQLite 驱动
+│   ├── mongodb        - MongoDB 驱动
+│   ├── redis          - Redis 驱动
+│   ├── neo4j          - Neo4j 驱动
+│   ├── elasticsearch  - Elasticsearch 驱动
+│   ├── opensearch     - OpenSearch 驱动
+│   ├── meilisearch    - Meilisearch 驱动
+│   ├── kafka          - Kafka 驱动
+│   ├── rabbitmq       - RabbitMQ 驱动
+│   └── all            - 兼容层（导入所有驱动）
 ├── ecode          - 错误码
 ├── extension      - 扩展和插件系统
 ├── logging        - 日志
 ├── messaging      - 消息队列
 ├── net            - 网络工具
+├── oss            - 对象存储服务（独立模块）
 ├── security       - 安全相关
 ├── types          - 通用类型
 ├── utils          - 工具函数
 ├── validation     - 数据验证
 └── version        - 版本管理
 ```
+
+## 模块化驱动系统 (v0.2.0+)
+
+从 v0.2.0 开始，NCore 实现了**模块化驱动系统**，其中数据库、缓存、搜索、消息队列和存储驱动都是独立的可选模块。这种设计显著减少了二进制体积和依赖数量。
+
+### 可用驱动
+
+#### 数据库驱动
+
+- `github.com/ncobase/ncore/data/postgres` - PostgreSQL 使用 pgx/v5
+- `github.com/ncobase/ncore/data/mysql` - MySQL
+- `github.com/ncobase/ncore/data/sqlite` - SQLite
+- `github.com/ncobase/ncore/data/mongodb` - MongoDB
+- `github.com/ncobase/ncore/data/neo4j` - Neo4j 图数据库
+
+#### 缓存驱动
+
+- `github.com/ncobase/ncore/data/redis` - Redis 缓存
+
+#### 搜索驱动
+
+- `github.com/ncobase/ncore/data/elasticsearch` - Elasticsearch
+- `github.com/ncobase/ncore/data/opensearch` - OpenSearch
+- `github.com/ncobase/ncore/data/meilisearch` - Meilisearch
+
+#### 消息队列驱动
+
+- `github.com/ncobase/ncore/data/kafka` - Apache Kafka
+- `github.com/ncobase/ncore/data/rabbitmq` - RabbitMQ
+
+### 对象存储服务（OSS 模块）
+
+从 v0.2.0 开始，对象存储已被提取为**独立模块** `github.com/ncobase/ncore/oss`：
+
+- **独立模块**：与数据层解耦
+- **无需驱动注册**：直接通过 `oss.NewStorage()` 使用
+- **内置 9 个提供商**：
+  - AWS S3
+  - Azure Blob Storage
+  - 阿里云 OSS
+  - 腾讯云 COS
+  - Google Cloud Storage
+  - MinIO
+  - 七牛 Kodo
+  - Synology NAS
+  - 本地文件系统
+
+**使用方式：**
+
+```go
+import "github.com/ncobase/ncore/oss"
+
+storage, err := oss.NewStorage(&oss.Config{
+    Provider: "minio",
+    Endpoint: "http://localhost:9000",
+    Bucket:   "mybucket",
+    ID:       "minioadmin",
+    Secret:   "minioadmin",
+})
+```
+
+详细文档请参见 [oss/README.md](oss/README.md)。
+
+### 工作原理
+
+驱动遵循 `database/sql` 模式：
+
+1. 每个驱动都是独立的 Go 模块，拥有自己的依赖
+2. 驱动在导入时通过 `init()` 自动注册
+3. 用户使用空白导入显式导入所需的驱动
+
+```go
+import (
+    "github.com/ncobase/ncore/data"
+
+    // 只导入您需要的驱动
+    _ "github.com/ncobase/ncore/data/postgres"
+    _ "github.com/ncobase/ncore/data/redis"
+)
+```
+
+### 优势
+
+| 指标                   | v0.2.0 之前 | v0.2.0 之后 | 改进     |
+| ---------------------- | ----------- | ----------- | -------- |
+| 二进制大小（基础应用） | ~92MB       | ~43MB       | **-53%** |
+| 依赖数量（基础应用）   | 466         | ~100        | **-78%** |
+| 编译时间               | ~45s        | ~20s        | **-56%** |
+
+### 迁移指南
+
+详细的 v0.1.x 迁移说明请参见 [README_zh-CN.md](README_zh-CN.md)。
 
 ## 使用方式
 
@@ -38,11 +143,34 @@ github.com/ncobase/ncore/
 
 ```go
 require (
-    github.com/ncobase/ncore/config v0.0.0-20251022025300-781956ac0776
-    github.com/ncobase/ncore/data v0.0.0-20251022025300-781956ac0776
-    github.com/ncobase/ncore/logging v0.0.0-20251022025300-781956ac0776
-    // 只引入需要的模块
+    github.com/ncobase/ncore/config v0.2.0
+    github.com/ncobase/ncore/data v0.2.0
+    github.com/ncobase/ncore/logging v0.2.0
+
+    // 只导入您需要的数据驱动 (v0.2.0+)
+    github.com/ncobase/ncore/data/postgres v0.2.0
+    github.com/ncobase/ncore/data/redis v0.2.0
 )
+```
+
+在代码中，使用空白导入来注册驱动：
+
+```go
+package main
+
+import (
+    "github.com/ncobase/ncore/data"
+
+    // 空白导入以注册驱动
+    _ "github.com/ncobase/ncore/data/postgres"
+    _ "github.com/ncobase/ncore/data/redis"
+)
+
+func main() {
+    // 正常使用数据层 - 驱动已自动注册
+    d, cleanup, _ := data.New(cfg.Data)
+    defer cleanup()
+}
 ```
 
 ### 本地开发

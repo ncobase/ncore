@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+
+	_ "github.com/ncobase/ncore/data/sqlite"
 )
 
 func main() {

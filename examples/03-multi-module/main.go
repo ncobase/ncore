@@ -14,6 +14,8 @@ import (
 	"github.com/ncobase/ncore/config"
 	"github.com/ncobase/ncore/examples/03-multi-module/internal/server"
 	"github.com/ncobase/ncore/logging/logger"
+
+	_ "github.com/ncobase/ncore/data/mongodb"
 )
 
 func main() {

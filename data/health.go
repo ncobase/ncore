@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -74,27 +75,21 @@ func (d *Data) checkDatabaseHealth(ctx context.Context, services map[string]any)
 }
 
 // checkRedisHealth checks Redis health
-func (d *Data) checkRedisHealth(ctx context.Context, services map[string]any) bool {
-	redis := d.GetRedis()
-	if redis == nil {
-		return true // No Redis configured
+func (d *Data) checkRedisHealth(_ context.Context, services map[string]any) bool {
+	if d.Conn == nil || d.Conn.RC == nil {
+		return true
 	}
 
-	start := time.Now()
-	err := redis.Ping(ctx).Err()
-	duration := time.Since(start)
+	d.collector.RedisCommand("ping", errors.New("redis client not available"))
+	d.collector.HealthCheck("redis", false)
 
-	healthy := err == nil
 	services["redis"] = map[string]any{
-		"healthy":     healthy,
-		"response_ms": duration.Milliseconds(),
-		"error":       getErrorString(err),
+		"healthy":     false,
+		"response_ms": int64(0),
+		"error":       "redis client not available",
 	}
 
-	d.collector.RedisCommand("ping", err)
-	d.collector.HealthCheck("redis", healthy)
-
-	return healthy
+	return false
 }
 
 // checkMongoHealth checks MongoDB health
@@ -103,8 +98,21 @@ func (d *Data) checkMongoHealth(ctx context.Context, services map[string]any) bo
 		return true // No MongoDB configured
 	}
 
+	manager, ok := d.Conn.MGM.(interface{ Health(context.Context) error })
+	if !ok {
+		err := errors.New("mongodb manager not available")
+		services["mongodb"] = map[string]any{
+			"healthy":     false,
+			"response_ms": int64(0),
+			"error":       err.Error(),
+		}
+		d.collector.MongoOperation("health_check", err)
+		d.collector.HealthCheck("mongodb", false)
+		return false
+	}
+
 	start := time.Now()
-	err := d.Conn.MGM.Health(ctx)
+	err := manager.Health(ctx)
 	duration := time.Since(start)
 
 	healthy := err == nil
@@ -125,8 +133,11 @@ func (d *Data) checkMessagingHealth(services map[string]any) bool {
 	overallHealthy := true
 
 	// RabbitMQ health
-	if d.RabbitMQ != nil {
-		healthy := d.RabbitMQ.IsConnected()
+	if d.Conn != nil && d.Conn.RMQ != nil {
+		healthy := false
+		if rmq, ok := d.Conn.RMQ.(interface{ IsConnected() bool }); ok {
+			healthy = rmq.IsConnected()
+		}
 		services["rabbitmq"] = map[string]any{
 			"healthy": healthy,
 			"error":   getErrorString(getConnectivityError(!healthy, "rabbitmq")),
@@ -138,8 +149,11 @@ func (d *Data) checkMessagingHealth(services map[string]any) bool {
 	}
 
 	// Kafka health
-	if d.Kafka != nil {
-		healthy := d.Kafka.IsConnected()
+	if d.Conn != nil && d.Conn.KFK != nil {
+		healthy := false
+		if kfk, ok := d.Conn.KFK.(interface{ IsConnected() bool }); ok {
+			healthy = kfk.IsConnected()
+		}
 		services["kafka"] = map[string]any{
 			"healthy": healthy,
 			"error":   getErrorString(getConnectivityError(!healthy, "kafka")),
@@ -154,26 +168,22 @@ func (d *Data) checkMessagingHealth(services map[string]any) bool {
 }
 
 // checkSearchHealth checks search engines health
-func (d *Data) checkSearchHealth(ctx context.Context, services map[string]any) bool {
-	overallHealthy := true
-
-	// Get search health if client is available
-	searchHealth := d.SearchHealth(ctx)
-	if searchHealth != nil {
-		for engine, err := range searchHealth {
-			healthy := err == nil
-			services[string(engine)] = map[string]any{
-				"healthy": healthy,
-				"error":   getErrorString(err),
-			}
-			d.collector.HealthCheck(string(engine), healthy)
-			if !healthy {
-				overallHealthy = false
-			}
-		}
+func (d *Data) checkSearchHealth(_ context.Context, services map[string]any) bool {
+	if d.Conn == nil {
+		return true
 	}
 
-	return overallHealthy
+	if d.Conn.ES == nil && d.Conn.OS == nil && d.Conn.MS == nil {
+		return true
+	}
+
+	services["search"] = map[string]any{
+		"healthy": false,
+		"error":   "search client not available",
+	}
+	d.collector.HealthCheck("search", false)
+
+	return false
 }
 
 // getErrorString returns error string

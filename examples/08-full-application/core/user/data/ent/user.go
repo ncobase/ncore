@@ -9,7 +9,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/ncobase/ncore/examples/full-application/core/user/data/ent/user"
+	"github.com/ncobase/ncore/examples/08-full-application/core/user/data/ent/user"
 )
 
 // User is the model entity for the User schema.

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ncobase/ncore/examples/full-application/plugin/export/structs"
+	"github.com/ncobase/ncore/examples/08-full-application/plugin/export/structs"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"

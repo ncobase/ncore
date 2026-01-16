@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/ncobase/ncore/config"
-	"github.com/ncobase/ncore/examples/full-application/internal/event"
-	"github.com/ncobase/ncore/examples/full-application/plugin/notification/service"
+	"github.com/ncobase/ncore/examples/08-full-application/internal/event"
+	"github.com/ncobase/ncore/examples/08-full-application/plugin/notification/service"
 	"github.com/ncobase/ncore/extension/registry"
 	"github.com/ncobase/ncore/extension/types"
 	"github.com/ncobase/ncore/logging/logger"

@@ -1,6 +1,7 @@
 # Example 07: Authentication & Authorization
 
-Demonstrates comprehensive authentication and authorization using NCore's security module, JWT tokens, middleware patterns, and role-based access control.
+Demonstrates comprehensive authentication and authorization using NCore's security module, JWT tokens, middleware
+patterns, and role-based access control.
 
 ## Features
 

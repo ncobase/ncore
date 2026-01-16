@@ -12,7 +12,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"github.com/ncobase/ncore/examples/full-application/core/user/data/ent/user"
+	"github.com/ncobase/ncore/examples/08-full-application/core/user/data/ent/user"
 )
 
 // ent aliases to avoid import conflicts in user's code.

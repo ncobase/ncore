@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ncobase/ncore/examples/full-application/internal/event"
+	"github.com/ncobase/ncore/examples/08-full-application/internal/event"
 	"github.com/ncobase/ncore/logging/logger"
 	"github.com/ncobase/ncore/messaging/email"
 )

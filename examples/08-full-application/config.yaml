@@ -62,24 +62,3 @@ logger:
   output: stdout
   enable_caller: true
   enable_stacktrace: false
-
-modules:
-  core:
-    - name: auth
-      enabled: true
-    - name: user
-      enabled: true
-    - name: workspace
-      enabled: true
-  biz:
-    - name: task
-      enabled: true
-    - name: comment
-      enabled: true
-    - name: realtime
-      enabled: true
-  plugin:
-    - name: notification
-      enabled: true
-    - name: export
-      enabled: true

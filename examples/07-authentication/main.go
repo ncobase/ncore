@@ -19,6 +19,8 @@ import (
 	auth "github.com/ncobase/ncore/examples/07-authentication/service"
 	"github.com/ncobase/ncore/logging/logger"
 	"github.com/ncobase/ncore/net/resp"
+
+	_ "github.com/ncobase/ncore/data/sqlite"
 )
 
 func main() {

@@ -2,12 +2,10 @@ package metrics
 
 import "time"
 
-// ExtensionCollectorAdapter adapts extension metrics collector to data layer interface
 type ExtensionCollectorAdapter struct {
 	collector ExtensionCollector
 }
 
-// ExtensionCollector interface from extension layer
 type ExtensionCollector interface {
 	DBQuery(duration time.Duration, err error)
 	DBTransaction(err error)
@@ -22,12 +20,10 @@ type ExtensionCollector interface {
 	HealthCheck(component string, healthy bool)
 }
 
-// NewExtensionCollectorAdapter creates adapter for extension collector
 func NewExtensionCollectorAdapter(collector ExtensionCollector) *ExtensionCollectorAdapter {
 	return &ExtensionCollectorAdapter{collector: collector}
 }
 
-// Implement data layer Collector interface
 func (a *ExtensionCollectorAdapter) DBQuery(duration time.Duration, err error) {
 	if a.collector != nil {
 		a.collector.DBQuery(duration, err)
