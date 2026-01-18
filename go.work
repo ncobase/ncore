@@ -19,7 +19,6 @@ use (
 	./data/postgres
 	./data/rabbitmq
 	./data/redis
-	./data/search
 	./data/sqlite
 	./ecode
 	./examples/01-basic-rest-api

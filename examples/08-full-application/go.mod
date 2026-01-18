@@ -216,7 +216,6 @@ replace (
 	github.com/ncobase/ncore/data/mysql => ../../data/mysql
 	github.com/ncobase/ncore/data/postgres => ../../data/postgres
 	github.com/ncobase/ncore/data/redis => ../../data/redis
-	github.com/ncobase/ncore/data/search => ../../data/search
 	github.com/ncobase/ncore/data/sqlite => ../../data/sqlite
 	github.com/ncobase/ncore/ecode => ../../ecode
 	github.com/ncobase/ncore/extension => ../../extension
