@@ -13,11 +13,13 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
+// SynologyAdapter implements the Interface for Synology NAS S3-compatible storage.
 type SynologyAdapter struct {
 	client *minio.Client
 	bucket string
 }
 
+// NewSynologyAdapter creates a new Synology NAS storage adapter.
 func NewSynologyAdapter(endpoint, accessKey, secretKey, bucket string, useSSL bool) (*SynologyAdapter, error) {
 	endpoint = strings.TrimPrefix(endpoint, "https://")
 	endpoint = strings.TrimPrefix(endpoint, "http://")
@@ -36,6 +38,7 @@ func NewSynologyAdapter(endpoint, accessKey, secretKey, bucket string, useSSL bo
 	}, nil
 }
 
+// Get downloads a file from Synology to a temporary local file.
 func (a *SynologyAdapter) Get(path string) (*os.File, error) {
 	reader, err := a.GetStream(path)
 	if err != nil {
@@ -65,6 +68,7 @@ func (a *SynologyAdapter) Get(path string) (*os.File, error) {
 	return tmpFile, nil
 }
 
+// GetStream returns a readable stream for the Synology object.
 func (a *SynologyAdapter) GetStream(path string) (io.ReadCloser, error) {
 	ctx := context.Background()
 	object, err := a.client.GetObject(ctx, a.bucket, path, minio.GetObjectOptions{})
@@ -74,6 +78,7 @@ func (a *SynologyAdapter) GetStream(path string) (io.ReadCloser, error) {
 	return object, nil
 }
 
+// Put uploads a file to Synology from the given reader.
 func (a *SynologyAdapter) Put(path string, reader io.Reader) (*Object, error) {
 	if path == "" {
 		return nil, fmt.Errorf("path cannot be empty")
@@ -108,6 +113,7 @@ func (a *SynologyAdapter) Put(path string, reader io.Reader) (*Object, error) {
 	}, nil
 }
 
+// Delete removes an object from the Synology bucket.
 func (a *SynologyAdapter) Delete(path string) error {
 	if path == "" {
 		return fmt.Errorf("path cannot be empty")
@@ -121,6 +127,7 @@ func (a *SynologyAdapter) Delete(path string) error {
 	return nil
 }
 
+// List returns all objects under the specified prefix.
 func (a *SynologyAdapter) List(path string) ([]*Object, error) {
 	ctx := context.Background()
 
@@ -147,6 +154,7 @@ func (a *SynologyAdapter) List(path string) ([]*Object, error) {
 	return objects, nil
 }
 
+// GetURL generates a presigned URL valid for 1 hour.
 func (a *SynologyAdapter) GetURL(path string) (string, error) {
 	if path == "" {
 		return "", fmt.Errorf("path cannot be empty")
@@ -161,6 +169,73 @@ func (a *SynologyAdapter) GetURL(path string) (string, error) {
 	return presignedURL.String(), nil
 }
 
+// GetEndpoint returns the Synology NAS endpoint URL.
 func (a *SynologyAdapter) GetEndpoint() string {
 	return a.client.EndpointURL().String()
+}
+
+// Exists checks if an object exists in the Synology bucket.
+func (a *SynologyAdapter) Exists(path string) (bool, error) {
+	if path == "" {
+		return false, fmt.Errorf("path cannot be empty")
+	}
+
+	ctx := context.Background()
+	_, err := a.client.StatObject(ctx, a.bucket, path, minio.StatObjectOptions{})
+	if err != nil {
+		errResp := minio.ToErrorResponse(err)
+		if errResp.Code == "NoSuchKey" {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to check object existence: %w", err)
+	}
+	return true, nil
+}
+
+// Stat retrieves object metadata without downloading content.
+func (a *SynologyAdapter) Stat(path string) (*Object, error) {
+	if path == "" {
+		return nil, fmt.Errorf("path cannot be empty")
+	}
+
+	ctx := context.Background()
+	info, err := a.client.StatObject(ctx, a.bucket, path, minio.StatObjectOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get object metadata: %w", err)
+	}
+
+	return &Object{
+		Path:             path,
+		Name:             filepath.Base(path),
+		LastModified:     &info.LastModified,
+		Size:             info.Size,
+		StorageInterface: a,
+	}, nil
+}
+
+// synologyDriver implements the Driver interface for Synology NAS.
+type synologyDriver struct{}
+
+// Name returns the driver name.
+func (d *synologyDriver) Name() string {
+	return "synology"
+}
+
+// Connect establishes a connection to Synology NAS S3-compatible storage.
+func (d *synologyDriver) Connect(ctx context.Context, cfg *Config) (Interface, error) {
+	endpoint := cfg.Endpoint
+	endpoint = strings.TrimPrefix(endpoint, "http://")
+	endpoint = strings.TrimPrefix(endpoint, "https://")
+	useSSL := strings.HasPrefix(cfg.Endpoint, "https://")
+
+	return NewSynologyAdapter(cfg.Endpoint, cfg.ID, cfg.Secret, cfg.Bucket, useSSL)
+}
+
+// Close closes the Synology storage connection.
+func (d *synologyDriver) Close(conn Interface) error {
+	return nil
+}
+
+func init() {
+	RegisterDriver(&synologyDriver{})
 }

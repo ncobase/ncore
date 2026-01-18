@@ -1,3 +1,11 @@
+// Package oss provides a unified object storage abstraction layer supporting
+// multiple cloud storage providers including AWS S3, Azure Blob, Aliyun OSS,
+// Tencent COS, Google Cloud Storage, MinIO, Qiniu Kodo, Synology NAS,
+// and local filesystem.
+//
+// All providers implement a common Interface for consistent operations
+// across different storage backends. Drivers are auto-registered via init()
+// functions, enabling transparent provider selection at runtime.
 package oss
 
 import (
@@ -9,29 +17,41 @@ import (
 	"time"
 )
 
-// Interface defines the unified object storage operations.
-// All storage providers (MinIO, S3, Aliyun OSS, etc.) implement this interface.
+// Interface defines unified object storage operations.
+// All storage providers implement this interface for consistent API access.
 type Interface interface {
 	// Get downloads a file to a temporary file and returns the file handle.
+	// Caller is responsible for closing the file and removing it when done.
 	Get(path string) (*os.File, error)
 
 	// GetStream returns a readable stream for streaming large file downloads.
+	// Caller is responsible for closing the reader when done.
 	GetStream(path string) (io.ReadCloser, error)
 
 	// Put uploads a file from the given reader to the specified path.
+	// Returns object metadata on success.
 	Put(path string, reader io.Reader) (*Object, error)
 
 	// Delete removes the file at the specified path.
+	// Returns nil if file doesn't exist or was successfully deleted.
 	Delete(path string) error
 
-	// List returns all objects under the specified path (prefix).
+	// List returns all objects under the specified path prefix.
+	// Returns empty slice if no objects found.
 	List(path string) ([]*Object, error)
 
-	// GetURL generates a presigned URL for downloading the file (typically valid for 1 hour).
+	// GetURL generates a presigned URL for downloading the file.
+	// URL is typically valid for 1 hour.
 	GetURL(path string) (string, error)
 
 	// GetEndpoint returns the storage service endpoint URL.
 	GetEndpoint() string
+
+	// Exists checks if an object exists at the specified path.
+	Exists(path string) (bool, error)
+
+	// Stat retrieves object metadata without downloading content.
+	Stat(path string) (*Object, error)
 }
 
 // Object represents metadata about a stored object.

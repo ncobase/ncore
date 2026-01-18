@@ -4,15 +4,17 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/qiniu/go-sdk/v7/auth"
 	"github.com/qiniu/go-sdk/v7/storage"
-	"net/http"
 )
 
+// QiniuAdapter implements the Interface for Qiniu Kodo storage.
 type QiniuAdapter struct {
 	mac          *auth.Credentials
 	bucket       string
@@ -22,6 +24,7 @@ type QiniuAdapter struct {
 	uploadConfig *storage.Config
 }
 
+// NewQiniuAdapter creates a new Qiniu Kodo storage adapter.
 func NewQiniuAdapter(accessKey, secretKey, bucket, region, domain string) (*QiniuAdapter, error) {
 	mac := auth.New(accessKey, secretKey)
 
@@ -56,6 +59,7 @@ func NewQiniuAdapter(accessKey, secretKey, bucket, region, domain string) (*Qini
 	}, nil
 }
 
+// Get downloads a file from Qiniu to a temporary local file.
 func (a *QiniuAdapter) Get(path string) (*os.File, error) {
 	reader, err := a.GetStream(path)
 	if err != nil {
@@ -85,6 +89,7 @@ func (a *QiniuAdapter) Get(path string) (*os.File, error) {
 	return tmpFile, nil
 }
 
+// GetStream returns a readable stream for the Qiniu object.
 func (a *QiniuAdapter) GetStream(path string) (io.ReadCloser, error) {
 	publicURL := storage.MakePublicURL(a.domain, path)
 	privateURL := storage.MakePrivateURL(a.mac, publicURL, a.domain, 3600)
@@ -102,6 +107,7 @@ func (a *QiniuAdapter) GetStream(path string) (io.ReadCloser, error) {
 	return resp.Body, nil
 }
 
+// Put uploads a file to Qiniu from the given reader.
 func (a *QiniuAdapter) Put(path string, reader io.Reader) (*Object, error) {
 	if path == "" {
 		return nil, fmt.Errorf("path cannot be empty")
@@ -140,6 +146,7 @@ func (a *QiniuAdapter) Put(path string, reader io.Reader) (*Object, error) {
 	}, nil
 }
 
+// Delete removes an object from the Qiniu bucket.
 func (a *QiniuAdapter) Delete(path string) error {
 	if path == "" {
 		return fmt.Errorf("path cannot be empty")
@@ -153,6 +160,7 @@ func (a *QiniuAdapter) Delete(path string) error {
 	return nil
 }
 
+// List returns all objects under the specified prefix.
 func (a *QiniuAdapter) List(path string) ([]*Object, error) {
 	limit := 1000
 	delimiter := ""
@@ -185,6 +193,7 @@ func (a *QiniuAdapter) List(path string) ([]*Object, error) {
 	return objects, nil
 }
 
+// GetURL generates a private signed URL valid for 1 hour.
 func (a *QiniuAdapter) GetURL(path string) (string, error) {
 	if path == "" {
 		return "", fmt.Errorf("path cannot be empty")
@@ -196,6 +205,81 @@ func (a *QiniuAdapter) GetURL(path string) (string, error) {
 	return privateURL, nil
 }
 
+// GetEndpoint returns the Qiniu Kodo endpoint URL.
 func (a *QiniuAdapter) GetEndpoint() string {
 	return a.domain
+}
+
+// Exists checks if an object exists in the Qiniu bucket.
+func (a *QiniuAdapter) Exists(path string) (bool, error) {
+	if path == "" {
+		return false, fmt.Errorf("path cannot be empty")
+	}
+
+	_, err := a.bucketMgr.Stat(a.bucket, path)
+	if err != nil {
+		// Check if error indicates file not found
+		if isQiniuNotFound(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to check object existence: %w", err)
+	}
+	return true, nil
+}
+
+// isQiniuNotFound checks if the error indicates a not found condition.
+func isQiniuNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "no such file") ||
+		strings.Contains(errStr, "612") // Qiniu error code for not found
+}
+
+// Stat retrieves object metadata without downloading content.
+func (a *QiniuAdapter) Stat(path string) (*Object, error) {
+	if path == "" {
+		return nil, fmt.Errorf("path cannot be empty")
+	}
+
+	info, err := a.bucketMgr.Stat(a.bucket, path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get object metadata: %w", err)
+	}
+
+	putTime := time.Unix(0, info.PutTime*100)
+	return &Object{
+		Path:             path,
+		Name:             filepath.Base(path),
+		LastModified:     &putTime,
+		Size:             info.Fsize,
+		StorageInterface: a,
+	}, nil
+}
+
+// qiniuDriver implements the Driver interface for Qiniu Kodo.
+type qiniuDriver struct{}
+
+// Name returns the driver name.
+func (d *qiniuDriver) Name() string {
+	return "qiniu"
+}
+
+// Connect establishes a connection to Qiniu Kodo.
+func (d *qiniuDriver) Connect(ctx context.Context, cfg *Config) (Interface, error) {
+	domain := cfg.Endpoint
+	if domain == "" {
+		domain = fmt.Sprintf("https://%s.qiniudn.com", cfg.Bucket)
+	}
+	return NewQiniuAdapter(cfg.ID, cfg.Secret, cfg.Bucket, cfg.Region, domain)
+}
+
+// Close closes the Qiniu storage connection.
+func (d *qiniuDriver) Close(conn Interface) error {
+	return nil
+}
+
+func init() {
+	RegisterDriver(&qiniuDriver{})
 }

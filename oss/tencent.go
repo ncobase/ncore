@@ -13,6 +13,7 @@ import (
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
+// TencentAdapter implements the Interface for Tencent Cloud Object Storage (COS).
 type TencentAdapter struct {
 	client *cos.Client
 	bucket string
@@ -20,6 +21,7 @@ type TencentAdapter struct {
 	appID  string
 }
 
+// NewTencentAdapter creates a new Tencent COS storage adapter.
 func NewTencentAdapter(secretID, secretKey, region, bucket, appID string) (*TencentAdapter, error) {
 	bucketURL := fmt.Sprintf("https://%s-%s.cos.%s.myqcloud.com", bucket, appID, region)
 	u, err := url.Parse(bucketURL)
@@ -43,6 +45,7 @@ func NewTencentAdapter(secretID, secretKey, region, bucket, appID string) (*Tenc
 	}, nil
 }
 
+// Get downloads a file from Tencent COS to a temporary local file.
 func (a *TencentAdapter) Get(path string) (*os.File, error) {
 	reader, err := a.GetStream(path)
 	if err != nil {
@@ -72,6 +75,7 @@ func (a *TencentAdapter) Get(path string) (*os.File, error) {
 	return tmpFile, nil
 }
 
+// GetStream returns a readable stream for the Tencent COS object.
 func (a *TencentAdapter) GetStream(path string) (io.ReadCloser, error) {
 	ctx := context.Background()
 
@@ -83,6 +87,7 @@ func (a *TencentAdapter) GetStream(path string) (io.ReadCloser, error) {
 	return resp.Body, nil
 }
 
+// Put uploads a file to Tencent COS from the given reader.
 func (a *TencentAdapter) Put(path string, reader io.Reader) (*Object, error) {
 	if path == "" {
 		return nil, fmt.Errorf("path cannot be empty")
@@ -121,6 +126,7 @@ func (a *TencentAdapter) Put(path string, reader io.Reader) (*Object, error) {
 	}, nil
 }
 
+// Delete removes an object from the Tencent COS bucket.
 func (a *TencentAdapter) Delete(path string) error {
 	if path == "" {
 		return fmt.Errorf("path cannot be empty")
@@ -136,6 +142,7 @@ func (a *TencentAdapter) Delete(path string) error {
 	return nil
 }
 
+// List returns all objects under the specified prefix.
 func (a *TencentAdapter) List(path string) ([]*Object, error) {
 	ctx := context.Background()
 
@@ -171,6 +178,7 @@ func (a *TencentAdapter) List(path string) ([]*Object, error) {
 	return objects, nil
 }
 
+// GetURL generates a presigned URL valid for 1 hour.
 func (a *TencentAdapter) GetURL(path string) (string, error) {
 	if path == "" {
 		return "", fmt.Errorf("path cannot be empty")
@@ -186,6 +194,70 @@ func (a *TencentAdapter) GetURL(path string) (string, error) {
 	return presignedURL.String(), nil
 }
 
+// GetEndpoint returns the Tencent COS endpoint URL.
 func (a *TencentAdapter) GetEndpoint() string {
 	return fmt.Sprintf("https://%s-%s.cos.%s.myqcloud.com", a.bucket, a.appID, a.region)
+}
+
+// Exists checks if an object exists in the Tencent COS bucket.
+func (a *TencentAdapter) Exists(path string) (bool, error) {
+	if path == "" {
+		return false, fmt.Errorf("path cannot be empty")
+	}
+
+	ctx := context.Background()
+	ok, err := a.client.Object.IsExist(ctx, path)
+	if err != nil {
+		return false, fmt.Errorf("failed to check object existence: %w", err)
+	}
+	return ok, nil
+}
+
+// Stat retrieves object metadata without downloading content.
+func (a *TencentAdapter) Stat(path string) (*Object, error) {
+	if path == "" {
+		return nil, fmt.Errorf("path cannot be empty")
+	}
+
+	ctx := context.Background()
+	resp, err := a.client.Object.Head(ctx, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get object metadata: %w", err)
+	}
+
+	var size int64
+	if resp.ContentLength > 0 {
+		size = resp.ContentLength
+	}
+
+	lastModified, _ := time.Parse(time.RFC1123, resp.Header.Get("Last-Modified"))
+	return &Object{
+		Path:             path,
+		Name:             filepath.Base(path),
+		LastModified:     &lastModified,
+		Size:             size,
+		StorageInterface: a,
+	}, nil
+}
+
+// tencentDriver implements the Driver interface for Tencent COS.
+type tencentDriver struct{}
+
+// Name returns the driver name.
+func (d *tencentDriver) Name() string {
+	return "tencent"
+}
+
+// Connect establishes a connection to Tencent COS.
+func (d *tencentDriver) Connect(ctx context.Context, cfg *Config) (Interface, error) {
+	return NewTencentAdapter(cfg.ID, cfg.Secret, cfg.Region, cfg.Bucket, cfg.AppID)
+}
+
+// Close closes the Tencent COS connection.
+func (d *tencentDriver) Close(conn Interface) error {
+	return nil
+}
+
+func init() {
+	RegisterDriver(&tencentDriver{})
 }

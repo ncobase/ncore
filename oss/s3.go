@@ -2,6 +2,7 @@ package oss
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -12,8 +13,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
+// S3Adapter implements the Interface for AWS S3 storage.
+// Supports both AWS S3 and S3-compatible services with custom endpoints.
 type S3Adapter struct {
 	client   *s3.Client
 	presign  *s3.PresignClient
@@ -22,6 +26,8 @@ type S3Adapter struct {
 	endpoint string
 }
 
+// NewS3Adapter creates a new S3 storage adapter.
+// For S3-compatible services, set the endpoint parameter.
 func NewS3Adapter(accessKeyID, secretAccessKey, region, bucket, endpoint string) (*S3Adapter, error) {
 	ctx := context.Background()
 
@@ -68,6 +74,7 @@ func NewS3Adapter(accessKeyID, secretAccessKey, region, bucket, endpoint string)
 	}, nil
 }
 
+// Get downloads a file from S3 to a temporary local file.
 func (a *S3Adapter) Get(path string) (*os.File, error) {
 	reader, err := a.GetStream(path)
 	if err != nil {
@@ -97,6 +104,7 @@ func (a *S3Adapter) Get(path string) (*os.File, error) {
 	return tmpFile, nil
 }
 
+// GetStream returns a readable stream for the S3 object.
 func (a *S3Adapter) GetStream(path string) (io.ReadCloser, error) {
 	ctx := context.Background()
 
@@ -111,6 +119,7 @@ func (a *S3Adapter) GetStream(path string) (io.ReadCloser, error) {
 	return resp.Body, nil
 }
 
+// Put uploads a file to S3 from the given reader.
 func (a *S3Adapter) Put(path string, reader io.Reader) (*Object, error) {
 	if path == "" {
 		return nil, fmt.Errorf("path cannot be empty")
@@ -148,6 +157,7 @@ func (a *S3Adapter) Put(path string, reader io.Reader) (*Object, error) {
 	}, nil
 }
 
+// Delete removes an object from the S3 bucket.
 func (a *S3Adapter) Delete(path string) error {
 	if path == "" {
 		return fmt.Errorf("path cannot be empty")
@@ -166,6 +176,7 @@ func (a *S3Adapter) Delete(path string) error {
 	return nil
 }
 
+// List returns all objects under the specified prefix.
 func (a *S3Adapter) List(path string) ([]*Object, error) {
 	ctx := context.Background()
 
@@ -195,6 +206,7 @@ func (a *S3Adapter) List(path string) ([]*Object, error) {
 	return objects, nil
 }
 
+// GetURL generates a presigned URL valid for 1 hour.
 func (a *S3Adapter) GetURL(path string) (string, error) {
 	if path == "" {
 		return "", fmt.Errorf("path cannot be empty")
@@ -214,9 +226,87 @@ func (a *S3Adapter) GetURL(path string) (string, error) {
 	return presignedReq.URL, nil
 }
 
+// GetEndpoint returns the S3 endpoint URL.
 func (a *S3Adapter) GetEndpoint() string {
 	if a.endpoint != "" {
 		return a.endpoint
 	}
 	return fmt.Sprintf("https://s3.%s.amazonaws.com", a.region)
+}
+
+// Exists checks if an object exists in the S3 bucket.
+func (a *S3Adapter) Exists(path string) (bool, error) {
+	if path == "" {
+		return false, fmt.Errorf("path cannot be empty")
+	}
+
+	ctx := context.Background()
+	_, err := a.client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(a.bucket),
+		Key:    aws.String(path),
+	})
+	if err != nil {
+		// Check if error is "not found"
+		var nsk *types.NotFound
+		if errors.As(err, &nsk) {
+			return false, nil
+		}
+		// Also check for NoSuchKey
+		var noSuchKey *types.NoSuchKey
+		if errors.As(err, &noSuchKey) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to check object existence: %w", err)
+	}
+	return true, nil
+}
+
+// Stat retrieves object metadata without downloading content.
+func (a *S3Adapter) Stat(path string) (*Object, error) {
+	if path == "" {
+		return nil, fmt.Errorf("path cannot be empty")
+	}
+
+	ctx := context.Background()
+	resp, err := a.client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(a.bucket),
+		Key:    aws.String(path),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get object metadata: %w", err)
+	}
+
+	return &Object{
+		Path:             path,
+		Name:             filepath.Base(path),
+		LastModified:     resp.LastModified,
+		Size:             aws.ToInt64(resp.ContentLength),
+		StorageInterface: a,
+	}, nil
+}
+
+// s3Driver implements the Driver interface for AWS S3.
+type s3Driver struct{}
+
+// Name returns the driver name.
+func (d *s3Driver) Name() string {
+	return "s3"
+}
+
+// Connect establishes a connection to AWS S3.
+func (d *s3Driver) Connect(ctx context.Context, cfg *Config) (Interface, error) {
+	endpoint := ""
+	if cfg.Endpoint != "" {
+		endpoint = cfg.Endpoint
+	}
+	return NewS3Adapter(cfg.ID, cfg.Secret, cfg.Region, cfg.Bucket, endpoint)
+}
+
+// Close closes the S3 connection.
+func (d *s3Driver) Close(conn Interface) error {
+	return nil
+}
+
+func init() {
+	RegisterDriver(&s3Driver{})
 }

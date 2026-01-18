@@ -239,7 +239,8 @@ func (fs *LocalFileSystem) GetEndpoint() string {
 	return fs.Folder
 }
 
-// GetURL gets the public accessible URL
+// GetURL returns the public accessible URL.
+// For local filesystem, returns the relative path.
 func (fs *LocalFileSystem) GetURL(p string) (string, error) {
 	if p == "" {
 		return "", fmt.Errorf("path cannot be empty")
@@ -248,4 +249,52 @@ func (fs *LocalFileSystem) GetURL(p string) (string, error) {
 	// In a real application, you might want to return a full URL
 	// with your web server's base URL
 	return p, nil
+}
+
+// Exists checks if a file exists at the specified path.
+func (fs *LocalFileSystem) Exists(p string) (bool, error) {
+	if p == "" {
+		return false, fmt.Errorf("path cannot be empty")
+	}
+
+	fullPath := fs.GetFullPath(p)
+	info, err := os.Stat(fullPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to check file existence: %w", err)
+	}
+
+	// Return false for directories
+	if info.IsDir() {
+		return false, nil
+	}
+	return true, nil
+}
+
+// Stat retrieves file metadata without reading content.
+func (fs *LocalFileSystem) Stat(p string) (*Object, error) {
+	if p == "" {
+		return nil, fmt.Errorf("path cannot be empty")
+	}
+
+	fullPath := fs.GetFullPath(p)
+	info, err := os.Stat(fullPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get file metadata: %w", err)
+	}
+
+	if info.IsDir() {
+		return nil, fmt.Errorf("path is a directory, not a file: %s", p)
+	}
+
+	modTime := info.ModTime()
+	return &Object{
+		Path:             p,
+		Name:             info.Name(),
+		LastModified:     &modTime,
+		Size:             info.Size(),
+		StorageInterface: fs,
+	}, nil
 }

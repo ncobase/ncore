@@ -12,12 +12,14 @@ import (
 	"github.com/aliyun/alibabacloud-oss-go-sdk-v2/oss/credentials"
 )
 
+// AliyunAdapter implements the Interface for Aliyun OSS storage.
 type AliyunAdapter struct {
 	client *oss.Client
 	bucket string
 	region string
 }
 
+// NewAliyunAdapter creates a new Aliyun OSS storage adapter.
 func NewAliyunAdapter(accessKeyID, secretAccessKey, region, bucket, endpoint string) (*AliyunAdapter, error) {
 	provider := credentials.NewStaticCredentialsProvider(accessKeyID, secretAccessKey)
 
@@ -38,6 +40,7 @@ func NewAliyunAdapter(accessKeyID, secretAccessKey, region, bucket, endpoint str
 	}, nil
 }
 
+// Get downloads a file from Aliyun OSS to a temporary local file.
 func (a *AliyunAdapter) Get(path string) (*os.File, error) {
 	reader, err := a.GetStream(path)
 	if err != nil {
@@ -67,6 +70,7 @@ func (a *AliyunAdapter) Get(path string) (*os.File, error) {
 	return tmpFile, nil
 }
 
+// GetStream returns a readable stream for the Aliyun OSS object.
 func (a *AliyunAdapter) GetStream(path string) (io.ReadCloser, error) {
 	ctx := context.Background()
 
@@ -81,6 +85,7 @@ func (a *AliyunAdapter) GetStream(path string) (io.ReadCloser, error) {
 	return result.Body, nil
 }
 
+// Put uploads a file to Aliyun OSS from the given reader.
 func (a *AliyunAdapter) Put(path string, reader io.Reader) (*Object, error) {
 	if path == "" {
 		return nil, fmt.Errorf("path cannot be empty")
@@ -120,6 +125,7 @@ func (a *AliyunAdapter) Put(path string, reader io.Reader) (*Object, error) {
 	}, nil
 }
 
+// Delete removes an object from the Aliyun OSS bucket.
 func (a *AliyunAdapter) Delete(path string) error {
 	if path == "" {
 		return fmt.Errorf("path cannot be empty")
@@ -138,6 +144,7 @@ func (a *AliyunAdapter) Delete(path string) error {
 	return nil
 }
 
+// List returns all objects under the specified prefix.
 func (a *AliyunAdapter) List(path string) ([]*Object, error) {
 	ctx := context.Background()
 
@@ -168,6 +175,7 @@ func (a *AliyunAdapter) List(path string) ([]*Object, error) {
 	return objects, nil
 }
 
+// GetURL generates a presigned URL valid for 1 hour.
 func (a *AliyunAdapter) GetURL(path string) (string, error) {
 	if path == "" {
 		return "", fmt.Errorf("path cannot be empty")
@@ -189,6 +197,68 @@ func (a *AliyunAdapter) GetURL(path string) (string, error) {
 	return presignResult.URL, nil
 }
 
+// GetEndpoint returns the Aliyun OSS endpoint URL.
 func (a *AliyunAdapter) GetEndpoint() string {
 	return fmt.Sprintf("https://%s.oss-%s.aliyuncs.com", a.bucket, a.region)
+}
+
+// Exists checks if an object exists in the Aliyun OSS bucket.
+func (a *AliyunAdapter) Exists(path string) (bool, error) {
+	if path == "" {
+		return false, fmt.Errorf("path cannot be empty")
+	}
+
+	ctx := context.Background()
+	result, err := a.client.IsObjectExist(ctx, a.bucket, path)
+	if err != nil {
+		return false, fmt.Errorf("failed to check object existence: %w", err)
+	}
+	return result, nil
+}
+
+// Stat retrieves object metadata without downloading content.
+func (a *AliyunAdapter) Stat(path string) (*Object, error) {
+	if path == "" {
+		return nil, fmt.Errorf("path cannot be empty")
+	}
+
+	ctx := context.Background()
+	resp, err := a.client.HeadObject(ctx, &oss.HeadObjectRequest{
+		Bucket: oss.Ptr(a.bucket),
+		Key:    oss.Ptr(path),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get object metadata: %w", err)
+	}
+
+	lastMod := oss.ToTime(resp.LastModified)
+	return &Object{
+		Path:             path,
+		Name:             filepath.Base(path),
+		LastModified:     &lastMod,
+		Size:             resp.ContentLength,
+		StorageInterface: a,
+	}, nil
+}
+
+// aliyunDriver implements the Driver interface for Aliyun OSS.
+type aliyunDriver struct{}
+
+// Name returns the driver name.
+func (d *aliyunDriver) Name() string {
+	return "aliyun"
+}
+
+// Connect establishes a connection to Aliyun OSS.
+func (d *aliyunDriver) Connect(ctx context.Context, cfg *Config) (Interface, error) {
+	return NewAliyunAdapter(cfg.ID, cfg.Secret, cfg.Region, cfg.Bucket, cfg.Endpoint)
+}
+
+// Close closes the Aliyun OSS connection.
+func (d *aliyunDriver) Close(conn Interface) error {
+	return nil
+}
+
+func init() {
+	RegisterDriver(&aliyunDriver{})
 }

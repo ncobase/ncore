@@ -5,9 +5,47 @@ All notable changes to NCore will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.3] - 2026-01-18
 
-## [0.2.1] - 2026-01-18
+### Added
+
+#### OSS Module
+
+- **Interface Methods**: Added `Exists` and `Stat` methods to the `Interface`
+  - `Exists(path string) (bool, error)` - Check if an object exists without downloading
+  - `Stat(path string) (*Object, error)` - Retrieve object metadata without downloading content
+  - Implemented in all 9 storage adapters with proper error handling
+
+- **Driver Auto-Registration**: Added missing driver registration for 4 adapters
+  - Azure Blob Storage (`azure`)
+  - Google Cloud Storage (`gcs`)
+  - Qiniu Kodo (`qiniu`)
+  - Synology NAS (`synology`)
+  - All drivers now auto-register via `init()` functions
+
+### Changed
+
+#### OSS Module
+
+- **Documentation**: Updated README.md and README_zh-CN.md to formal release format
+  - Accurate Interface definition with all 9 methods
+  - Complete provider configuration examples
+  - Advanced usage examples for Exists, Stat, and stream operations
+
+- **Code Quality**: Added comprehensive English comments to all adapter implementations
+  - Struct documentation for all adapters
+  - Method documentation following Go conventions
+  - Consistent error handling patterns across all adapters
+
+### Fixed
+
+#### OSS Module
+
+- **S3 Adapter**: Added proper error type imports for `NotFound` and `NoSuchKey` handling
+- **Azure Adapter**: Added `bloberror` import for proper blob not found detection
+- **Qiniu Adapter**: Added `strings` import and `isQiniuNotFound` helper for error detection
+
+## [0.2.2] - 2026-01-18
 
 ### Fixed
 
@@ -28,9 +66,10 @@ go mod tidy
 ```
 
 The import statement in your code remains unchanged:
-```go
-import "github.com/ncobase/ncore/data/search"  // Correct - this is a subpackage
-```
+
+import "github.com/ncobase/ncore/data/search" // Correct - this is a subpackage
+
+````
 
 ## [0.2.0] - 2026-01-17
 
@@ -46,7 +85,7 @@ NCore v0.2.0 introduces a modular driver architecture that significantly reduces
 import "github.com/ncobase/ncore/data"
 
 // All drivers automatically included
-```
+````
 
 **After (v0.2.0):**
 
@@ -379,8 +418,8 @@ Applications compile 56% faster due to eliminated unused SDK dependencies.
 - Wire dependency injection support
 - Comprehensive documentation and examples
 
-[unreleased]: https://github.com/ncobase/ncore/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/ncobase/ncore/compare/v0.1.24...v0.2.0
+[0.2.3]: https://github.com/ncobase/ncore/compare/v0.2.2...v0.2.3
+[0.2.2]: https://github.com/ncobase/ncore/compare/v0.2.0...v0.2.2
 [0.1.24]: https://github.com/ncobase/ncore/compare/v0.1.23...v0.1.24
 [0.1.23]: https://github.com/ncobase/ncore/compare/v0.1.22...v0.1.23
 [0.1.22]: https://github.com/ncobase/ncore/compare/v0.1.0...v0.1.22

@@ -13,12 +13,14 @@ import (
 	"google.golang.org/api/option"
 )
 
+// GCSAdapter implements the Interface for Google Cloud Storage.
 type GCSAdapter struct {
 	client       *storage.Client
 	bucket       string
 	bucketHandle *storage.BucketHandle
 }
 
+// NewGCSAdapter creates a new Google Cloud Storage adapter.
 func NewGCSAdapter(serviceAccountJSON, bucket string) (*GCSAdapter, error) {
 	ctx := context.Background()
 
@@ -44,6 +46,7 @@ func NewGCSAdapter(serviceAccountJSON, bucket string) (*GCSAdapter, error) {
 	}, nil
 }
 
+// Get downloads an object from GCS to a temporary local file.
 func (a *GCSAdapter) Get(path string) (*os.File, error) {
 	reader, err := a.GetStream(path)
 	if err != nil {
@@ -73,6 +76,7 @@ func (a *GCSAdapter) Get(path string) (*os.File, error) {
 	return tmpFile, nil
 }
 
+// GetStream returns a readable stream for the GCS object.
 func (a *GCSAdapter) GetStream(path string) (io.ReadCloser, error) {
 	ctx := context.Background()
 
@@ -84,6 +88,7 @@ func (a *GCSAdapter) GetStream(path string) (io.ReadCloser, error) {
 	return reader, nil
 }
 
+// Put uploads a file to GCS from the given reader.
 func (a *GCSAdapter) Put(path string, reader io.Reader) (*Object, error) {
 	if path == "" {
 		return nil, fmt.Errorf("path cannot be empty")
@@ -128,6 +133,7 @@ func (a *GCSAdapter) Put(path string, reader io.Reader) (*Object, error) {
 	}, nil
 }
 
+// Delete removes an object from the GCS bucket.
 func (a *GCSAdapter) Delete(path string) error {
 	if path == "" {
 		return fmt.Errorf("path cannot be empty")
@@ -142,6 +148,7 @@ func (a *GCSAdapter) Delete(path string) error {
 	return nil
 }
 
+// List returns all objects under the specified prefix.
 func (a *GCSAdapter) List(path string) ([]*Object, error) {
 	ctx := context.Background()
 
@@ -173,6 +180,7 @@ func (a *GCSAdapter) List(path string) ([]*Object, error) {
 	return objects, nil
 }
 
+// GetURL generates a signed URL valid for 1 hour.
 func (a *GCSAdapter) GetURL(path string) (string, error) {
 	if path == "" {
 		return "", fmt.Errorf("path cannot be empty")
@@ -192,6 +200,74 @@ func (a *GCSAdapter) GetURL(path string) (string, error) {
 	return url, nil
 }
 
+// GetEndpoint returns the Google Cloud Storage endpoint URL.
 func (a *GCSAdapter) GetEndpoint() string {
 	return fmt.Sprintf("https://storage.googleapis.com/%s", a.bucket)
+}
+
+// Exists checks if an object exists in the GCS bucket.
+func (a *GCSAdapter) Exists(path string) (bool, error) {
+	if path == "" {
+		return false, fmt.Errorf("path cannot be empty")
+	}
+
+	ctx := context.Background()
+	_, err := a.bucketHandle.Object(path).Attrs(ctx)
+	if err != nil {
+		if err == storage.ErrObjectNotExist {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to check object existence: %w", err)
+	}
+	return true, nil
+}
+
+// Stat retrieves object metadata without downloading content.
+func (a *GCSAdapter) Stat(path string) (*Object, error) {
+	if path == "" {
+		return nil, fmt.Errorf("path cannot be empty")
+	}
+
+	ctx := context.Background()
+	attrs, err := a.bucketHandle.Object(path).Attrs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get object metadata: %w", err)
+	}
+
+	return &Object{
+		Path:             path,
+		Name:             filepath.Base(path),
+		LastModified:     &attrs.Updated,
+		Size:             attrs.Size,
+		StorageInterface: a,
+	}, nil
+}
+
+// gcsDriver implements the Driver interface for Google Cloud Storage.
+type gcsDriver struct{}
+
+// Name returns the driver name.
+func (d *gcsDriver) Name() string {
+	return "gcs"
+}
+
+// Connect establishes a connection to Google Cloud Storage.
+func (d *gcsDriver) Connect(ctx context.Context, cfg *Config) (Interface, error) {
+	serviceAccountJSON := cfg.ServiceAccountJSON
+	if serviceAccountJSON == "" && cfg.Secret != "" {
+		serviceAccountJSON = cfg.Secret
+	}
+	return NewGCSAdapter(serviceAccountJSON, cfg.Bucket)
+}
+
+// Close closes the GCS connection and releases resources.
+func (d *gcsDriver) Close(conn Interface) error {
+	if adapter, ok := conn.(*GCSAdapter); ok && adapter.client != nil {
+		return adapter.client.Close()
+	}
+	return nil
+}
+
+func init() {
+	RegisterDriver(&gcsDriver{})
 }
