@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-01-18
+
+### Fixed
+
+- **Module Structure**: Removed `data/search` as an independent module
+  - `data/search` is now correctly treated as a subpackage of the `data` module
+  - Fixes "ambiguous import" errors when using `github.com/ncobase/ncore/data/search`
+  - This was a packaging error in v0.2.0 where `data/search/go.mod` was incorrectly included
+  - Applications should import `github.com/ncobase/ncore/data` (which includes the search subpackage), not `github.com/ncobase/ncore/data/search` as a separate module
+
+**Migration from v0.2.0:**
+
+If you explicitly added `github.com/ncobase/ncore/data/search v0.2.0` to your `go.mod`, remove it:
+
+```bash
+go mod edit -droprequire=github.com/ncobase/ncore/data/search
+go get github.com/ncobase/ncore/data@v0.2.1
+go mod tidy
+```
+
+The import statement in your code remains unchanged:
+```go
+import "github.com/ncobase/ncore/data/search"  // Correct - this is a subpackage
+```
+
 ## [0.2.0] - 2026-01-17
 
 ### BREAKING CHANGES
