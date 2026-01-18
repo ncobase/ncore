@@ -1,10 +1,11 @@
 # NCore
 
-[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat\u0026logo=go)](https://go.dev/doc/devel/release)
+[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat\&logo=go)](https://go.dev/doc/devel/release)
 [![Release](https://img.shields.io/badge/release-v0.2.0-blue)](https://github.com/ncobase/ncore/releases/tag/v0.2.0)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ncobase/ncore)](https://goreportcard.com/report/github.com/ncobase/ncore)
 
-A comprehensive Go application components library for building modern, scalable applications.
+NCore is a modular Go framework providing enterprise-grade components for building production-ready applications. It features a multi-module architecture with opt-in drivers, minimal dependencies, and comprehensive integrations.
 
 ## Features
 
@@ -254,6 +255,12 @@ nco create core auth-service
 nco create business payment --use-mongo --with-test
 ```
 
+## Contributing
+
+Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) before submitting pull requests.
+
 ## License
 
-See [LICENSE](LICENSE) file for details.
+Copyright 2023-present Ncobase
+
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.

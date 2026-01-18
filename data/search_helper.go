@@ -11,16 +11,21 @@ type SearchCollectorAdapter struct {
 	collector metrics.Collector
 }
 
+// SearchQuery records search query metrics
 func (a *SearchCollectorAdapter) SearchQuery(engine string, err error) {
 	a.collector.SearchQuery(engine, err)
 }
 
+// SearchIndex records search index operation metrics
 func (a *SearchCollectorAdapter) SearchIndex(engine, operation string) {
 	a.collector.SearchIndex(engine, operation)
 }
 
-// NewSearchClient creates a search client from ncore data layer
-// Automatically detects and creates adapters for available search engines
+// NewSearchClient creates a search client from ncore data layer.
+// It automatically detects and creates adapters for available search engines.
+//
+// Returns nil if no search engines are available.
+// Applications should check if the returned client is nil to support optional search functionality.
 func NewSearchClient(d *Data, collector ...metrics.Collector) *search.Client {
 	var adapters []search.Adapter
 	var c search.Collector
@@ -31,7 +36,7 @@ func NewSearchClient(d *Data, collector ...metrics.Collector) *search.Client {
 		c = &search.NoOpCollector{}
 	}
 
-	// Try Elasticsearch
+	// Try to initialize Elasticsearch
 	if factory, err := search.GetAdapterFactory(search.Elasticsearch); err == nil {
 		if es := d.GetElasticsearch(); es != nil {
 			if adapter, err := factory(es); err == nil {
@@ -40,7 +45,7 @@ func NewSearchClient(d *Data, collector ...metrics.Collector) *search.Client {
 		}
 	}
 
-	// Try OpenSearch
+	// Try to initialize OpenSearch
 	if factory, err := search.GetAdapterFactory(search.OpenSearch); err == nil {
 		if os := d.GetOpenSearch(); os != nil {
 			if adapter, err := factory(os); err == nil {
@@ -49,7 +54,7 @@ func NewSearchClient(d *Data, collector ...metrics.Collector) *search.Client {
 		}
 	}
 
-	// Try Meilisearch
+	// Try to initialize Meilisearch
 	if factory, err := search.GetAdapterFactory(search.Meilisearch); err == nil {
 		if ms := d.GetMeilisearch(); ms != nil {
 			if adapter, err := factory(ms); err == nil {
@@ -58,9 +63,14 @@ func NewSearchClient(d *Data, collector ...metrics.Collector) *search.Client {
 		}
 	}
 
+	// Return nil if no adapters are available
+	if len(adapters) == 0 {
+		return nil
+	}
+
 	client := search.NewClient(c, adapters...)
 
-	// Configure client if config exists
+	// Apply search configuration if it exists
 	if d.conf != nil && d.conf.Search != nil {
 		client.UpdateSearchConfig(adaptSearchConfig(d.conf.Search))
 	}
@@ -68,6 +78,7 @@ func NewSearchClient(d *Data, collector ...metrics.Collector) *search.Client {
 	return client
 }
 
+// adaptSearchConfig converts config layer search config to search module config
 func adaptSearchConfig(cfg *config.Search) *search.Config {
 	if cfg == nil {
 		return nil
@@ -80,6 +91,7 @@ func adaptSearchConfig(cfg *config.Search) *search.Config {
 	}
 }
 
+// adaptIndexSettings converts config layer index settings to search module index settings
 func adaptIndexSettings(s *config.IndexSettings) *search.IndexSettings {
 	if s == nil {
 		return nil

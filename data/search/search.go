@@ -8,13 +8,16 @@ import (
 	"time"
 )
 
+// Search engine error definitions
 var (
 	ErrNoEngineAvailable = errors.New("no search engine available")
 	ErrEngineNotFound    = errors.New("search engine not found")
 )
 
+// Engine represents the type of search engine
 type Engine string
 
+// Supported search engine constants
 const (
 	Elasticsearch Engine = "elasticsearch"
 	OpenSearch    Engine = "opensearch"
@@ -38,18 +41,19 @@ type IndexSettings struct {
 	FilterableFields []string
 }
 
-// Collector interface for metrics
+// Collector interface for metrics collection
 type Collector interface {
 	SearchQuery(engine string, err error)
 	SearchIndex(engine, operation string)
 }
 
-// NoOpCollector implementation
+// NoOpCollector is a no-op implementation of Collector
 type NoOpCollector struct{}
 
 func (NoOpCollector) SearchQuery(string, error)  {}
 func (NoOpCollector) SearchIndex(string, string) {}
 
+// Request represents a search query request
 type Request struct {
 	Index  string         `json:"index"`
 	Query  string         `json:"query"`
@@ -58,6 +62,7 @@ type Request struct {
 	Size   int            `json:"size,omitempty"`
 }
 
+// Response represents a search query response
 type Response struct {
 	Total    int64         `json:"total"`
 	Hits     []Hit         `json:"hits"`
@@ -65,19 +70,21 @@ type Response struct {
 	Engine   Engine        `json:"engine"`
 }
 
+// Hit represents a single search result
 type Hit struct {
 	ID     string         `json:"id"`
 	Score  float64        `json:"score"`
 	Source map[string]any `json:"source"`
 }
 
+// IndexRequest represents a document indexing request
 type IndexRequest struct {
 	Index      string `json:"index"`
 	DocumentID string `json:"document_id,omitempty"`
 	Document   any    `json:"document"`
 }
 
-// Adapter interface for search engine implementations
+// Adapter defines the interface for search engine implementations
 type Adapter interface {
 	Search(ctx context.Context, req *Request) (*Response, error)
 	Index(ctx context.Context, req *IndexRequest) error
@@ -90,6 +97,7 @@ type Adapter interface {
 	Type() Engine
 }
 
+// Client manages search operations across multiple search engines
 type Client struct {
 	adapters     map[Engine]Adapter
 	collector    Collector
