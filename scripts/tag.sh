@@ -33,8 +33,10 @@ fi
 # Auto-discover modules: directories containing go.mod
 MODULES=()
 while IFS= read -r dir; do
-    MODULES+=("$(basename "$dir")")
-done < <(find . -name 'go.mod' -exec dirname {} \; | sort -u)
+    # Remove leading './' and use full relative path
+    module="${dir#./}"
+    MODULES+=("$module")
+done < <(find . -name 'go.mod' -not -path "./examples/*" -exec dirname {} \; | sort -u)
 
 if [ ${#MODULES[@]} -eq 0 ]; then
     echo "No modules found (no go.mod files detected)."
