@@ -1,6 +1,6 @@
 # Migration Guide: NCore v0.1.x to v0.2.0
 
-This guide helps you migrate from NCore v0.1.x to v0.2.0.
+This guide provides instructions for migrating applications from NCore v0.1.x to v0.2.0.
 
 ## Table of Contents
 
@@ -21,7 +21,7 @@ This guide helps you migrate from NCore v0.1.x to v0.2.0.
 
 ## Overview
 
-NCore v0.2.0 introduces a **modular driver architecture** that significantly reduces binary size and dependency complexity. The main changes are:
+NCore v0.2.0 introduces a modular driver architecture that significantly reduces binary size and dependency complexity.
 
 - **Modular Drivers**: Explicit driver imports required (like `database/sql`)
 - **Search Factory Pattern**: Simplified search client initialization
@@ -45,7 +45,7 @@ NCore v0.2.0 introduces a **modular driver architecture** that significantly red
 
 ## Quick Start
 
-If you want to migrate quickly, follow these 5 steps:
+To perform a rapid migration, complete the following five steps:
 
 ### Step 1: Add Driver Imports
 
@@ -140,7 +140,7 @@ Use this checklist to ensure a complete migration:
 - [ ] **Backup**: Create git branch `git checkout -b migrate-to-v0.2`
 - [ ] **Tag**: Create backup tag `git tag backup/pre-v0.2-migration`
 - [ ] **Baseline**: Run all tests to establish baseline `go test ./...`
-- [ ] **Audit**: Identify which drivers you're using (postgres, redis, elasticsearch, etc.)
+- [ ] **Audit**: Identify which drivers the application is using (postgres, redis, elasticsearch, etc.)
 - [ ] **Review**: Read [Breaking Changes](#breaking-changes) section
 
 ### Code Changes
@@ -1179,9 +1179,9 @@ Runtime performance is similar, but reduced binary size improves deployment and 
 
 ### Q: Can I migrate gradually?
 
-**A:** For a single application, no - you must migrate entirely to v0.2. 
+**A:** For a single application, no - it is required to migrate entirely to v0.2. 
 
-However, in a microservices architecture, you can migrate services one at a time:
+However, in a microservices architecture, one can migrate services one at a time:
 - Service A: v0.1.24
 - Service B: v0.2.0 (newly migrated)
 - Service C: v0.1.24 (not yet migrated)

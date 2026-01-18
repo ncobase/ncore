@@ -36,7 +36,7 @@ github.com/ncobase/ncore/
 ├── logging        - Logging
 ├── messaging      - Message queues
 ├── net            - Network utilities
-├── oss            - Object Storage Service (standalone module)
+├── oss            - Object Storage Service
 ├── security       - Security features
 ├── types          - Common types
 ├── utils          - Utility functions

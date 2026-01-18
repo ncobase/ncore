@@ -228,7 +228,7 @@ Applications compile 56% faster due to eliminated unused SDK dependencies.
 #### Added
 
 - `data/postgres`, `data/mysql`, `data/sqlite`, `data/mongodb`, `data/neo4j` - Database drivers (standalone modules)
-- `data/redis` - Redis cache driver (standalone module)
+- `data/redis` - Redis cache driver
 - `data/elasticsearch`, `data/opensearch`, `data/meilisearch` - Search drivers (standalone modules)
 - `data/rabbitmq`, `data/kafka` - Message queue drivers (standalone modules)
 - `data/all` - Compatibility layer importing all drivers

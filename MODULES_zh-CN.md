@@ -35,7 +35,7 @@ github.com/ncobase/ncore/
 ├── logging        - 日志
 ├── messaging      - 消息队列
 ├── net            - 网络工具
-├── oss            - 对象存储服务（独立模块）
+├── oss            - 对象存储服务
 ├── security       - 安全相关
 ├── types          - 通用类型
 ├── utils          - 工具函数
