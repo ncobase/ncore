@@ -5,7 +5,6 @@ go 1.25.3
 require (
 	github.com/elastic/go-elasticsearch/v8 v8.19.1
 	github.com/ncobase/ncore/data v0.0.0-00010101000000-000000000000
-	github.com/ncobase/ncore/data/search v0.0.0
 )
 
 require (
@@ -35,5 +34,4 @@ require (
 
 replace (
 	github.com/ncobase/ncore/data => ../
-	github.com/ncobase/ncore/data/search => ../search
 )

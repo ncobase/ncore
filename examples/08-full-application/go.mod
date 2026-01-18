@@ -144,7 +144,6 @@ require (
 	github.com/mozillazg/go-httpheader v0.2.1 // indirect
 	github.com/ncobase/ncore/consts v0.1.23 // indirect
 	github.com/ncobase/ncore/ctxutil v0.1.23 // indirect
-	github.com/ncobase/ncore/data/search v0.0.0 // indirect
 	github.com/ncobase/ncore/ecode v0.1.23 // indirect
 	github.com/ncobase/ncore/types v0.1.23 // indirect
 	github.com/ncobase/ncore/utils v0.1.23 // indirect

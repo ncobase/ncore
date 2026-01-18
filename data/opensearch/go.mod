@@ -4,7 +4,6 @@ go 1.25.3
 
 require (
 	github.com/ncobase/ncore/data v0.1.23
-	github.com/ncobase/ncore/data/search v0.0.0
 	github.com/ncobase/ncore/utils v0.1.24
 	github.com/opensearch-project/opensearch-go/v4 v4.6.0
 )
@@ -28,5 +27,4 @@ require (
 
 replace (
 	github.com/ncobase/ncore/data => ../
-	github.com/ncobase/ncore/data/search => ../search
 )
