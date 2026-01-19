@@ -2,13 +2,14 @@ package paging
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 )
 
 var (
-	ErrInvalidCursor = fmt.Errorf("invalid cursor")
+	ErrInvalidCursor = errors.New("invalid cursor")
 )
 
 type CursorProvider interface {
@@ -32,6 +33,11 @@ type Result[T CursorProvider] struct {
 }
 
 func NormalizeParams(params Params) Params {
+	params.Cursor = strings.TrimSpace(params.Cursor)
+	params.Direction = strings.ToLower(strings.TrimSpace(params.Direction))
+	if params.Direction != "forward" && params.Direction != "backward" {
+		params.Direction = "forward"
+	}
 	if params.Limit <= 0 || params.Limit > 1024 {
 		params.Limit = 256
 	}
@@ -45,16 +51,16 @@ func EncodeCursor(value string) string {
 func DecodeCursor(cursor string) (string, int64, error) {
 	decoded, err := base64.URLEncoding.DecodeString(cursor)
 	if err != nil {
-		return "", 0, fmt.Errorf("failed to decode cursor: %v", err)
+		return "", 0, fmt.Errorf("%w: failed to decode cursor: %w", ErrInvalidCursor, err)
 	}
 	parts := strings.SplitN(string(decoded), ":", 2)
 	if len(parts) != 2 {
-		return "", 0, fmt.Errorf("invalid cursor format")
+		return "", 0, fmt.Errorf("%w: invalid cursor format", ErrInvalidCursor)
 	}
 	id := parts[0]
 	timestamp, err := strconv.ParseInt(parts[1], 10, 64)
 	if err != nil {
-		return "", 0, fmt.Errorf("invalid timestamp in cursor: %v", err)
+		return "", 0, fmt.Errorf("%w: invalid timestamp in cursor: %w", ErrInvalidCursor, err)
 	}
 	return id, timestamp, nil
 }
@@ -66,13 +72,18 @@ func Paginate[T CursorProvider](params Params, paginateFunc PagingFunc[T]) (Resu
 
 	items, total, err := paginateFunc(params.Cursor, params.Limit+1, params.Direction)
 	if err != nil {
-		return Result[T]{}, fmt.Errorf("pagination error: %v", err)
+		return Result[T]{}, fmt.Errorf("pagination error: %w", err)
 	}
 
-	hasNextPage := len(items) > params.Limit
-	hasPrevPage := params.Cursor != ""
+	hasMoreInDirection := len(items) > params.Limit
+	hasCursor := params.Cursor != ""
+	hasNextPage := hasMoreInDirection
+	hasPrevPage := hasCursor
+	if params.Direction == "backward" {
+		hasNextPage, hasPrevPage = hasCursor, hasMoreInDirection
+	}
 
-	if hasNextPage {
+	if hasMoreInDirection {
 		items = items[:params.Limit]
 	}
 
@@ -104,6 +115,7 @@ func Paginate[T CursorProvider](params Params, paginateFunc PagingFunc[T]) (Resu
 	return Result[T]{
 		Items:      items,
 		Total:      total,
+		Cursor:     params.Cursor,
 		NextCursor: nextCursor,
 		PrevCursor: prevCursor,
 		HasNext:    hasNextPage,

@@ -38,6 +38,7 @@ use (
 	./messaging
 	./net
 	./oss
+	./paging
 	./security
 	./types
 	./utils
