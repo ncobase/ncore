@@ -2,7 +2,7 @@ module github.com/ncobase/ncore/types
 
 go 1.25.3
 
-require github.com/ncobase/ncore/validation v0.1.23
+require github.com/ncobase/ncore/validation v0.2.2
 
 require (
 	github.com/gabriel-vasile/mimetype v1.4.12 // indirect

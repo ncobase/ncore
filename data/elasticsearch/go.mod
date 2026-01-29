@@ -4,7 +4,7 @@ go 1.25.3
 
 require (
 	github.com/elastic/go-elasticsearch/v8 v8.19.1
-	github.com/ncobase/ncore/data v0.0.0-00010101000000-000000000000
+	github.com/ncobase/ncore/data v0.2.2
 )
 
 require (
@@ -13,7 +13,7 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
+	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/google/wire v0.7.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/sagikazarmark/locafero v0.12.0 // indirect
@@ -32,6 +32,4 @@ require (
 	golang.org/x/text v0.33.0 // indirect
 )
 
-replace (
-	github.com/ncobase/ncore/data => ../
-)
+replace github.com/ncobase/ncore/data => ../
