@@ -1,5 +1,7 @@
 # NCore 多模块架构说明
 
+[English](./MODULES.md) | [中文](./MODULES_zh-CN.md)
+
 ## 架构设计
 
 NCore 采用多模块（multi-module）架构设计，每个子包都是独立的 Go 模块。这样设计的好处：

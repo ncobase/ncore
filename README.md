@@ -1,5 +1,7 @@
 # NCore
 
+[English](./README.md) | [中文](./README_zh-CN.md)
+
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev/doc/devel/release)
 [![Release](https://img.shields.io/badge/release-v0.2.0-blue)](https://github.com/ncobase/ncore/releases/tag/v0.2.0)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)

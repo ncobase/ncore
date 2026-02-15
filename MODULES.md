@@ -1,5 +1,7 @@
 # NCore Multi-Module Architecture
 
+[English](./MODULES.md) | [中文](./MODULES_zh-CN.md)
+
 ## Architecture Design
 
 NCore adopts a multi-module architecture design where each sub-package is an independent Go module. The benefits of this

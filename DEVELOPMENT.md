@@ -1,5 +1,7 @@
 # NCore Development Guide
 
+[English](./DEVELOPMENT.md) | [中文](./DEVELOPMENT_zh-CN.md)
+
 ## Quick Start
 
 ### Clone Project

@@ -1,5 +1,7 @@
 # NCore 开发指南
 
+[English](./DEVELOPMENT.md) | [中文](./DEVELOPMENT_zh-CN.md)
+
 ## 快速开始
 
 ### 克隆项目

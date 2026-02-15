@@ -1,5 +1,7 @@
 # NCore
 
+[English](./README.md) | [中文](./README_zh-CN.md)
+
 一个全面的 Go 应用程序组件库，用于构建现代、可扩展的应用程序。
 
 ## 特性
