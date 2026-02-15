@@ -106,7 +106,7 @@ Maximum number of retry attempts for failed operations.
 
 The MongoDB URI follows the standard MongoDB connection string format:
 
-```
+```text
 mongodb://[username:password@]host1[:port1][,...hostN[:portN]][/[defaultauthdb][?options]]
 mongodb+srv://[username:password@]host[/[defaultauthdb][?options]]
 ```
@@ -115,25 +115,25 @@ mongodb+srv://[username:password@]host[/[defaultauthdb][?options]]
 
 **Local development:**
 
-```
+```text
 mongodb://localhost:27017/mydb
 ```
 
 **With authentication:**
 
-```
+```text
 mongodb://user:password@localhost:27017/mydb?authSource=admin
 ```
 
 **MongoDB Atlas (cloud):**
 
-```
+```text
 mongodb+srv://user:password@cluster.mongodb.net/mydb
 ```
 
 **Replica set:**
 
-```
+```text
 mongodb://host1:27017,host2:27017,host3:27017/mydb?replicaSet=myrs
 ```
 

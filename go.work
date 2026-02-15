@@ -6,7 +6,6 @@ use (
 	./consts
 	./ctxutil
 	./data
-	./data/all
 	./data/cache
 	./data/elasticsearch
 	./data/entgo

@@ -10,8 +10,8 @@ import (
 
 	"github.com/ncobase/ncore/data/config"
 	"github.com/ncobase/ncore/data/connection"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type MongoManager struct {
@@ -170,16 +170,20 @@ func (m *MongoManager) Slave() (*mongo.Client, error) {
 	return slave, nil
 }
 
-func (m *MongoManager) WithTransaction(ctx context.Context, fn func(mongo.SessionContext) error, opts ...*options.TransactionOptions) error {
+// WithTransaction executes a function within a MongoDB transaction.
+// In v2, the callback receives context.Context instead of mongo.SessionContext.
+// Use mongo.SessionFromContext(ctx) to access the session within the callback.
+func (m *MongoManager) WithTransaction(ctx context.Context, fn func(any) error, opts ...any) error {
 	session, err := m.master.StartSession()
 	if err != nil {
 		return err
 	}
 	defer session.EndSession(ctx)
 
-	_, err = session.WithTransaction(ctx, func(sctx mongo.SessionContext) (any, error) {
-		return nil, fn(sctx)
-	}, opts...)
+	// Adapter for v2 API: convert func(any) error to func(context.Context) (any, error)
+	_, err = session.WithTransaction(ctx, func(sessionCtx context.Context) (any, error) {
+		return nil, fn(sessionCtx)
+	})
 
 	return err
 }
@@ -262,7 +266,8 @@ func newMongoClient(conf *config.MongoNode) (*mongo.Client, error) {
 
 	clientOptions := options.Client().ApplyURI(conf.URI)
 
-	client, err := mongo.Connect(context.Background(), clientOptions)
+	// v2: mongo.Connect no longer takes a context parameter
+	client, err := mongo.Connect(clientOptions)
 	if err != nil {
 		return nil, fmt.Errorf("MongoDB connect error: %v", err)
 	}

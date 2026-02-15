@@ -109,9 +109,15 @@ for module in "${MODULES[@]}"; do
 
     # Upgrade all dependencies
     echo "Running: go get -u ./..."
-    if go get -u ./... 2>&1 | grep -v "no required module provides package"; then
+    if output=$(go get -u ./... 2>&1); then
+        # Success - check if there were any meaningful messages
+        if [ -n "$output" ]; then
+            echo "$output" | grep -v "^$"
+        fi
         echo -e "${GREEN}[UPDATE] Dependencies updated${NC}"
     else
+        # Failed - show error
+        echo "$output"
         echo -e "${RED}[ERROR] Failed to update dependencies${NC}"
         FAILED_MODULES+=("$module")
         popd > /dev/null
@@ -121,9 +127,13 @@ for module in "${MODULES[@]}"; do
     # Clean up if requested
     if [ -n "$CLEAN" ]; then
         echo "Running: go mod tidy"
-        if go mod tidy 2>&1; then
+        if output=$(go mod tidy 2>&1); then
+            if [ -n "$output" ]; then
+                echo "$output"
+            fi
             echo -e "${GREEN}[CLEAN] Dependencies tidied${NC}"
         else
+            echo "$output"
             echo -e "${RED}[ERROR] Failed to tidy dependencies${NC}"
             FAILED_MODULES+=("$module")
             popd > /dev/null
@@ -134,9 +144,11 @@ for module in "${MODULES[@]}"; do
     # Run tests if requested
     if [ -n "$RUN_TESTS" ]; then
         echo "Running: go test ./..."
-        if go test ./... 2>&1 | head -20; then
+        if output=$(go test ./... 2>&1); then
+            echo "$output" | head -20
             echo -e "${GREEN}[TEST] Tests passed${NC}"
         else
+            echo "$output" | head -20
             echo -e "${RED}[ERROR] Tests failed${NC}"
             FAILED_MODULES+=("$module")
             popd > /dev/null

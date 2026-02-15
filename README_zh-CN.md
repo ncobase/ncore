@@ -13,27 +13,11 @@
 
 ## 多模块架构
 
-NCore 采用**多模块架构**，每个子包都是独立的 Go 模块，提供最小依赖和独立版本管理。
+每个子包都是独立的 Go 模块，提供最小依赖和独立版本管理。
 
-### 可用模块
+**核心模块**：config, data, logging, security, extension, oss, validation, messaging
 
-```text
-github.com/ncobase/ncore/concurrency    - 并发工具
-github.com/ncobase/ncore/config         - 配置管理
-github.com/ncobase/ncore/consts         - 常量
-github.com/ncobase/ncore/ctxutil        - Context 工具
-github.com/ncobase/ncore/data           - 数据层（数据库、缓存、搜索）
-github.com/ncobase/ncore/ecode          - 错误码
-github.com/ncobase/ncore/extension      - 扩展系统
-github.com/ncobase/ncore/logging        - 日志
-github.com/ncobase/ncore/messaging      - 消息队列
-github.com/ncobase/ncore/net            - 网络工具
-github.com/ncobase/ncore/security       - 安全功能
-github.com/ncobase/ncore/types          - 通用类型
-github.com/ncobase/ncore/utils          - 工具函数
-github.com/ncobase/ncore/validation     - 验证
-github.com/ncobase/ncore/version        - 版本信息
-```
+详见 [MODULES_zh-CN.md](MODULES_zh-CN.md)
 
 ## 安装
 
@@ -109,11 +93,11 @@ import (
 
 v0.2.0 引入了可选驱动，显著减少了二进制体积和依赖：
 
-| 指标          | v0.1.x | v0.2.0 | 改进       |
-|-------------|--------|--------|----------|
+| 指标                   | v0.1.x | v0.2.0 | 改进     |
+| ---------------------- | ------ | ------ | -------- |
 | 二进制大小（基础应用） | ~92MB  | ~43MB  | **-53%** |
-| 依赖数量        | 466    | ~100   | **-78%** |
-| 编译时间        | ~45s   | ~20s   | **-56%** |
+| 依赖数量               | 466    | ~100   | **-78%** |
+| 编译时间               | ~45s   | ~20s   | **-56%** |
 
 **可用驱动：**
 
@@ -131,15 +115,15 @@ NCore 原生支持 [Google Wire](https://github.com/google/wire)。您可以使�
 
 ### 可用的 ProviderSets
 
-| 模块                  | ProviderSet               | 提供内容                                     |
-|---------------------|---------------------------|------------------------------------------|
+| 模块                | ProviderSet               | 提供内容                                  |
+| ------------------- | ------------------------- | ----------------------------------------- |
 | `config`            | `config.ProviderSet`      | `*Config`, `*Logger`, `*Data`, `*Auth` 等 |
-| `logging/logger`    | `logger.ProviderSet`      | `*Logger` 带清理函数                          |
-| `data`              | `data.ProviderSet`        | `*Data` 带清理函数                            |
-| `extension/manager` | `manager.ProviderSet`     | `*Manager` 带清理函数                         |
-| `security`          | `security.ProviderSet`    | JWT `*TokenManager`                      |
-| `messaging`         | `messaging.ProviderSet`   | 邮件 `Sender`                              |
-| `concurrency`       | `concurrency.ProviderSet` | Worker `*Pool` 带清理函数                     |
+| `logging/logger`    | `logger.ProviderSet`      | `*Logger` 带清理函数                      |
+| `data`              | `data.ProviderSet`        | `*Data` 带清理函数                        |
+| `extension/manager` | `manager.ProviderSet`     | `*Manager` 带清理函数                     |
+| `security`          | `security.ProviderSet`    | JWT `*TokenManager`                       |
+| `messaging`         | `messaging.ProviderSet`   | 邮件 `Sender`                             |
+| `concurrency`       | `concurrency.ProviderSet` | Worker `*Pool` 带清理函数                 |
 
 ### 基础用法
 

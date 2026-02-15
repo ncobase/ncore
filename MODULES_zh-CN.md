@@ -28,8 +28,7 @@ github.com/ncobase/ncore/
 │   ├── opensearch     - OpenSearch 驱动
 │   ├── meilisearch    - Meilisearch 驱动
 │   ├── kafka          - Kafka 驱动
-│   ├── rabbitmq       - RabbitMQ 驱动
-│   └── all            - 兼容层（导入所有驱动）
+│   └── rabbitmq       - RabbitMQ 驱动
 ├── ecode          - 错误码
 ├── extension      - 扩展和插件系统
 ├── logging        - 日志

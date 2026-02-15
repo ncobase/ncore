@@ -40,201 +40,65 @@ go test ./...
 ### Add New Module
 
 ```bash
-# 1. Create module directory
-mkdir newmodule
-
-# 2. Initialize module
-cd newmodule
+mkdir newmodule && cd newmodule
 go mod init github.com/ncobase/ncore/newmodule
-
-# 3. Add to workspace
-cd ..
-echo " ./newmodule" >> go.work
-
-# 4. Sync dependencies
+cd .. && echo " ./newmodule" >> go.work
 go work sync
 ```
 
 ## Module Development Guidelines
 
-### 1. Module Naming
+### Module Naming & Versioning
 
-- Use lowercase letters
-- Multiple words separated by underscores or directly concatenated
-- Examples: `ctxutil`, `data`, `messaging`
-
-### 2. Version Management
-
-Each module has independent versioning:
+- **Naming**: Lowercase, words concatenated or underscore-separated (e.g., `ctxutil`, `data`)
+- **Versioning**: Independent per module using git tags (e.g., `data/v0.1.0`)
 
 ```bash
-# Release single module
-cd data
-git tag data/v0.1.0
-git push origin data/v0.1.0
-
-# Batch release all modules
-./scripts/tag.sh v0.1.0
-git push origin --tags
+./scripts/tag.sh v0.1.0  # Batch release all modules
 ```
 
-### 3. Dependency Management
-
-#### Add Dependencies
+### Dependency Management
 
 ```bash
-cd <module-name>
-go get <dependency>
-go mod tidy
-```
+# Update all modules
+make update && make sync
 
-#### Update Dependencies
+# Update specific module
+./scripts/update-deps.sh data
 
-```bash
-# Method 1: Update all dependencies for all modules (recommended)
-make update            # Upgrade all module dependencies
-make sync              # Sync workspace
-
-# Method 2: Use scripts
-./scripts/update-deps.sh           # Update all modules
-./scripts/update-deps.sh data      # Update only data module
-
-# Method 3: Manual update for specific module
-cd <module-name>
-go get -u ./...        # Upgrade all dependencies to latest minor/patch
-go get -u <dependency> # Upgrade specific dependency
-go mod tidy
-
-# Check outdated dependencies
+# Check outdated
 make check-outdated
-# or
-./scripts/check-outdated.sh
 ```
 
-**Important Notes**:
+**Note**: Root has no go.mod - use `make update` or scripts, not `go get -u ./...`
 
-- ⚠️ Since the root directory has no go.mod, **cannot** run `go get -u ./...` directly in the root
-- ✅ Must use `make update` or scripts to update all modules
-- ✅ Or manually update individual modules in their directories
-
-#### Inter-module Dependencies
-
-```go
-// In go.mod
-require (
-    github.com/ncobase/ncore/types v0.0.0-20251022025300-781956ac0776
-)
-
-// In code
-import "github.com/ncobase/ncore/types"
-```
-
-### 4. Testing
-
-Every module should have comprehensive tests:
+### Testing & Formatting
 
 ```bash
-# Run tests
-go test ./...
-
-# With coverage
-go test -cover ./...
-
-# Verbose output
-go test -v ./...
+go test ./...              # Run tests
+go test -cover ./...       # With coverage
+go fmt ./...               # Format code
+golangci-lint run          # Lint (if installed)
 ```
 
-### 5. Code Formatting
+### Dependency Injection (Google Wire)
 
-```bash
-# Format code
-go fmt ./...
-
-# Run linter (if configured)
-golangci-lint run
-```
-
-### 6. Dependency Injection (Google Wire)
-
-NCore modules provide `ProviderSet` for Google Wire integration (v0.7.0).
-
-#### Available ProviderSets
-
-| Module               | ProviderSet               | Provides                                                               | Cleanup |
-|----------------------|---------------------------|------------------------------------------------------------------------|---------|
-| `config`             | `config.ProviderSet`      | `*Config`, `*Logger`, `*Data`, `*Auth`, `*Storage`, `*Email`, `*OAuth` | No      |
-| `logging/logger`     | `logger.ProviderSet`      | `*Logger`                                                              | Yes     |
-| `data`               | `data.ProviderSet`        | `*Data`                                                                | Yes     |
-| `extension/manager`  | `manager.ProviderSet`     | `*Manager`                                                             | Yes     |
-| `security`           | `security.ProviderSet`    | JWT `*TokenManager`                                                    | No      |
-| `security/jwt`       | `jwt.ProviderSet`         | `*TokenManager`, `TokenValidator` interface                            | No      |
-| `messaging`          | `messaging.ProviderSet`   | Email `Sender`                                                         | No      |
-| `messaging/email`    | `email.ProviderSet`       | Email `Sender`                                                         | No      |
-| `concurrency`        | `concurrency.ProviderSet` | Worker `*Pool`                                                         | Yes     |
-| `concurrency/worker` | `worker.ProviderSet`      | Worker `*Pool`                                                         | Yes     |
-
-#### Basic Example
+Modules provide `ProviderSet` for Wire integration:
 
 ```go
 //go:build wireinject
-// +build wireinject
-
-package main
-
-import (
-    "github.com/google/wire"
-    "github.com/ncobase/ncore/config"
-    "github.com/ncobase/ncore/logging/logger"
-    "github.com/ncobase/ncore/data"
-    "github.com/ncobase/ncore/extension/manager"
-)
 
 func InitializeApp() (*App, func(), error) {
     panic(wire.Build(
         config.ProviderSet,
         logger.ProviderSet,
         data.ProviderSet,
-        manager.ProviderSet,
         NewApp,
     ))
 }
 ```
 
-#### With Security and Messaging
-
-```go
-//go:build wireinject
-
-package main
-
-import (
-    "github.com/google/wire"
-    "github.com/ncobase/ncore/config"
-    "github.com/ncobase/ncore/security"
-    "github.com/ncobase/ncore/messaging"
-)
-
-func InitializeApp() (*App, func(), error) {
-    panic(wire.Build(
-        config.ProviderSet,
-        security.ProviderSet,
-        messaging.ProviderSet,
-        NewApp,
-    ))
-}
-```
-
-#### Generate Wire Code
-
-```bash
-# Install Wire CLI
-go install github.com/google/wire/cmd/wire@latest
-
-# Generate wire_gen.go
-wire ./...
-```
-
-See [examples/09-wire](examples/09-wire) for complete examples.
+Generate wire code: `wire ./...`
 
 ## Integration with Applications
 
@@ -284,360 +148,79 @@ use (
 
 ## Common Commands
 
-### Development Environment Setup
-
 ```bash
-# Clone project
-git clone https://github.com/ncobase/ncore.git
-cd ncore
+# Setup
+git clone https://github.com/ncobase/ncore.git && cd ncore && make sync
 
-# Sync dependencies
-make sync
-```
+# Testing
+make test           # All tests
+make test-v         # Verbose
+make test-cover     # With coverage
 
-### Dependency Management
+# Dependencies
+make update && make sync        # Update all
+./scripts/update-deps.sh data   # Update specific module
+make check-outdated             # Check outdated
 
-#### ❌ Wrong Approach
+# Code Quality
+make fmt            # Format
+make lint           # Lint (requires golangci-lint)
+make clean          # Clean artifacts
 
-```bash
-# This won't work! Root directory has no go.mod
-go get -u ./...
-```
-
-#### ✅ Correct Approach
-
-```bash
-# Upgrade all dependencies for all modules
-make update
-make sync
-
-# Upgrade specific module
-./scripts/update-deps.sh data
-
-# Check which dependencies are outdated
-make check-outdated
-
-# Manually upgrade single module
-cd data
-go get -u ./...
-go mod tidy
-cd ..
-```
-
-### Testing
-
-```bash
-# Run all tests
-make test
-
-# Verbose output
-make test-v
-
-# With coverage
-make test-cover
-
-# Test single module
-cd data
-go test -v ./...
-```
-
-### Code Quality
-
-```bash
-# Format code
-make fmt
-
-# Run linter (need to install golangci-lint first)
-make lint
-
-# Clean build artifacts
-make clean
-```
-
-### Version Release
-
-```bash
-# Tag all modules
-make tag VERSION=v0.1.0
-
-# Push tags
-git push origin --tags
-
-# Tag only single module
-cd data
-git tag data/v0.1.0
-git push origin data/v0.1.0
+# Versioning
+make tag VERSION=v0.1.0         # Tag all modules
+git push origin --tags          # Push tags
 ```
 
 ## Available Scripts
 
-### `scripts/update-deps.sh`
-
-Script to upgrade dependencies
-
 ```bash
-# Upgrade all modules
-./scripts/update-deps.sh
-
-# Upgrade only specific module
-./scripts/update-deps.sh data
-```
-
-### `scripts/check-outdated.sh`
-
-Check outdated dependencies
-
-```bash
-./scripts/check-outdated.sh
-```
-
-### `scripts/test.sh`
-
-Run all tests
-
-```bash
-# Basic test
-./scripts/test.sh
-
-# Verbose output
-./scripts/test.sh -v
-
-# With coverage
-./scripts/test.sh -cover
-```
-
-### `scripts/tag.sh`
-
-Batch tagging
-
-```bash
-./scripts/tag.sh v0.1.0
+./scripts/update-deps.sh [module]   # Update dependencies
+./scripts/check-outdated.sh         # Check outdated deps
+./scripts/test.sh [-v] [--cover]    # Run tests
+./scripts/tag.sh v0.1.0             # Batch tag modules
 ```
 
 ## Makefile Targets
 
-| Command                   | Description                 |
-|---------------------------|-----------------------------|
-| `make help`               | Show help information       |
-| `make sync`               | Sync workspace dependencies |
-| `make test`               | Run all tests               |
-| `make test-v`             | Run all tests (verbose)     |
-| `make test-cover`         | Run tests with coverage     |
-| `make update`             | Update all dependencies     |
-| `make check-outdated`     | Check outdated dependencies |
-| `make tag VERSION=v0.1.0` | Create tags                 |
-| `make fmt`                | Format code                 |
-| `make lint`               | Run linter                  |
-| `make clean`              | Clean build artifacts       |
+Run `make help` to see all available targets.
 
 ## Common Issues
 
-### Q: `go work sync` reports errors, what to do?
+**`go work sync` errors:** Run `go clean -modcache && go work sync`
 
-A: Try these steps:
+**View dependencies:** `cd <module> && go mod graph`
 
-```bash
-# Clean module cache
-go clean -modcache
+**Circular dependencies:** Extract shared code to common module or use interfaces
 
-# Resync
-go work sync
-
-# If still issues, update modules individually
-cd <module-name>
-go mod tidy
-```
-
-### Q: How to view module dependency relationships?
-
-```bash
-cd <module-name>
-go mod graph
-```
-
-### Q: How to upgrade dependencies for all modules?
-
-```bash
-# Create script or execute manually
-for dir in */; do
-    if [ -f "$dir/go.mod" ]; then
-        echo "Updating $dir"
-        cd "$dir"
-        go get -u ./...
-        go mod tidy
-        cd ..
-    fi
-done
-```
-
-### Q: What to do about circular dependencies between modules?
-
-A: Redesign module structure, possible solutions:
-
-1. Extract shared code to new common module (like `types`)
-2. Use interfaces instead of concrete implementations
-3. Adjust module responsibility division
-
-## CI/CD Recommendations
-
-### GitHub Actions Example
+## CI/CD Example
 
 ```yaml
 name: Test
-
 on: [push, pull_request]
-
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "1.24"
-
-      - name: Sync workspace
-        run: go work sync
-
-      - name: Run tests
-        run: bash scripts/test.sh
-
-      - name: Test each module
-        run: |
-          for dir in */; do
-            if [ -f "$dir/go.mod" ]; then
-              echo "Testing $dir"
-              cd "$dir"
-              go test -v ./...
-              cd ..
-            fi
-          done
+      - uses: actions/setup-go@v4
+        with: { go-version: "1.24" }
+      - run: go work sync && bash scripts/test.sh
 ```
 
-## Performance Optimization Recommendations
+## Contributing
 
-1. **Minimize Dependencies**: Each module should only introduce necessary dependencies
-2. **Lazy Loading**: Large dependencies (like database drivers) in separate modules
-3. **Interface First**: Modules interact through interfaces to reduce coupling
-4. **Complete Documentation**: Clear module responsibilities and API documentation
-
-## Contributing Guidelines
-
-1. Fork the project
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Create Pull Request
-
-## Recommended Tools
-
-- **golangci-lint**: Code checking
-- **go-mod-outdated**: Check outdated dependencies
-- **go-mod-upgrade**: Batch upgrade dependencies
-- **air**: Hot reload (during development)
-
-## Workflow Examples
-
-### Add New Feature
-
-```bash
-# 1. Sync dependencies
-make sync
-
-# 2. Develop feature
-cd data
-# ... write code ...
-
-# 3. If new dependencies needed
-go get github.com/some/package
-go mod tidy
-
-# 4. Run tests
-go test ./...
-
-# 5. Return to root directory, test all modules
-cd ..
-make test
-
-# 6. Format code
-make fmt
-
-# 7. Commit
-git add .
-git commit -m "Add new feature"
-```
-
-### Fix Bug
-
-```bash
-# 1. Locate bug module
-cd <module>
-
-# 2. Fix code
-
-# 3. Run tests
-go test ./...
-
-# 4. Return to root directory
-cd ..
-
-# 5. Run all tests
-make test
-
-# 6. If important fix, release patch version
-make tag VERSION=v0.1.1
-git push origin --tags
-```
-
-### Upgrade Dependencies
-
-```bash
-# 1. Check outdated dependencies
-make check-outdated
-
-# 2. Upgrade dependencies
-make update
-
-# 3. Sync workspace
-make sync
-
-# 4. Run tests to ensure everything works
-make test
-
-# 5. Commit changes
-git add .
-git commit -m "Update dependencies"
-```
+1. Fork → 2. Feature branch → 3. Commit → 4. Push → 5. Pull Request
 
 ## Tips
 
-### Test Only Specific Packages
-
 ```bash
-cd data/databases
-go test -v .
-```
-
-### Testing with Race Detection
-
-```bash
-cd <module>
+# Race detection
 go test -race ./...
-```
 
-### View Test Coverage Report
+# Coverage report
+go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out
 
-```bash
-cd <module>
-go test -coverprofile=coverage.out ./...
-go tool cover -html=coverage.out
-```
-
-### Clean Module Cache
-
-```bash
-go clean -modcache
-go work sync
+# Clean cache
+go clean -modcache && go work sync
 ```

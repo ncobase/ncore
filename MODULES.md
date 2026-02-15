@@ -29,8 +29,7 @@ github.com/ncobase/ncore/
 │   ├── opensearch     - OpenSearch driver
 │   ├── meilisearch    - Meilisearch driver
 │   ├── kafka          - Kafka driver
-│   ├── rabbitmq       - RabbitMQ driver
-│   └── all            - Compatibility layer (imports all drivers)
+│   └── rabbitmq       - RabbitMQ driver
 ├── ecode          - Error codes
 ├── extension      - Extension and plugin system
 ├── logging        - Logging
