@@ -56,14 +56,20 @@ func ToJSONMap(v any) (map[string]any, error) {
 		return nil, nil
 	}
 
-	// Serialize to JSON first
+	// Direct conversion for better performance
+	// This avoids double JSON marshaling/unmarshaling when input is already a map
+	if mapVal, ok := v.(map[string]any); ok {
+		return mapVal, nil
+	}
+
+	// For other types (structs, etc.), we need to marshal/unmarshal
+	// This is necessary for proper struct-to-map conversion
+	result := make(map[string]any)
 	data, err := json.Marshal(v)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal to JSON: %w", err)
 	}
 
-	// Then deserialize to map
-	var result map[string]any
 	err = json.Unmarshal(data, &result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal to map: %w", err)

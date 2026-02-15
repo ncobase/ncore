@@ -26,21 +26,21 @@ type LocalFileSystem struct {
 }
 
 // NewFileSystem creates a new local file system storage
-func NewFileSystem(folder string) *LocalFileSystem {
+func NewFileSystem(folder string) (*LocalFileSystem, error) {
 	if folder == "" {
 		folder = "./uploads" // Default folder
 	}
 
 	abs, err := filepath.Abs(folder)
 	if err != nil {
-		panic(fmt.Sprintf("failed to get absolute path for folder %s: %v", folder, err))
+		return nil, fmt.Errorf("failed to get absolute path for folder %s: %w", folder, err)
 	}
 
 	if err := os.MkdirAll(abs, 0755); err != nil {
-		panic(fmt.Sprintf("failed to create folder %s: %v", abs, err))
+		return nil, fmt.Errorf("failed to create folder %s: %w", abs, err)
 	}
 
-	return &LocalFileSystem{Folder: abs}
+	return &LocalFileSystem{Folder: abs}, nil
 }
 
 // GetFullPath returns the full path from absolute/relative path
@@ -49,19 +49,32 @@ func (fs *LocalFileSystem) GetFullPath(p string) string {
 		return fs.Folder
 	}
 
-	// Clean the path to prevent directory traversal
+	// Clean and validate the path to prevent directory traversal
 	p = filepath.Clean(p)
 
-	// Prevent directory traversal attacks
-	if strings.Contains(p, "..") {
-		p = strings.ReplaceAll(p, "..", "")
+	// Remove leading slash to ensure relative path
+	p = strings.TrimPrefix(p, string(filepath.Separator))
+
+	// Join with base folder
+	fullPath := filepath.Join(fs.Folder, p)
+
+	// Get absolute paths for comparison
+	absBase, err := filepath.Abs(fs.Folder)
+	if err != nil {
+		return ""
+	}
+	absPath, err := filepath.Abs(fullPath)
+	if err != nil {
+		return ""
 	}
 
-	if filepath.IsAbs(p) && strings.HasPrefix(p, fs.Folder) {
-		return p
+	// Verify the resolved path is within the base folder
+	if !strings.HasPrefix(absPath, absBase+string(filepath.Separator)) && absPath != absBase {
+		// Path escapes base folder - reject it
+		return ""
 	}
 
-	return filepath.Join(fs.Folder, p)
+	return absPath
 }
 
 // Get receives a file with the given path

@@ -192,7 +192,11 @@ func NewStorage(c *Config) (Interface, error) {
 	}
 
 	if c.Provider == "filesystem" || c.Provider == "local" {
-		return NewFileSystem(c.Bucket), nil
+		fs, err := NewFileSystem(c.Bucket)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create local filesystem storage: %w", err)
+		}
+		return fs, nil
 	}
 
 	driver, err := GetDriver(c.Provider)
