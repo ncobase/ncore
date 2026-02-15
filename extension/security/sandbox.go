@@ -1,7 +1,11 @@
 package security
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -85,11 +89,32 @@ func (s *Sandbox) ValidatePluginSignature(path string) error {
 		return nil
 	}
 
-	// Basic signature validation placeholder
-	// In production, implement actual signature verification
+	// Check if plugin file exists
+	if !fileExists(path) {
+		return fmt.Errorf("plugin file not found: %s", path)
+	}
+
+	// Check if signature file exists
 	signaturePath := path + ".sig"
 	if !fileExists(signaturePath) {
 		return fmt.Errorf("plugin signature not found: %s", signaturePath)
+	}
+
+	// Calculate plugin file hash
+	pluginHash, err := calculateFileHash(path)
+	if err != nil {
+		return fmt.Errorf("failed to calculate plugin hash: %w", err)
+	}
+
+	// Read expected hash from signature file
+	expectedHash, err := readSignatureFile(signaturePath)
+	if err != nil {
+		return fmt.Errorf("failed to read signature file: %w", err)
+	}
+
+	// Verify hash matches
+	if pluginHash != expectedHash {
+		return fmt.Errorf("plugin signature verification failed: hash mismatch")
 	}
 
 	return nil
@@ -97,8 +122,51 @@ func (s *Sandbox) ValidatePluginSignature(path string) error {
 
 // fileExists checks if file exists
 func fileExists(path string) bool {
-	_, err := filepath.Abs(path)
-	return err == nil
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return !info.IsDir()
+}
+
+// calculateFileHash calculates SHA256 hash of a file
+func calculateFileHash(path string) (string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+// readSignatureFile reads the expected hash from signature file
+func readSignatureFile(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+
+	// Signature file should contain the SHA256 hash in hexadecimal format
+	// Remove any whitespace
+	hash := strings.TrimSpace(string(data))
+
+	// Validate hash format (64 hex characters for SHA256)
+	if len(hash) != 64 {
+		return "", fmt.Errorf("invalid signature format: expected 64 hex characters, got %d", len(hash))
+	}
+
+	// Verify it's valid hexadecimal
+	if _, err := hex.DecodeString(hash); err != nil {
+		return "", fmt.Errorf("invalid signature format: not valid hexadecimal: %w", err)
+	}
+
+	return hash, nil
 }
 
 // ResourceMonitor monitors plugin resource usage

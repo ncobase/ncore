@@ -12,7 +12,14 @@ func generateAntifakeCode(length int) string {
 	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
 	bytes := make([]byte, length)
 	if _, err := rand.Read(bytes); err != nil {
-		panic(err)
+		// Fallback to timestamp-based code if crypto/rand fails
+		// This is extremely rare but provides resilience
+		timestamp := time.Now().UnixNano()
+		for i := 0; i < length; i++ {
+			bytes[i] = charset[timestamp%int64(len(charset))]
+			timestamp /= int64(len(charset))
+		}
+		return string(bytes)
 	}
 	for i := 0; i < length; i++ {
 		bytes[i] = charset[bytes[i]%byte(len(charset))]

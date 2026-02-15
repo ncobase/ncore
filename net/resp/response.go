@@ -2,6 +2,7 @@ package resp
 
 import (
 	"encoding/json"
+	"encoding/xml"
 	"net/http"
 
 	"github.com/ncobase/ncore/ecode"
@@ -132,23 +133,42 @@ func writeResponse(w http.ResponseWriter, contextType string, code int, res any)
 	w.WriteHeader(code)
 	switch contextType {
 	case "JSON":
-		w.Header().Set("Content-Type", "application/json")
-		err := json.NewEncoder(w).Encode(res)
-		if err != nil {
-			return
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		if err := json.NewEncoder(w).Encode(res); err != nil {
+			http.Error(w, "Failed to encode JSON response", http.StatusInternalServerError)
 		}
 	case "XML":
-		w.Header().Set("Content-Type", "application/xml")
-		// Implement XML encoding here
+		w.Header().Set("Content-Type", "application/xml; charset=utf-8")
+		if err := xml.NewEncoder(w).Encode(res); err != nil {
+			http.Error(w, "Failed to encode XML response", http.StatusInternalServerError)
+		}
 	case "Text":
-		w.Header().Set("Content-Type", "text/plain")
-		// Convert res to string if needed and write it to response writer
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		var text string
+		switch v := res.(type) {
+		case string:
+			text = v
+		case []byte:
+			text = string(v)
+		case error:
+			text = v.Error()
+		default:
+			// Fallback to JSON representation for complex types
+			data, err := json.Marshal(v)
+			if err != nil {
+				http.Error(w, "Failed to convert response to text", http.StatusInternalServerError)
+				return
+			}
+			text = string(data)
+		}
+		if _, err := w.Write([]byte(text)); err != nil {
+			http.Error(w, "Failed to write text response", http.StatusInternalServerError)
+		}
 	default:
 		// Default to JSON if no contextType matches
-		w.Header().Set("Content-Type", "application/json")
-		err := json.NewEncoder(w).Encode(res)
-		if err != nil {
-			return
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		if err := json.NewEncoder(w).Encode(res); err != nil {
+			http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 		}
 	}
 }

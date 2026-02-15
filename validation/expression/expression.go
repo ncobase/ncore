@@ -836,11 +836,8 @@ func (e *Expression) tokenize(expr string) ([]*Token, error) {
 // AddToCache adds a value to the cache and enforces LRU policy
 func (e *Expression) AddToCache(key string, value any) {
 	if e.config.CacheEnabled {
-		err := e.cache.Set(key, value)
-		if err != nil {
-			fmt.Printf("failed to add to cache: %v", err)
-			return
-		}
+		// Silently ignore cache errors - cache is a performance optimization
+		_ = e.cache.Set(key, value)
 	}
 }
 

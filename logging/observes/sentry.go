@@ -1,8 +1,6 @@
 package observes
 
 import (
-	"fmt"
-
 	"github.com/getsentry/sentry-go"
 )
 
@@ -15,9 +13,8 @@ type SentryOptions struct {
 
 // NewSentry is the register sentry
 func NewSentry(opt *SentryOptions) error {
-	// if not exist sentry config, break
+	// if not exist sentry config, skip initialization
 	if opt == nil {
-		fmt.Println("Not exist sentry config...")
 		return nil
 	}
 
