@@ -9,22 +9,32 @@
 
 set -e
 
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
 REMOVE=0
 VERSION=""
 MODULE=""
+PUSH=""
 
 # Show help
 show_help() {
-    echo "Usage: $0 [--remove] [--module <name>] <version>"
+    echo "Usage: $0 [--remove] [--module <name>] [--push] <version>"
     echo ""
     echo "Options:"
     echo "  --remove         Remove tags instead of creating them"
     echo "  --module, -m     Target a single module (e.g., oss, data, logging)"
+    echo "  --push           Automatically push tags to remote"
     echo "  --help, -h       Show this help message"
     echo ""
     echo "Examples:"
     echo "  $0 v0.1.0                      # Tag all modules with v0.1.0"
     echo "  $0 --module oss v0.2.3         # Tag only oss module with v0.2.3"
+    echo "  $0 --push v0.1.0               # Tag all and push to remote"
     echo "  $0 --remove v0.1.0             # Remove v0.1.0 tags from all modules"
     echo "  $0 --remove --module oss v0.2.3 # Remove v0.2.3 tag from oss module"
     exit 0
@@ -44,6 +54,10 @@ while [[ $# -gt 0 ]]; do
             MODULE="$2"
             shift 2
             ;;
+        --push)
+            PUSH="true"
+            shift
+            ;;
         *)
             VERSION="$1"
             shift
@@ -52,8 +66,14 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [ -z "$VERSION" ]; then
-    echo "Error: Version is required."
+    echo -e "${RED}Error: Version is required.${NC}"
     echo "Run '$0 --help' for usage."
+    exit 1
+fi
+
+# Validate version format
+if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo -e "${RED}Error: Invalid version format. Expected vX.Y.Z (e.g., v0.3.0)${NC}"
     exit 1
 fi
 
@@ -67,7 +87,7 @@ if [ -n "$MODULE" ]; then
     elif [ -f "./$MODULE/go.mod" ]; then
         MODULES+=("$MODULE")
     else
-        echo "Error: Module '$MODULE' not found (no go.mod in $MODULE/)"
+        echo -e "${RED}Error: Module '$MODULE' not found (no go.mod in $MODULE/)${NC}"
         exit 1
     fi
 else
@@ -80,46 +100,68 @@ else
 fi
 
 if [ ${#MODULES[@]} -eq 0 ]; then
-    echo "No modules found."
+    echo -e "${YELLOW}No modules found.${NC}"
     exit 0
 fi
 
 if [ "$REMOVE" -eq 1 ]; then
-    echo "Removing tags for version: $VERSION"
-    [ -n "$MODULE" ] && echo "Module: $MODULE"
+    echo -e "${BLUE}Removing tags for version: ${VERSION}${NC}"
+    [ -n "$MODULE" ] && echo -e "${BLUE}Module: ${MODULE}${NC}"
     echo "================================"
     for module in "${MODULES[@]}"; do
         TAG_NAME="$module/$VERSION"
         if git rev-parse -q --verify "refs/tags/$TAG_NAME" >/dev/null; then
-            echo "Removing tag: $TAG_NAME"
+            echo -e "${YELLOW}Removing tag: ${TAG_NAME}${NC}"
             git tag -d "$TAG_NAME"
         else
-            echo "Tag not found, skipping: $TAG_NAME"
+            echo -e "${BLUE}Tag not found, skipping: ${TAG_NAME}${NC}"
         fi
     done
     echo ""
-    echo "Tags removed locally!"
-    echo "To delete remote tags, run:"
-    for module in "${MODULES[@]}"; do
-        echo "  git push origin --delete $module/$VERSION"
-    done
+    echo -e "${GREEN}Tags removed locally!${NC}"
+    if [ -n "$PUSH" ]; then
+        echo ""
+        echo -e "${BLUE}Pushing deletions to remote...${NC}"
+        for module in "${MODULES[@]}"; do
+            git push origin --delete "$module/$VERSION" 2>/dev/null || true
+        done
+        echo -e "${GREEN}✅ Remote tags deleted${NC}"
+    else
+        echo ""
+        echo "To delete remote tags, run:"
+        for module in "${MODULES[@]}"; do
+            echo "  git push origin --delete $module/$VERSION"
+        done
+    fi
 else
-    echo "Creating tags for version: $VERSION"
-    [ -n "$MODULE" ] && echo "Module: $MODULE"
+    echo -e "${BLUE}Creating tags for version: ${VERSION}${NC}"
+    [ -n "$MODULE" ] && echo -e "${BLUE}Module: ${MODULE}${NC}"
     echo "================================"
     for module in "${MODULES[@]}"; do
         TAG_NAME="$module/$VERSION"
         if git rev-parse -q --verify "refs/tags/$TAG_NAME" >/dev/null; then
-            echo "Tag already exists, skipping: $TAG_NAME"
+            echo -e "${YELLOW}Tag already exists, skipping: ${TAG_NAME}${NC}"
         else
-            echo "Creating tag: $TAG_NAME"
+            echo -e "${GREEN}Creating tag: ${TAG_NAME}${NC}"
             git tag "$TAG_NAME"
         fi
     done
     echo ""
-    echo "Tags created successfully!"
-    echo "To push tags, run:"
-    for module in "${MODULES[@]}"; do
-        echo "  git push origin $module/$VERSION"
-    done
+    echo -e "${GREEN}✅ Tags created successfully!${NC}"
+    if [ -n "$PUSH" ]; then
+        echo ""
+        echo -e "${BLUE}Pushing tags to remote...${NC}"
+        for module in "${MODULES[@]}"; do
+            git push origin "$module/$VERSION"
+        done
+        echo -e "${GREEN}✅ Tags pushed to remote${NC}"
+    else
+        echo ""
+        echo "To push tags, run:"
+        for module in "${MODULES[@]}"; do
+            echo "  git push origin $module/$VERSION"
+        done
+        echo ""
+        echo "Or use: $0 --push $VERSION"
+    fi
 fi

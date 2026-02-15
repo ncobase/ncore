@@ -7,6 +7,13 @@
 
 set -e
 
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
 MODULE=""
 
 # Show help
@@ -22,7 +29,7 @@ show_help() {
     echo "Examples:"
     echo "  $0                      # Check all modules"
     echo "  $0 --module oss         # Check only oss module"
-    echo "  $0 -m data/postgres     # Check only data/postgres module"
+    echo "  $0 -m data              # Check only data module"
     exit 0
 }
 
@@ -37,7 +44,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         *)
-            echo "Unknown option: $1"
+            echo -e "${RED}Unknown option: $1${NC}"
             echo "Run '$0 --help' for usage."
             exit 1
             ;;
@@ -54,7 +61,7 @@ if [ -n "$MODULE" ]; then
     elif [ -f "./$MODULE/go.mod" ]; then
         MODULES+=("$MODULE")
     else
-        echo "Error: Module '$MODULE' not found (no go.mod in $MODULE/)"
+        echo -e "${RED}Error: Module '$MODULE' not found (no go.mod in $MODULE/)${NC}"
         exit 1
     fi
 else
@@ -66,19 +73,19 @@ else
 fi
 
 if [ ${#MODULES[@]} -eq 0 ]; then
-    echo "No modules found."
+    echo -e "${YELLOW}No modules found.${NC}"
     exit 0
 fi
 
-echo "Checking for outdated dependencies..."
-[ -n "$MODULE" ] && echo "Module: $MODULE"
+echo -e "${BLUE}Checking for outdated dependencies...${NC}"
+[ -n "$MODULE" ] && echo -e "${BLUE}Module: ${MODULE}${NC}"
 echo "====================================="
 
 OUTDATED_COUNT=0
 
 for module in "${MODULES[@]}"; do
     echo ""
-    echo "Module: $module"
+    echo -e "${BLUE}Module: ${module}${NC}"
     echo "----------------------------"
 
     pushd "$module" > /dev/null
@@ -86,13 +93,13 @@ for module in "${MODULES[@]}"; do
     # List upgradable dependencies (suppress error if none found)
     if output=$(go list -u -m all 2>/dev/null | grep '\[' || true); then
         if [ -n "$output" ]; then
-            echo "$output"
+            echo -e "${YELLOW}$output${NC}"
             OUTDATED_COUNT=$((OUTDATED_COUNT + 1))
         else
-            echo "All dependencies are up to date."
+            echo -e "${GREEN}✅ All dependencies are up to date.${NC}"
         fi
     else
-        echo "Failed to check dependencies."
+        echo -e "${RED}Failed to check dependencies.${NC}"
     fi
 
     popd > /dev/null
@@ -101,10 +108,13 @@ done
 echo ""
 echo "====================================="
 if [ $OUTDATED_COUNT -gt 0 ]; then
-    echo "Found outdated dependencies in $OUTDATED_COUNT module(s)."
+    echo -e "${YELLOW}⚠️  Found outdated dependencies in $OUTDATED_COUNT module(s).${NC}"
     echo ""
     echo "To update dependencies, run:"
     echo "  ./scripts/update-deps.sh"
+    echo ""
+    echo "To update and test:"
+    echo "  ./scripts/update-deps.sh --clean --test"
 else
-    echo "All modules have up-to-date dependencies."
+    echo -e "${GREEN}✅ All modules have up-to-date dependencies!${NC}"
 fi
