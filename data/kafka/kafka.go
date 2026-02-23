@@ -47,11 +47,12 @@ func New(conn *kafka.Conn) *Kafka {
 			FallbackToMemory: true,
 		},
 		writer: &kafka.Writer{
-			Addr:         kafka.TCP(remoteBroker),
-			Balancer:     &kafka.LeastBytes{},
-			BatchTimeout: 10 * time.Millisecond,
-			RequiredAcks: kafka.RequireAll,
-			Async:        false,
+			Addr:                   kafka.TCP(remoteBroker),
+			Balancer:               &kafka.LeastBytes{},
+			BatchTimeout:           10 * time.Millisecond,
+			RequiredAcks:           kafka.RequireAll,
+			AllowAutoTopicCreation: true,
+			Async:                  false,
 		},
 	}
 }
@@ -67,12 +68,10 @@ func NewWithConfig(conn *kafka.Conn, messaging *config.Messaging) *Kafka {
 
 // IsConnected checks if the Kafka connection is valid
 func (s *Kafka) IsConnected() bool {
-	if s == nil || s.conn == nil {
-		return false
-	}
-
-	_, err := s.conn.Controller()
-	return err == nil
+	// Avoid forcing controller metadata round-trip for health check.
+	// In mixed internal/external listener setups, metadata may include
+	// private controller endpoints that are not reachable from clients.
+	return s != nil && s.conn != nil
 }
 
 // PublishMessage publishes message to Kafka
@@ -129,11 +128,12 @@ func (s *Kafka) getWriter() *kafka.Writer {
 
 	if s.writer == nil && len(s.brokers) > 0 {
 		s.writer = &kafka.Writer{
-			Addr:         kafka.TCP(s.brokers...),
-			Balancer:     &kafka.LeastBytes{},
-			BatchTimeout: 10 * time.Millisecond,
-			RequiredAcks: kafka.RequireAll,
-			Async:        false,
+			Addr:                   kafka.TCP(s.brokers...),
+			Balancer:               &kafka.LeastBytes{},
+			BatchTimeout:           10 * time.Millisecond,
+			RequiredAcks:           kafka.RequireAll,
+			AllowAutoTopicCreation: true,
+			Async:                  false,
 		}
 	}
 

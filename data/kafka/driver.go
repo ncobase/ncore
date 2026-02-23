@@ -23,7 +23,7 @@
 //	}
 //
 //	conn, err := driver.Connect(ctx, cfg)
-//	kafkaConn := conn.(*kafka.Conn)
+//	kafkaSvc := conn.(*Kafka)
 package kafka
 
 import (
@@ -54,7 +54,7 @@ func (d *driver) Name() string {
 //   - WriteTimeout: Optional write timeout duration
 //   - ConnectTimeout: Optional connection timeout duration
 //
-// Returns a *kafka.Conn that can be used for producing and consuming messages.
+// Returns a *Kafka service wrapper that can be used by ncore/data messaging APIs.
 func (d *driver) Connect(ctx context.Context, cfg any) (any, error) {
 	kafkaCfg, ok := cfg.(*config.Kafka)
 	if !ok {
@@ -70,14 +70,20 @@ func (d *driver) Connect(ctx context.Context, cfg any) (any, error) {
 		return nil, fmt.Errorf("kafka: failed to connect: %w", err)
 	}
 
-	return conn, nil
+	return New(conn), nil
 }
 
 // Close terminates the Kafka connection and releases resources.
 func (d *driver) Close(conn any) error {
+	// Preferred connection type returned by Connect.
+	if kafkaSvc, ok := conn.(*Kafka); ok {
+		return kafkaSvc.Close()
+	}
+
+	// Backward compatibility for legacy direct connection usage.
 	kafkaConn, ok := conn.(*kafka.Conn)
 	if !ok {
-		return fmt.Errorf("kafka: invalid connection type, expected *kafka.Conn")
+		return fmt.Errorf("kafka: invalid connection type, expected *Kafka or *kafka.Conn")
 	}
 
 	if err := kafkaConn.Close(); err != nil {
