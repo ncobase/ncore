@@ -13,7 +13,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -71,7 +73,7 @@ func (object Object) Get() (*os.File, error) {
 
 // Config holds configuration for object storage providers.
 type Config struct {
-	Provider           string `json:"provider" yaml:"provider"`                                             // Storage provider: minio, s3, aliyun, azure, tencent, qiniu, gcs, synology, filesystem
+	Provider           string `json:"provider" yaml:"provider"`                                             // Storage provider: minio, s3, aliyun, azure, tencent, qiniu, gcs, synology, filesystem (aliases: oss/cos/r2/b2)
 	ID                 string `json:"id" yaml:"id"`                                                         // Access key ID / Account name
 	Secret             string `json:"secret" yaml:"secret"`                                                 // Secret access key / Account key
 	Region             string `json:"region" yaml:"region"`                                                 // Region (required for cloud storage)
@@ -86,6 +88,15 @@ type Config struct {
 
 // Validate checks if the configuration is valid and sets default values where applicable.
 func (c *Config) Validate() error {
+	c.Provider = strings.ToLower(strings.TrimSpace(c.Provider))
+	c.ID = strings.TrimSpace(c.ID)
+	c.Secret = strings.TrimSpace(c.Secret)
+	c.Region = strings.TrimSpace(c.Region)
+	c.Bucket = strings.TrimSpace(c.Bucket)
+	c.Endpoint = strings.TrimSpace(c.Endpoint)
+	c.ServiceAccountJSON = strings.TrimSpace(c.ServiceAccountJSON)
+	c.AppID = strings.TrimSpace(c.AppID)
+
 	if c.Provider == "" {
 		return errors.New("storage provider is required")
 	}
@@ -95,13 +106,15 @@ func (c *Config) Validate() error {
 		if c.Bucket == "" {
 			c.Bucket = "./uploads"
 		}
-	case "aliyun", "aliyun-oss":
+		c.Provider = "filesystem"
+	case "aliyun", "aliyun-oss", "oss":
 		if c.ID == "" || c.Secret == "" || c.Bucket == "" {
 			return errors.New("id, secret, and bucket are required for Aliyun OSS")
 		}
 		if c.Region == "" {
 			c.Region = "cn-hangzhou"
 		}
+		c.Provider = "aliyun"
 	case "s3", "aws-s3", "aws":
 		if c.ID == "" || c.Secret == "" || c.Bucket == "" {
 			return errors.New("id, secret, and bucket are required for AWS S3")
@@ -109,21 +122,61 @@ func (c *Config) Validate() error {
 		if c.Region == "" {
 			c.Region = "us-east-1"
 		}
+		c.Provider = "s3"
+	case "r2", "cloudflare-r2":
+		if c.ID == "" || c.Secret == "" || c.Bucket == "" || c.Endpoint == "" {
+			return errors.New("id, secret, bucket, and endpoint are required for Cloudflare R2")
+		}
+		normalizedEndpoint, err := normalizeHTTPEndpoint(c.Endpoint)
+		if err != nil {
+			return fmt.Errorf("invalid R2 endpoint: %w", err)
+		}
+		c.Endpoint = normalizedEndpoint
+		if c.Region == "" {
+			c.Region = "auto"
+		}
+		c.Provider = "s3"
+	case "b2", "backblaze-b2":
+		if c.ID == "" || c.Secret == "" || c.Bucket == "" || c.Endpoint == "" || c.Region == "" {
+			return errors.New("id, secret, bucket, endpoint, and region are required for Backblaze B2")
+		}
+		normalizedEndpoint, err := normalizeHTTPEndpoint(c.Endpoint)
+		if err != nil {
+			return fmt.Errorf("invalid B2 endpoint: %w", err)
+		}
+		c.Endpoint = normalizedEndpoint
+		c.Provider = "s3"
 	case "azure", "azure-blob":
 		if c.ID == "" || c.Secret == "" || c.Bucket == "" {
 			return errors.New("account name, account key, and container are required for Azure Blob")
 		}
-	case "tencent", "tencent-cos":
-		if c.ID == "" || c.Secret == "" || c.Bucket == "" || c.AppID == "" {
-			return errors.New("id, secret, bucket, and app_id are required for Tencent COS")
+		if c.Endpoint != "" {
+			normalizedEndpoint, err := normalizeHTTPEndpoint(c.Endpoint)
+			if err != nil {
+				return fmt.Errorf("invalid Azure endpoint: %w", err)
+			}
+			c.Endpoint = normalizedEndpoint
 		}
+		c.Provider = "azure"
+	case "tencent", "tencent-cos", "cos":
+		if c.ID == "" || c.Secret == "" || c.Bucket == "" {
+			return errors.New("id, secret, and bucket are required for Tencent COS")
+		}
+		normalizedBucket, normalizedAppID, err := normalizeTencentBucketAndAppID(c.Bucket, c.AppID)
+		if err != nil {
+			return err
+		}
+		c.Bucket = normalizedBucket
+		c.AppID = normalizedAppID
 		if c.Region == "" {
 			c.Region = "ap-guangzhou"
 		}
+		c.Provider = "tencent"
 	case "minio":
 		if c.ID == "" || c.Secret == "" || c.Bucket == "" || c.Endpoint == "" {
 			return errors.New("id, secret, bucket, and endpoint are required for MinIO")
 		}
+		c.Provider = "minio"
 	case "qiniu":
 		if c.ID == "" || c.Secret == "" || c.Bucket == "" {
 			return errors.New("id, secret, and bucket are required for Qiniu Kodo")
@@ -131,6 +184,7 @@ func (c *Config) Validate() error {
 		if c.Region == "" {
 			c.Region = "cn-east-1"
 		}
+		c.Provider = "qiniu"
 	case "gcs", "google", "google-cloud":
 		if c.Bucket == "" {
 			return errors.New("bucket is required for Google Cloud Storage")
@@ -138,10 +192,12 @@ func (c *Config) Validate() error {
 		if c.Secret == "" && c.ServiceAccountJSON == "" {
 			return errors.New("service account JSON is required for Google Cloud Storage")
 		}
+		c.Provider = "gcs"
 	case "synology":
 		if c.ID == "" || c.Secret == "" || c.Bucket == "" || c.Endpoint == "" {
 			return errors.New("id, secret, bucket, and endpoint are required for Synology")
 		}
+		c.Provider = "synology"
 	default:
 		return fmt.Errorf("unsupported storage provider: %s", c.Provider)
 	}
@@ -187,6 +243,10 @@ func GetDriver(name string) (Driver, error) {
 // NewStorage creates a storage instance based on the provided configuration.
 // Automatically selects the appropriate storage provider.
 func NewStorage(c *Config) (Interface, error) {
+	if c == nil {
+		return nil, errors.New("storage config is nil")
+	}
+
 	if err := c.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid storage config: %w", err)
 	}
@@ -210,4 +270,63 @@ func NewStorage(c *Config) (Interface, error) {
 	}
 
 	return storage, nil
+}
+
+func normalizeHTTPEndpoint(endpoint string) (string, error) {
+	endpoint = strings.TrimSpace(endpoint)
+	if endpoint == "" {
+		return "", errors.New("endpoint is empty")
+	}
+	if !strings.Contains(endpoint, "://") {
+		endpoint = "https://" + endpoint
+	}
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return "", err
+	}
+	if u.Host == "" {
+		return "", errors.New("endpoint host is empty")
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return "", errors.New("endpoint scheme must be http or https")
+	}
+	u.Path = strings.TrimRight(u.Path, "/")
+	return u.String(), nil
+}
+
+func normalizeTencentBucketAndAppID(bucket, appID string) (string, string, error) {
+	bucket = strings.TrimSpace(bucket)
+	appID = strings.TrimSpace(appID)
+	if bucket == "" {
+		return "", "", errors.New("bucket is required for Tencent COS")
+	}
+
+	lastDash := strings.LastIndex(bucket, "-")
+	hasBucketAppIDSuffix := lastDash > 0 && lastDash < len(bucket)-1
+	var suffixAppID string
+	if hasBucketAppIDSuffix {
+		suffixAppID = bucket[lastDash+1:]
+		for _, r := range suffixAppID {
+			if r < '0' || r > '9' {
+				suffixAppID = ""
+				break
+			}
+		}
+	}
+
+	if appID == "" {
+		if suffixAppID == "" {
+			return "", "", errors.New("app_id is required for Tencent COS unless bucket is in <bucket>-<app_id> format")
+		}
+		return bucket[:lastDash], suffixAppID, nil
+	}
+
+	if suffixAppID != "" {
+		if suffixAppID != appID {
+			return "", "", fmt.Errorf("bucket app_id suffix %q does not match app_id %q", suffixAppID, appID)
+		}
+		return bucket[:lastDash], appID, nil
+	}
+
+	return bucket, appID, nil
 }

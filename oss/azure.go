@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
@@ -23,13 +24,20 @@ type AzureAdapter struct {
 }
 
 // NewAzureAdapter creates a new Azure Blob Storage adapter.
-func NewAzureAdapter(accountName, accountKey, containerName string) (*AzureAdapter, error) {
+func NewAzureAdapter(accountName, accountKey, containerName, endpoint string) (*AzureAdapter, error) {
 	credential, err := azblob.NewSharedKeyCredential(accountName, accountKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Azure credentials: %w", err)
 	}
 
-	serviceURL := fmt.Sprintf("https://%s.blob.core.windows.net/", accountName)
+	serviceURL := strings.TrimSpace(endpoint)
+	if serviceURL == "" {
+		serviceURL = fmt.Sprintf("https://%s.blob.core.windows.net/", accountName)
+	}
+	if !strings.HasSuffix(serviceURL, "/") {
+		serviceURL += "/"
+	}
+
 	client, err := azblob.NewClientWithSharedKeyCredential(serviceURL, credential, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Azure client: %w", err)
@@ -264,7 +272,7 @@ func (d *azureDriver) Name() string {
 
 // Connect establishes a connection to Azure Blob Storage.
 func (d *azureDriver) Connect(ctx context.Context, cfg *Config) (Interface, error) {
-	return NewAzureAdapter(cfg.ID, cfg.Secret, cfg.Bucket)
+	return NewAzureAdapter(cfg.ID, cfg.Secret, cfg.Bucket, cfg.Endpoint)
 }
 
 // Close closes the Azure storage connection.

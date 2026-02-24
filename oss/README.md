@@ -92,17 +92,19 @@ func main() {
 
 ## Supported Providers
 
-| Provider             | Provider Value | Required Config                          |
-| -------------------- | -------------- | ---------------------------------------- |
-| AWS S3               | `s3`           | ID, Secret, Bucket, Region               |
-| Azure Blob           | `azure`        | ID (account), Secret (key), Bucket       |
-| Aliyun OSS           | `aliyun`       | ID, Secret, Bucket, Region               |
-| Tencent COS          | `tencent`      | ID, Secret, Bucket, Region, AppID        |
-| Google Cloud Storage | `gcs`          | Bucket, ServiceAccountJSON or Secret     |
-| MinIO                | `minio`        | ID, Secret, Bucket, Endpoint             |
-| Qiniu Kodo           | `qiniu`        | ID, Secret, Bucket, Region, Endpoint     |
-| Synology NAS         | `synology`     | ID, Secret, Bucket, Endpoint             |
-| Local Filesystem     | `filesystem`   | Bucket (path, defaults to `./uploads`)   |
+| Provider             | Provider Value         | Required Config                                                      |
+| -------------------- | ---------------------- | -------------------------------------------------------------------- |
+| AWS S3               | `s3`                   | ID, Secret, Bucket, Region                                           |
+| Cloudflare R2        | `r2`                   | ID, Secret, Bucket, Endpoint (Region defaults to `auto`)             |
+| Backblaze B2 (S3)    | `b2`                   | ID, Secret, Bucket, Endpoint, Region                                 |
+| Azure Blob           | `azure`                | ID (account), Secret (key), Bucket (Endpoint optional)               |
+| Aliyun OSS           | `aliyun` / `oss`       | ID, Secret, Bucket, Region                                           |
+| Tencent COS          | `tencent` / `cos`      | ID, Secret, Bucket, Region, AppID (or bucket as `<bucket>-<app_id>`) |
+| Google Cloud Storage | `gcs`                  | Bucket, ServiceAccountJSON or Secret                                 |
+| MinIO                | `minio`                | ID, Secret, Bucket, Endpoint                                         |
+| Qiniu Kodo           | `qiniu`                | ID, Secret, Bucket, Region, Endpoint                                 |
+| Synology NAS         | `synology`             | ID, Secret, Bucket, Endpoint                                         |
+| Local Filesystem     | `filesystem` / `local` | Bucket (path, defaults to `./uploads`)                               |
 
 ## Configuration Examples
 
@@ -149,7 +151,7 @@ cfg := &oss.Config{
     Provider: "tencent",
     ID:       "your-secret-id",
     Secret:   "your-secret-key",
-    Bucket:   "my-bucket",
+    Bucket:   "my-bucket", // or "my-bucket-1250000000"
     Region:   "ap-guangzhou",
     AppID:    "1234567890",
 }
@@ -163,8 +165,19 @@ cfg := &oss.Config{
     ID:       "your-account-name",
     Secret:   "your-account-key",
     Bucket:   "my-container",
+    // Optional for sovereign clouds or custom DNS zones:
+    // Endpoint: "https://your-account.blob.core.windows.net",
 }
 ```
+
+## Provider Endpoint References (Official)
+
+- AWS S3: <https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingBucket.html>
+- Cloudflare R2 (S3 API): <https://developers.cloudflare.com/r2/api/s3/api/>
+- Backblaze B2 (S3 Compatible API): <https://www.backblaze.com/docs/cloud-storage-s3-compatible-api>
+- Tencent COS endpoints and naming: <https://www.tencentcloud.com/document/product/436/6224>
+- Aliyun OSS regions/endpoints: <https://www.alibabacloud.com/help/en/oss/user-guide/regions-and-endpoints>
+- Azure Blob endpoint formats: <https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blob-query-endpoint-srp>
 
 ### Google Cloud Storage
 

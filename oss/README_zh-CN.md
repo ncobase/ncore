@@ -92,17 +92,19 @@ func main() {
 
 ## 支持的提供商
 
-| 提供商               | Provider 值  | 所需配置                                |
-| -------------------- | ------------ | --------------------------------------- |
-| AWS S3               | `s3`         | ID, Secret, Bucket, Region              |
-| Azure Blob           | `azure`      | ID (账户名), Secret (密钥), Bucket      |
-| 阿里云 OSS           | `aliyun`     | ID, Secret, Bucket, Region              |
-| 腾讯云 COS           | `tencent`    | ID, Secret, Bucket, Region, AppID       |
-| Google Cloud Storage | `gcs`        | Bucket, ServiceAccountJSON 或 Secret   |
-| MinIO                | `minio`      | ID, Secret, Bucket, Endpoint            |
-| 七牛 Kodo            | `qiniu`      | ID, Secret, Bucket, Region, Endpoint    |
-| Synology NAS         | `synology`   | ID, Secret, Bucket, Endpoint            |
-| 本地文件系统         | `filesystem` | Bucket (路径，默认 `./uploads`)         |
+| 提供商               | Provider 值            | 所需配置                                                                  |
+| -------------------- | ---------------------- | ------------------------------------------------------------------------- |
+| AWS S3               | `s3`                   | ID, Secret, Bucket, Region                                                |
+| Cloudflare R2        | `r2`                   | ID, Secret, Bucket, Endpoint（Region 默认 `auto`）                        |
+| Backblaze B2（S3）   | `b2`                   | ID, Secret, Bucket, Endpoint, Region                                      |
+| Azure Blob           | `azure`                | ID (账户名), Secret (密钥), Bucket（Endpoint 可选）                       |
+| 阿里云 OSS           | `aliyun` / `oss`       | ID, Secret, Bucket, Region                                                |
+| 腾讯云 COS           | `tencent` / `cos`      | ID, Secret, Bucket, Region, AppID（或 Bucket 直接传 `<bucket>-<app_id>`） |
+| Google Cloud Storage | `gcs`                  | Bucket, ServiceAccountJSON 或 Secret                                      |
+| MinIO                | `minio`                | ID, Secret, Bucket, Endpoint                                              |
+| 七牛 Kodo            | `qiniu`                | ID, Secret, Bucket, Region, Endpoint                                      |
+| Synology NAS         | `synology`             | ID, Secret, Bucket, Endpoint                                              |
+| 本地文件系统         | `filesystem` / `local` | Bucket (路径，默认 `./uploads`)                                           |
 
 ## 配置示例
 
@@ -149,7 +151,7 @@ cfg := &oss.Config{
     Provider: "tencent",
     ID:       "your-secret-id",
     Secret:   "your-secret-key",
-    Bucket:   "my-bucket",
+    Bucket:   "my-bucket", // 或 "my-bucket-1250000000"
     Region:   "ap-guangzhou",
     AppID:    "1234567890",
 }
@@ -163,8 +165,19 @@ cfg := &oss.Config{
     ID:       "your-account-name",
     Secret:   "your-account-key",
     Bucket:   "my-container",
+    // 可选：用于主权云或自定义 DNS 域名
+    // Endpoint: "https://your-account.blob.core.windows.net",
 }
 ```
+
+## 官方文档参考（端点与命名）
+
+- AWS S3: <https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingBucket.html>
+- Cloudflare R2（S3 API）: <https://developers.cloudflare.com/r2/api/s3/api/>
+- Backblaze B2（S3 兼容）: <https://www.backblaze.com/docs/cloud-storage-s3-compatible-api>
+- 腾讯云 COS 端点与命名: <https://www.tencentcloud.com/document/product/436/6224>
+- 阿里云 OSS 区域与端点: <https://www.alibabacloud.com/help/en/oss/user-guide/regions-and-endpoints>
+- Azure Blob 端点格式: <https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blob-query-endpoint-srp>
 
 ### Google Cloud Storage
 
