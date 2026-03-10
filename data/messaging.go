@@ -33,8 +33,8 @@ func (d *Data) IsMessagingEnabled() bool {
 		return d.conf.Messaging.IsEnabled()
 	}
 
-	// Default to true if no messaging config
-	return true
+	// Default to false if no messaging config
+	return false
 }
 
 // IsQueueAvailable checks if external message queues are available
