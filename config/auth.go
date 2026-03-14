@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"time"
 
 	"github.com/spf13/viper"
@@ -34,8 +35,13 @@ type JWT struct {
 
 // getJWT returns the jwt config.
 func getJWT(v *viper.Viper) *JWT {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		secret = v.GetString("auth.jwt.secret")
+	}
+	
 	return &JWT{
-		Secret: v.GetString("auth.jwt.secret"),
+		Secret: secret,
 		Expiry: v.GetDuration("auth.jwt.expiry"),
 	}
 }
