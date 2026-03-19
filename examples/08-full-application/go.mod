@@ -11,6 +11,7 @@ require (
 	github.com/ncobase/ncore/concurrency v0.2.2
 	github.com/ncobase/ncore/config v0.2.2
 	github.com/ncobase/ncore/data v0.2.2
+	github.com/ncobase/ncore/data/cache v0.2.3
 	github.com/ncobase/ncore/data/meilisearch v0.2.2
 	github.com/ncobase/ncore/data/mongodb v0.2.2
 	github.com/ncobase/ncore/data/postgres v0.2.2
@@ -201,7 +202,7 @@ require (
 	google.golang.org/genproto v0.0.0-20260209200024-4cfbd4190f57 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260209200024-4cfbd4190f57 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260209200024-4cfbd4190f57 // indirect
-	google.golang.org/grpc v1.79.1 // indirect
+	google.golang.org/grpc v1.79.3 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	modernc.org/fileutil v1.3.40 // indirect
