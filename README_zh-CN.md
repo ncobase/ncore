@@ -9,6 +9,8 @@
 - **模块化架构**：只导入您需要的模块
 - **模块化驱动系统** (v0.2.0+)：可选的数据库、缓存、搜索和消息驱动，最小化二进制体积
 - **丰富的集成**：PostgreSQL、MySQL、MongoDB、Redis、Elasticsearch、Kafka 等
+- **可选 Space 隔离**：通过 context 与 `SpaceRouter` 抽象支持应用层自有的 PostgreSQL
+  schema-per-space 或 MySQL database-per-space 隔离
 - **安全与认证**：JWT、OAuth、加密工具
 - **可观测性**：OpenTelemetry、日志记录和监控
 - **依赖注入**：原生支持 Google Wire
@@ -20,6 +22,16 @@
 **核心模块**：config, data, logging, security, extension, oss, validation, messaging
 
 详见 [MODULES_zh-CN.md](MODULES_zh-CN.md)
+
+## Space 级数据隔离
+
+`data` 模块支持可选的 Space 级多租户隔离。应用将 Space ID 写入 `context.Context`，注入自有
+`SpaceRouter`，并在 repository/service 中调用 `WithSpaceTx` 或 `WithSpaceTxRead`。当 context
+没有 Space ID 或未注入 router 时，这些方法会自动降级为现有事务行为，因此单租户应用无额外负担。
+
+NCore 只负责通用抽象、context 工具、标识符校验和事务 helper。`ncobase` 等应用负责
+schema/database provisioning、迁移、Ent/client factory、权限策略、生命周期和恢复方案。详见
+[data/README.md](data/README.md#space-isolation) 与 [MULTITENANCY_DESIGN.md](MULTITENANCY_DESIGN.md)。
 
 ## 安装
 

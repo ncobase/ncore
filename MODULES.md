@@ -20,7 +20,7 @@ github.com/ncobase/ncore/
 ├── config         - Configuration management
 ├── consts         - Constants definitions
 ├── ctxutil        - Context utilities
-├── data           - Data layer (core abstraction, driver registration)
+├── data           - Data layer (core abstraction, driver registration, optional Space isolation)
 │   ├── postgres       - PostgreSQL driver
 │   ├── mysql          - MySQL driver
 │   ├── sqlite         - SQLite driver
@@ -107,6 +107,24 @@ storage, err := oss.NewStorage(&oss.Config{
 ```
 
 See [oss/README.md](oss/README.md) for detailed documentation.
+
+### Optional Space Isolation in the Data Module
+
+The `data` module includes an opt-in `SpaceRouter` abstraction for multi-tenant applications that
+need database-level isolation. It provides context helpers, `WithSpaceTx`, `WithSpaceTxRead`,
+identifier validation, and `ExecInTx`; it does not include concrete PostgreSQL or MySQL routing
+implementations.
+
+Applications provide the router and own the database strategy:
+
+- PostgreSQL applications can implement schema-per-space with transaction-scoped `SET LOCAL
+  search_path`.
+- MySQL applications can implement database-per-space with separate connection pools.
+- Applications also own Space lifecycle provisioning, migrations, table classification, access
+  policy, audit, backup, and recovery.
+
+See [data/README.md](data/README.md#space-isolation) and
+[MULTITENANCY_DESIGN.md](MULTITENANCY_DESIGN.md) for the full contract.
 
 ### How It Works
 

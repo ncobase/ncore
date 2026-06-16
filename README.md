@@ -14,6 +14,8 @@ NCore is a modular Go framework providing enterprise-grade components for buildi
 - **Modular Architecture**: Import only the modules you need
 - **Modular Driver System** (v0.2.0+): Opt-in database, cache, search, and messaging drivers for minimal binary size
 - **Rich Integrations**: PostgreSQL, MySQL, MongoDB, Redis, Elasticsearch, Kafka, and more
+- **Optional Space Isolation**: Context-driven `SpaceRouter` abstraction for application-owned
+  PostgreSQL schema-per-space or MySQL database-per-space isolation
 - **Security & Authentication**: JWT, OAuth, encryption utilities
 - **Observability**: OpenTelemetry, logging, and monitoring
 - **Dependency Injection**: Native support for Google Wire
@@ -25,6 +27,19 @@ Each sub-package is an independent Go module with minimal dependencies and indep
 **Core Modules:** config, data, logging, security, extension, oss, validation, messaging
 
 See [MODULES.md](MODULES.md) for complete module list and architecture details.
+
+## Space-Level Data Isolation
+
+The `data` module supports optional Space-level multi-tenant isolation. Applications attach a Space
+ID to `context.Context`, inject their own `SpaceRouter`, and call `WithSpaceTx` or
+`WithSpaceTxRead`. When no router or Space ID is present, these methods fall back to the existing
+transaction behavior, so single-tenant applications do not pay for the feature.
+
+NCore only owns the generic abstraction, context helpers, identifier validation, and transaction
+helper. Application projects such as `ncobase` own schema/database provisioning, migrations,
+Ent/client factories, permission policies, lifecycle operations, and recovery plans. See
+[data/README.md](data/README.md#space-isolation) and
+[MULTITENANCY_DESIGN.md](MULTITENANCY_DESIGN.md) for details.
 
 ## Installation
 
