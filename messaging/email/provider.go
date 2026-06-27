@@ -1,6 +1,8 @@
 package email
 
 import (
+	"fmt"
+
 	"github.com/google/wire"
 )
 
@@ -31,7 +33,7 @@ func (w *senderWrapper) SendTemplateEmail(recipientEmail string, template Templa
 // ProvideSender creates an email Sender from Email configuration.
 // Returns nil if no valid configuration is provided.
 func ProvideSender(cfg *Email) (*senderWrapper, error) {
-	if cfg == nil {
+	if cfg == nil || cfg.Provider == "" {
 		return nil, nil
 	}
 
@@ -52,7 +54,7 @@ func ProvideSender(cfg *Email) (*senderWrapper, error) {
 	case "tencent_cloud":
 		sender, err = NewSender(cfg.TencentCloud)
 	default:
-		return nil, nil
+		return nil, fmt.Errorf("unsupported email provider: %s", cfg.Provider)
 	}
 
 	if err != nil {

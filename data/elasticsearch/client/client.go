@@ -148,3 +148,20 @@ func (c *Client) DeleteDocument(ctx context.Context, indexName, documentID strin
 func (c *Client) GetClient() *elasticsearch.Client {
 	return c.client
 }
+
+// Health checks whether the Elasticsearch cluster is reachable.
+func (c *Client) Health(ctx context.Context) error {
+	if c == nil || c.client == nil {
+		return errors.New("elasticsearch client is nil, cannot check health")
+	}
+
+	res, err := c.client.Info(c.client.Info.WithContext(ctx))
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.IsError() {
+		return fmt.Errorf("elasticsearch health check failed: %s", res.Status())
+	}
+	return nil
+}

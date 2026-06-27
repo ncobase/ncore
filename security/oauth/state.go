@@ -1,33 +1,50 @@
 package oauth
 
 import (
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
+	"fmt"
+	"strings"
 	"time"
 )
+
+const defaultStateTTL = 5 * time.Minute
 
 // StateManager manages OAuth state parameters
 type StateManager struct {
 	secret []byte
+	ttl    time.Duration
 }
 
 // NewStateManager creates a new state manager
 func NewStateManager(secret string) *StateManager {
 	return &StateManager{
 		secret: []byte(secret),
+		ttl:    defaultStateTTL,
 	}
 }
 
 // GenerateState generates a secure state parameter
 func (sm *StateManager) GenerateState(data *StateData) (string, error) {
+	if sm == nil || len(sm.secret) == 0 {
+		return "", ErrInvalidConfiguration
+	}
+	if data == nil {
+		return "", ErrInvalidState
+	}
+
 	if data.Timestamp == 0 {
 		data.Timestamp = time.Now().Unix()
 	}
 	if data.Nonce == "" {
-		data.Nonce = sm.generateNonce()
+		nonce, err := sm.generateNonce()
+		if err != nil {
+			return "", err
+		}
+		data.Nonce = nonce
 	}
 
 	jsonData, err := json.Marshal(data)
@@ -35,13 +52,36 @@ func (sm *StateManager) GenerateState(data *StateData) (string, error) {
 		return "", err
 	}
 
-	// In production, you should encrypt the state data
-	return base64.URLEncoding.EncodeToString(jsonData), nil
+	payload := base64.RawURLEncoding.EncodeToString(jsonData)
+	signature := sm.sign(payload)
+	return payload + "." + signature, nil
 }
 
 // ParseState parses and validates state parameter
 func (sm *StateManager) ParseState(state string) (*StateData, error) {
-	jsonData, err := base64.URLEncoding.DecodeString(state)
+	if sm == nil || len(sm.secret) == 0 {
+		return nil, ErrInvalidConfiguration
+	}
+
+	parts := strings.Split(state, ".")
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return nil, ErrInvalidState
+	}
+
+	expectedSignature := sm.sign(parts[0])
+	providedSignature, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return nil, ErrInvalidState
+	}
+	expectedBytes, err := base64.RawURLEncoding.DecodeString(expectedSignature)
+	if err != nil {
+		return nil, ErrInvalidState
+	}
+	if !hmac.Equal(providedSignature, expectedBytes) {
+		return nil, ErrInvalidState
+	}
+
+	jsonData, err := base64.RawURLEncoding.DecodeString(parts[0])
 	if err != nil {
 		return nil, err
 	}
@@ -51,9 +91,17 @@ func (sm *StateManager) ParseState(state string) (*StateData, error) {
 		return nil, err
 	}
 
-	// Validate timestamp (5 minutes expiry)
-	if time.Now().Unix()-data.Timestamp > 300 {
-		return nil, errors.New("state expired")
+	if data.Timestamp <= 0 {
+		return nil, ErrInvalidState
+	}
+
+	now := time.Now()
+	issuedAt := time.Unix(data.Timestamp, 0)
+	if issuedAt.After(now.Add(time.Minute)) {
+		return nil, ErrInvalidState
+	}
+	if now.Sub(issuedAt) > sm.ttl {
+		return nil, ErrStateExpired
 	}
 
 	return &data, nil
@@ -80,9 +128,17 @@ func (sm *StateManager) GeneratePKCE() (*PKCEData, error) {
 	}, nil
 }
 
-// generateNonce generates a random nonce
-func (sm *StateManager) generateNonce() string {
+func (sm *StateManager) sign(payload string) string {
+	mac := hmac.New(sha256.New, sm.secret)
+	_, _ = mac.Write([]byte(payload))
+	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+
+// generateNonce generates a random nonce.
+func (sm *StateManager) generateNonce() (string, error) {
 	b := make([]byte, 16)
-	rand.Read(b)
-	return base64.URLEncoding.EncodeToString(b)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("generate OAuth nonce: %w", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
 }

@@ -263,7 +263,15 @@ func (r *PostgresSchemaRouter) WithSpace(ctx context.Context, spaceID string, fn
     if err != nil {
         return err
     }
-    setup := fmt.Sprintf("SET LOCAL search_path TO %s, %s", schema, r.globalSchema)
+    schemaIdent, err := data.QuotePostgresIdentifier(schema)
+    if err != nil {
+        return err
+    }
+    globalIdent, err := data.QuotePostgresIdentifier(r.globalSchema)
+    if err != nil {
+        return err
+    }
+    setup := fmt.Sprintf("SET LOCAL search_path TO %s, %s", schemaIdent, globalIdent)
     return data.ExecInTx(ctx, r.masterDB, nil, setup, fn)
 }
 
@@ -272,11 +280,19 @@ func (r *PostgresSchemaRouter) WithSpaceRead(ctx context.Context, spaceID string
     if err != nil {
         return err
     }
+    schemaIdent, err := data.QuotePostgresIdentifier(schema)
+    if err != nil {
+        return err
+    }
+    globalIdent, err := data.QuotePostgresIdentifier(r.globalSchema)
+    if err != nil {
+        return err
+    }
     db := r.slaveDB
     if db == nil {
         db = r.masterDB
     }
-    setup := fmt.Sprintf("SET LOCAL search_path TO %s, %s", schema, r.globalSchema)
+    setup := fmt.Sprintf("SET LOCAL search_path TO %s, %s", schemaIdent, globalIdent)
     return data.ExecInTx(ctx, db, &sql.TxOptions{ReadOnly: true}, setup, fn)
 }
 ```
@@ -284,7 +300,11 @@ func (r *PostgresSchemaRouter) WithSpaceRead(ctx context.Context, spaceID string
 Space Schema 预置：
 
 ```go
-_, err = masterDB.ExecContext(ctx, fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", schema))
+schemaIdent, err := data.QuotePostgresIdentifier(schema)
+if err != nil {
+    return err
+}
+_, err = masterDB.ExecContext(ctx, fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", schemaIdent))
 ```
 
 **关键约束：** 必须使用 `SET LOCAL`（事务级），禁止使用 `SET`（会话级）。`SET` 在事务结束后会保留在连接上，污染后续从连接池借用该连接的调用者。

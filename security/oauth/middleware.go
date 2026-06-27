@@ -6,13 +6,23 @@ import (
 	"strings"
 )
 
+type contextKey string
+
+const (
+	tokenContextKey   contextKey = "oauth_token"
+	profileContextKey contextKey = "oauth_profile"
+)
+
 // MiddlewareOptions represents middleware configuration options
 type MiddlewareOptions struct {
-	TokenLookup    string                                             // "header:Authorization,query:token,cookie:oauth_token"
-	AuthScheme     string                                             // "Bearer" or "Token"
-	SkipPaths      []string                                           // Paths to skip OAuth validation
-	ErrorHandler   func(http.ResponseWriter, *http.Request)           // Custom error handler
-	SuccessHandler func(http.ResponseWriter, *http.Request, *Profile) // Success handler
+	TokenLookup      string                                                    // "header:Authorization,query:token,cookie:oauth_token"
+	AuthScheme       string                                                    // "Bearer" or "Token"
+	Provider         Provider                                                  // Static provider used for token validation
+	ProviderResolver func(*http.Request) (Provider, error)                     // Optional request-aware provider resolver
+	ProfileLoader    func(context.Context, Provider, string) (*Profile, error) // Optional profile loader
+	SkipPaths        []string                                                  // Paths to skip OAuth validation
+	ErrorHandler     func(http.ResponseWriter, *http.Request)                  // Custom error handler
+	SuccessHandler   func(http.ResponseWriter, *http.Request, *Profile)        // Success handler
 }
 
 // Middleware creates OAuth validation middleware
@@ -34,30 +44,72 @@ func Middleware(client ClientInterface, opts *MiddlewareOptions) func(http.Handl
 				}
 			}
 
-			// Extract token
 			token := extractToken(r, opts.TokenLookup, opts.AuthScheme)
 			if token == "" {
-				if opts.ErrorHandler != nil {
-					opts.ErrorHandler(w, r)
-				} else {
-					http.Error(w, "Missing or invalid token", http.StatusUnauthorized)
-				}
+				writeMiddlewareError(w, r, opts)
 				return
 			}
 
-			// Here you would validate the token and get user profile
-			// This is a simplified example
-			ctx := context.WithValue(r.Context(), "oauth_token", token)
+			provider, err := resolveProvider(r, opts)
+			if err != nil {
+				writeMiddlewareError(w, r, opts)
+				return
+			}
+
+			tokenInfo, err := client.ValidateToken(r.Context(), provider, token)
+			if err != nil || tokenInfo == nil || !tokenInfo.Valid {
+				writeMiddlewareError(w, r, opts)
+				return
+			}
+
+			profile, err := loadProfile(r.Context(), client, opts, provider, token)
+			if err != nil || profile == nil {
+				writeMiddlewareError(w, r, opts)
+				return
+			}
+
+			ctx := context.WithValue(r.Context(), tokenContextKey, token)
+			ctx = context.WithValue(ctx, profileContextKey, profile)
 
 			if opts.SuccessHandler != nil {
-				// In real implementation, you'd validate token and get profile
-				profile := &Profile{} // This should come from token validation
 				opts.SuccessHandler(w, r.WithContext(ctx), profile)
 			}
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+func resolveProvider(r *http.Request, opts *MiddlewareOptions) (Provider, error) {
+	if opts.ProviderResolver != nil {
+		provider, err := opts.ProviderResolver(r)
+		if err != nil {
+			return "", err
+		}
+		if provider == "" {
+			return "", ErrProviderNotSupported
+		}
+		return provider, nil
+	}
+	if opts.Provider == "" {
+		return "", ErrProviderNotSupported
+	}
+	return opts.Provider, nil
+}
+
+func loadProfile(ctx context.Context, client ClientInterface, opts *MiddlewareOptions, provider Provider, token string) (*Profile, error) {
+	if opts.ProfileLoader != nil {
+		return opts.ProfileLoader(ctx, provider, token)
+	}
+	return client.GetUserProfile(ctx, provider, token)
+}
+
+func writeMiddlewareError(w http.ResponseWriter, r *http.Request, opts *MiddlewareOptions) {
+	if opts.ErrorHandler != nil {
+		opts.ErrorHandler(w, r)
+		return
+	}
+	http.Error(w, "Missing or invalid token", http.StatusUnauthorized)
 }
 
 // extractToken extracts token from request based on lookup configuration
@@ -76,11 +128,14 @@ func extractToken(r *http.Request, tokenLookup, authScheme string) string {
 		case "header":
 			token := r.Header.Get(key)
 			if token != "" {
-				// Remove auth scheme prefix
-				if authScheme != "" && strings.HasPrefix(token, authScheme+" ") {
-					return token[len(authScheme)+1:]
+				if authScheme == "" {
+					return token
 				}
-				return token
+				parts := strings.SplitN(token, " ", 2)
+				if len(parts) == 2 && strings.EqualFold(parts[0], authScheme) {
+					return strings.TrimSpace(parts[1])
+				}
+				return ""
 			}
 		case "query":
 			token := r.URL.Query().Get(key)
@@ -99,7 +154,7 @@ func extractToken(r *http.Request, tokenLookup, authScheme string) string {
 
 // GetTokenFromContext extracts OAuth token from context
 func GetTokenFromContext(ctx context.Context) string {
-	if token, ok := ctx.Value("oauth_token").(string); ok {
+	if token, ok := ctx.Value(tokenContextKey).(string); ok {
 		return token
 	}
 	return ""
@@ -107,7 +162,7 @@ func GetTokenFromContext(ctx context.Context) string {
 
 // GetProfileFromContext extracts user profile from context
 func GetProfileFromContext(ctx context.Context) *Profile {
-	if profile, ok := ctx.Value("oauth_profile").(*Profile); ok {
+	if profile, ok := ctx.Value(profileContextKey).(*Profile); ok {
 		return profile
 	}
 	return nil

@@ -265,7 +265,15 @@ func (r *PostgresSchemaRouter) WithSpace(ctx context.Context, spaceID string, fn
     if err != nil {
         return err
     }
-    setup := fmt.Sprintf("SET LOCAL search_path TO %s, %s", schema, r.globalSchema)
+    schemaIdent, err := data.QuotePostgresIdentifier(schema)
+    if err != nil {
+        return err
+    }
+    globalIdent, err := data.QuotePostgresIdentifier(r.globalSchema)
+    if err != nil {
+        return err
+    }
+    setup := fmt.Sprintf("SET LOCAL search_path TO %s, %s", schemaIdent, globalIdent)
     return data.ExecInTx(ctx, r.masterDB, nil, setup, fn)
 }
 
@@ -274,11 +282,19 @@ func (r *PostgresSchemaRouter) WithSpaceRead(ctx context.Context, spaceID string
     if err != nil {
         return err
     }
+    schemaIdent, err := data.QuotePostgresIdentifier(schema)
+    if err != nil {
+        return err
+    }
+    globalIdent, err := data.QuotePostgresIdentifier(r.globalSchema)
+    if err != nil {
+        return err
+    }
     db := r.slaveDB
     if db == nil {
         db = r.masterDB
     }
-    setup := fmt.Sprintf("SET LOCAL search_path TO %s, %s", schema, r.globalSchema)
+    setup := fmt.Sprintf("SET LOCAL search_path TO %s, %s", schemaIdent, globalIdent)
     return data.ExecInTx(ctx, db, &sql.TxOptions{ReadOnly: true}, setup, fn)
 }
 ```
@@ -286,7 +302,11 @@ func (r *PostgresSchemaRouter) WithSpaceRead(ctx context.Context, spaceID string
 Space schema provisioning:
 
 ```go
-_, err = masterDB.ExecContext(ctx, fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", schema))
+schemaIdent, err := data.QuotePostgresIdentifier(schema)
+if err != nil {
+    return err
+}
+_, err = masterDB.ExecContext(ctx, fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", schemaIdent))
 ```
 
 **Critical:** always use `SET LOCAL` (transaction-scoped), never `SET` (session-scoped). `SET` persists on the connection after the transaction ends and contaminates subsequent pool borrowers.

@@ -20,6 +20,7 @@ var (
 	ErrDuplicateTask    = errors.New("duplicate task ID")
 	ErrTaskExists       = errors.New("task already exists")
 	ErrTemporaryFailure = errors.New("temporary failure")
+	ErrQueueStopped     = errors.New("task queue is stopped")
 )
 
 // TaskStatus represents the status of a task
@@ -170,6 +171,8 @@ type TaskQueue struct {
 	normalQueue   chan *QueuedTask
 	priorityQueue *PriorityQueue
 	timerQueue    *TimerQueue
+	priorityReady chan struct{}
+	timerReady    chan struct{}
 
 	// Task execution
 	processor TaskProcessor
@@ -183,8 +186,14 @@ type TaskQueue struct {
 	// Runtime components
 	metrics    *Metrics
 	processing sync.Map
+	tasks      sync.Map
 	ctx        context.Context
 	cancel     context.CancelFunc
+	wg         sync.WaitGroup
+	mu         sync.RWMutex
+	startOnce  sync.Once
+	stopOnce   sync.Once
+	stopped    bool
 }
 
 // NewTaskQueue creates a new task queue
@@ -296,6 +305,9 @@ type TaskQueue struct {
 //	defer cancel()
 //	q2.Stop(stopCtx)
 func NewTaskQueue(ctx context.Context, opts ...Option) *TaskQueue {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	ctx, cancel := context.WithCancel(ctx)
 
 	// Initialize with defaults
@@ -316,6 +328,8 @@ func NewTaskQueue(ctx context.Context, opts ...Option) *TaskQueue {
 	q.normalQueue = make(chan *QueuedTask, q.config.QueueSize)
 	q.priorityQueue = NewPriorityQueue(q.config.QueueSize, q.config.MaxPriority)
 	q.timerQueue = NewTimerQueue(q.config.QueueSize)
+	q.priorityReady = make(chan struct{}, 1)
+	q.timerReady = make(chan struct{}, 1)
 
 	// Initialize worker pool
 	workerCfg := &worker.Config{
@@ -339,28 +353,94 @@ func (q *TaskQueue) Process(task any) error {
 
 // Start starts the queue
 func (q *TaskQueue) Start() {
-	// Start worker pool
-	q.workerPool.Start()
+	q.startOnce.Do(func() {
+		q.mu.RLock()
+		stopped := q.stopped
+		q.mu.RUnlock()
+		if stopped {
+			return
+		}
 
-	// Start timer processor
-	go q.processTimers()
+		q.workerPool.Start()
 
-	// Start metrics collector
-	go q.collectMetrics()
+		q.wg.Add(3)
+		go q.dispatchReadyTasks()
+		go q.processTimers()
+		go q.collectMetrics()
+	})
 }
 
 // Stop stops the queue
 func (q *TaskQueue) Stop(ctx context.Context) error {
-	q.cancel()
-	close(q.normalQueue)
+	q.stopOnce.Do(func() {
+		q.mu.Lock()
+		q.stopped = true
+		q.cancel()
+		q.cancelPendingTasks()
+		close(q.normalQueue)
+		q.mu.Unlock()
+	})
+
+	done := make(chan struct{})
+	go func() {
+		q.wg.Wait()
+		close(done)
+	}()
+
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	select {
+	case <-done:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
 	q.workerPool.Stop(ctx)
 	return nil
+}
+
+func (q *TaskQueue) cancelPendingTasks() {
+	var canceled int64
+	q.tasks.Range(func(key, value any) bool {
+		task, ok := value.(*QueuedTask)
+		if !ok {
+			q.tasks.Delete(key)
+			return true
+		}
+		if task.Status == TaskStatusPending || task.Status == TaskStatusRetrying {
+			task.Cancel()
+			task.Status = TaskStatusCanceled
+			task.LastError = context.Canceled
+			q.tasks.Delete(key)
+			canceled++
+		}
+		return true
+	})
+	if canceled > 0 {
+		q.metrics.CancelCount.Add(canceled)
+	}
+	q.metrics.QueueLength.Store(0)
 }
 
 // Push pushes a task to queue
 func (q *TaskQueue) Push(task *QueuedTask) error {
 	if task == nil {
 		return ErrInvalidTask
+	}
+	if task.ID == "" {
+		return ErrInvalidTask
+	}
+
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+
+	if q.stopped || q.ctx.Err() != nil {
+		return ErrQueueStopped
+	}
+
+	if _, loaded := q.tasks.LoadOrStore(task.ID, task); loaded {
+		return ErrDuplicateTask
 	}
 
 	// Set initial task status
@@ -380,28 +460,39 @@ func (q *TaskQueue) Push(task *QueuedTask) error {
 	}
 
 	startTime := time.Now()
-	q.metrics.EnqueueCount.Add(1)
 
 	var err error
 	switch {
 	case !task.TriggerAt.IsZero():
 		err = q.timerQueue.Push(task)
+		if err == nil {
+			q.signalTimerReady()
+		}
 	case task.Priority > 0:
 		err = q.priorityQueue.Push(task)
+		if err == nil {
+			q.signalPriorityReady()
+		}
 	default:
 		select {
 		case q.normalQueue <- task:
 			err = nil
+		case <-q.ctx.Done():
+			err = ErrQueueStopped
 		default:
 			err = ErrQueueFull
 		}
 	}
 
 	if err == nil {
+		q.metrics.EnqueueCount.Add(1)
 		q.metrics.WaitTime.Add(time.Since(startTime).Nanoseconds())
 		q.metrics.QueueLength.Add(1)
+		return nil
 	}
 
+	q.tasks.Delete(task.ID)
+	task.Cancel()
 	return err
 }
 
@@ -424,11 +515,115 @@ func (q *TaskQueue) Cancel(taskID string) bool {
 			return true
 		}
 	}
+
+	if taskData, ok := q.tasks.Load(taskID); ok {
+		task, ok := taskData.(*QueuedTask)
+		if !ok {
+			q.tasks.Delete(taskID)
+			return false
+		}
+		task.Cancel()
+		task.Status = TaskStatusCanceled
+
+		removed := false
+		if !task.TriggerAt.IsZero() {
+			removed = q.timerQueue.Cancel(taskID)
+		} else if task.Priority > 0 {
+			removed = q.priorityQueue.Cancel(taskID)
+		}
+		if removed {
+			q.metrics.QueueLength.Add(-1)
+		}
+
+		q.tasks.Delete(taskID)
+		q.metrics.CancelCount.Add(1)
+		return true
+	}
 	return false
+}
+
+func (q *TaskQueue) dispatchReadyTasks() {
+	defer q.wg.Done()
+
+	for {
+		for {
+			task := q.priorityQueue.Pop()
+			if task == nil {
+				break
+			}
+			if !q.dispatchTask(task) {
+				return
+			}
+		}
+
+		select {
+		case <-q.ctx.Done():
+			return
+		case <-q.priorityReady:
+			continue
+		case task, ok := <-q.normalQueue:
+			if !ok {
+				return
+			}
+			if !q.dispatchTask(task) {
+				return
+			}
+		}
+	}
+}
+
+func (q *TaskQueue) dispatchTask(task *QueuedTask) bool {
+	if task == nil {
+		return true
+	}
+
+	q.metrics.DequeueCount.Add(1)
+	q.metrics.QueueLength.Add(-1)
+
+	if task.Status == TaskStatusCanceled || task.Context.Err() != nil {
+		task.Status = TaskStatusCanceled
+		q.tasks.Delete(task.ID)
+		return true
+	}
+
+	if err := q.workerPool.SubmitWait(q.ctx, task); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, worker.ErrPoolStopped) || errors.Is(err, ErrQueueStopped) {
+			task.Status = TaskStatusCanceled
+			task.LastError = err
+			q.tasks.Delete(task.ID)
+			return false
+		}
+		task.Status = TaskStatusFailed
+		task.LastError = err
+		q.tasks.Delete(task.ID)
+		q.metrics.FailureCount.Add(1)
+	}
+
+	return true
+}
+
+func (q *TaskQueue) signalPriorityReady() {
+	select {
+	case q.priorityReady <- struct{}{}:
+	default:
+	}
+}
+
+func (q *TaskQueue) signalTimerReady() {
+	select {
+	case q.timerReady <- struct{}{}:
+	default:
+	}
 }
 
 // executeTask executes a single task
 func (q *TaskQueue) executeTask(task *QueuedTask) error {
+	if task.Context != nil && task.Context.Err() != nil {
+		task.Status = TaskStatusCanceled
+		q.tasks.Delete(task.ID)
+		return context.Canceled
+	}
+
 	start := time.Now()
 	task.Status = TaskStatusRunning
 	q.metrics.ProcessCount.Add(1)
@@ -437,12 +632,19 @@ func (q *TaskQueue) executeTask(task *QueuedTask) error {
 
 	// Store task in processing map
 	q.processing.Store(task.ID, task)
-	defer q.processing.Delete(task.ID)
+	defer func() {
+		q.processing.Delete(task.ID)
+		q.tasks.Delete(task.ID)
+	}()
 
-	// Execute task (to be implemented by user)
+	// Execute task through the configured processor and retry policy.
 	err := q.processTaskWithRetry(task)
 
-	if err != nil {
+	if task.Context != nil && task.Context.Err() != nil {
+		task.LastError = task.Context.Err()
+		task.Status = TaskStatusCanceled
+		q.metrics.CancelCount.Add(1)
+	} else if err != nil {
 		task.LastError = err
 		task.Status = TaskStatusFailed
 		q.metrics.FailureCount.Add(1)
@@ -544,29 +746,50 @@ func isRetryableError(err error) bool {
 
 // processTimers processes timer queue
 func (q *TaskQueue) processTimers() {
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
+	defer q.wg.Done()
 
 	for {
+		tasks := q.timerQueue.DueTasks()
+		for _, task := range tasks {
+			if !q.dispatchTask(task) {
+				return
+			}
+		}
+
+		wait := q.timerQueue.NextDue()
+		if wait < 0 {
+			select {
+			case <-q.ctx.Done():
+				return
+			case <-q.timerReady:
+				continue
+			}
+		}
+		if wait == 0 {
+			continue
+		}
+
+		timer := time.NewTimer(wait)
 		select {
 		case <-q.ctx.Done():
+			timer.Stop()
 			return
-		case <-ticker.C:
-			tasks := q.timerQueue.DueTasks()
-			for _, task := range tasks {
-				if err := q.workerPool.Submit(task); err != nil {
-					// Handle submission error
-					task.Status = TaskStatusFailed
-					task.LastError = err
-					q.metrics.FailureCount.Add(1)
+		case <-q.timerReady:
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
 				}
 			}
+		case <-timer.C:
 		}
 	}
 }
 
 // collectMetrics collects queue metrics periodically
 func (q *TaskQueue) collectMetrics() {
+	defer q.wg.Done()
+
 	ticker := time.NewTicker(q.config.MetricsWindow)
 	defer ticker.Stop()
 

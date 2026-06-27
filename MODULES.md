@@ -160,18 +160,14 @@ See [README.md](README.md) for migration instructions from v0.1.x.
 
 ### Using in Applications
 
-In your application's `go.mod`, only import the modules you need:
+Install only the modules you need:
 
-```go
-require (
-    github.com/ncobase/ncore/config v0.2.0
-    github.com/ncobase/ncore/data v0.2.0
-    github.com/ncobase/ncore/logging v0.2.0
-
-    // Import only the data drivers you need (v0.2.0+)
-    github.com/ncobase/ncore/data/postgres v0.2.0
-    github.com/ncobase/ncore/data/redis v0.2.0
-)
+```bash
+go get github.com/ncobase/ncore/config@latest
+go get github.com/ncobase/ncore/data@latest
+go get github.com/ncobase/ncore/logging@latest
+go get github.com/ncobase/ncore/data/postgres@latest
+go get github.com/ncobase/ncore/data/redis@latest
 ```
 
 In your code, use blank imports to register the drivers:

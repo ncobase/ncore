@@ -3,6 +3,7 @@ package manager
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -16,28 +17,40 @@ import (
 	"github.com/sony/gobreaker"
 )
 
-// ManageRoutes manages routes for all extensions
+// ManageRoutes mounts extension management routes.
+//
+// Health routes are public. Extension inventory, metrics, plugin operations, and
+// system management routes are mounted only when at least one guard middleware is
+// provided by the host application.
 func (m *Manager) ManageRoutes(r *gin.RouterGroup) {
-	// Create API group
-	apiGroup := r.Group("")
+	m.mountRoutes(r, nil)
+}
 
-	// Extension management routes - always available
+// ManageRoutesWithGuard mounts public health routes and guarded management
+// routes using host-application middleware.
+func (m *Manager) ManageRoutesWithGuard(r *gin.RouterGroup, guards ...gin.HandlerFunc) {
+	m.mountRoutes(r, guards)
+}
+
+func (m *Manager) mountRoutes(r *gin.RouterGroup, guards []gin.HandlerFunc) {
+	m.setupHealthRoutes(r.Group(""))
+
+	if len(guards) == 0 {
+		return
+	}
+
+	apiGroup := r.Group("", guards...)
+
 	m.setupExtensionRoutes(apiGroup)
 
-	// Plugin management routes - only if hot reload is enabled
 	if m.conf.Extension.HotReload {
 		m.setupPluginRoutes(apiGroup)
 	}
 
-	// Metrics routes - only if metrics are enabled
 	if m.isMetricsEnabled() {
 		m.setupMetricsRoutes(apiGroup)
 	}
 
-	// Health check routes - always available
-	m.setupHealthRoutes(apiGroup)
-
-	// System management routes - always available
 	m.setupSystemRoutes(apiGroup)
 }
 
@@ -351,8 +364,7 @@ func (m *Manager) setupHealthRoutes(r *gin.RouterGroup) {
 			if status == "healthy" {
 				resp.Success(c.Writer, health)
 			} else {
-				c.Writer.WriteHeader(503)
-				resp.Success(c.Writer, health)
+				c.JSON(http.StatusServiceUnavailable, health)
 			}
 		})
 
@@ -396,8 +408,7 @@ func (m *Manager) setupHealthRoutes(r *gin.RouterGroup) {
 			if status == "healthy" {
 				resp.Success(c.Writer, health)
 			} else {
-				c.Writer.WriteHeader(503)
-				resp.Success(c.Writer, health)
+				c.JSON(http.StatusServiceUnavailable, health)
 			}
 		})
 
@@ -415,11 +426,13 @@ func (m *Manager) setupSystemRoutes(r *gin.RouterGroup) {
 	{
 		// System info
 		systemGroup.GET("/info", func(c *gin.Context) {
-			startTime := time.Now().Add(-time.Since(time.Now())) // Placeholder - should use actual start time
+			startTime := m.startTime
+			if startTime.IsZero() {
+				startTime = time.Now()
+			}
 
 			info := map[string]any{
-				"version":    "1.0.0", // Should be injected from build
-				"build_time": time.Now().Format(time.RFC3339),
+				"started_at": startTime.Format(time.RFC3339),
 				"uptime":     time.Since(startTime).String(),
 				"extensions": map[string]any{
 					"total":      len(m.extensions),
@@ -570,7 +583,10 @@ func (m *Manager) buildSystemHealth(ctx context.Context) map[string]any {
 		}
 	}
 
-	extHealthRate := float64(healthyExts) / float64(len(extensionStatus)) * 100
+	extHealthRate := 100.0
+	if len(extensionStatus) > 0 {
+		extHealthRate = float64(healthyExts) / float64(len(extensionStatus)) * 100
+	}
 	components["extensions"] = map[string]any{
 		"total":   len(extensionStatus),
 		"healthy": healthyExts,
@@ -578,7 +594,7 @@ func (m *Manager) buildSystemHealth(ctx context.Context) map[string]any {
 		"status":  getHealthStatus(extHealthRate),
 	}
 
-	if healthyExts < len(extensionStatus) {
+	if len(extensionStatus) > 0 && healthyExts < len(extensionStatus) {
 		overallHealthy = false
 	}
 

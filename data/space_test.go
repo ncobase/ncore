@@ -15,20 +15,20 @@ import (
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Minimal in-process SQL driver for testing (no external DB required)
+// In-process SQL driver for testing without an external database.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// testDriver is a minimal database/sql driver that records which SQL statements
-// were executed. It is registered once under the name "testdriver".
+// testDriver records which SQL statements were executed. It is registered once
+// under the name "testdriver".
 type testDriver struct{}
 
 func (testDriver) Open(_ string) (driver.Conn, error) { return &testConn{}, nil }
 
 type testConn struct {
-	mu      sync.Mutex
-	stmts   []string
-	closed  bool
-	failTx  bool // if true, BeginTx returns an error
+	mu       sync.Mutex
+	stmts    []string
+	closed   bool
+	failTx   bool // if true, BeginTx returns an error
 	failExec bool // if true, Exec returns an error
 }
 
@@ -48,8 +48,8 @@ type testStmt struct {
 	conn  *testConn
 }
 
-func (s *testStmt) Close() error                                    { return nil }
-func (s *testStmt) NumInput() int                                   { return -1 }
+func (s *testStmt) Close() error  { return nil }
+func (s *testStmt) NumInput() int { return -1 }
 func (s *testStmt) Exec(_ []driver.Value) (driver.Result, error) {
 	s.conn.mu.Lock()
 	defer s.conn.mu.Unlock()
@@ -65,8 +65,8 @@ func (s *testStmt) Query(_ []driver.Value) (driver.Rows, error) {
 
 type testRows struct{ done bool }
 
-func (r *testRows) Columns() []string        { return nil }
-func (r *testRows) Close() error             { return nil }
+func (r *testRows) Columns() []string { return nil }
+func (r *testRows) Close() error      { return nil }
 func (r *testRows) Next(_ []driver.Value) error {
 	if r.done {
 		return io.EOF
@@ -150,7 +150,7 @@ func TestValidateSpaceID_Valid(t *testing.T) {
 		"acme_corp",
 		"Acme",
 		"ACME",
-		"01J5JKHW3JN8ZFCPRQXB3GFKXM", // ULID
+		"01J5JKHW3JN8ZFCPRQXB3GFKXM",           // ULID
 		"550e8400-e29b-41d4-a716-446655440000", // UUID
 		"a",
 		"a1",
@@ -201,6 +201,8 @@ func TestBuildSchemaName(t *testing.T) {
 		{"space_", "", "", true},
 		{"space_", " invalid", "", true},
 		{"space_", "drop;table", "", true},
+		{"space-unsafe", "acme", "", true},
+		{strings.Repeat("a", 40) + "_", strings.Repeat("b", 30), "", true},
 	}
 	for _, tc := range tests {
 		got, err := BuildSchemaName(tc.prefix, tc.spaceID)
@@ -217,6 +219,20 @@ func TestBuildSchemaName(t *testing.T) {
 		if got != tc.want {
 			t.Errorf("BuildSchemaName(%q, %q) = %q, want %q", tc.prefix, tc.spaceID, got, tc.want)
 		}
+	}
+}
+
+func TestQuotePostgresIdentifier(t *testing.T) {
+	quoted, err := QuotePostgresIdentifier("space_acme")
+	if err != nil {
+		t.Fatalf("QuotePostgresIdentifier returned error: %v", err)
+	}
+	if quoted != `"space_acme"` {
+		t.Fatalf("unexpected quoted identifier: %s", quoted)
+	}
+
+	if _, err := QuotePostgresIdentifier("space-acme"); err == nil {
+		t.Fatal("expected invalid identifier error")
 	}
 }
 
@@ -331,7 +347,7 @@ func (r *mockSpaceRouter) WithSpaceRead(ctx context.Context, spaceID string, fn 
 	return fn(ctx)
 }
 
-// newTestData builds a minimal *Data suitable for unit tests (no real DB).
+// newTestData builds a *Data instance suitable for unit tests without a real DB.
 func newTestData(router SpaceRouter) *Data {
 	d := &Data{
 		collector: metrics.NoOpCollector{},

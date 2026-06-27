@@ -19,7 +19,7 @@
 //	automatically reverted when the transaction ends.
 //
 //	  BEGIN;
-//	  SET LOCAL search_path TO space_acme, public;
+//	  SET LOCAL search_path TO "space_acme", "public";
 //	  -- all queries run in the space_acme schema
 //	  COMMIT; -- connection returned to pool with original search_path restored
 //
@@ -66,6 +66,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -241,7 +242,12 @@ func (d *Data) GetSpaceRouter() SpaceRouter {
 //
 // Accepted examples:  "acme", "acme-corp", "acme_corp", "01J5JKHW3JN8ZFCPRQXB3GFKXM"
 // Rejected examples:  "", " acme", "acme corp", "acme;drop table", "../etc"
-var spaceIDPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}$`)
+const maxDatabaseIdentifierLength = 63
+
+var (
+	spaceIDPattern    = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}$`)
+	identifierPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]{0,62}$`)
+)
 
 // ValidateSpaceID checks that id is safe for use as, or as a component of, a
 // PostgreSQL schema name or MySQL database name.
@@ -267,6 +273,22 @@ func ValidateSpaceID(id string) error {
 			"data: space id %q is not a valid identifier; "+
 				"must match ^[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}$",
 			id,
+		)
+	}
+	return nil
+}
+
+// ValidateIdentifier checks that an identifier component controlled by the
+// application, such as a schema prefix or global schema name, is safe for SQL
+// identifier use.
+func ValidateIdentifier(identifier string) error {
+	if identifier == "" {
+		return errors.New("data: identifier must not be empty")
+	}
+	if !identifierPattern.MatchString(identifier) {
+		return fmt.Errorf(
+			"data: identifier %q is not valid; must match ^[a-zA-Z_][a-zA-Z0-9_]{0,62}$",
+			identifier,
 		)
 	}
 	return nil
@@ -298,7 +320,15 @@ func ValidateSpaceID(id string) error {
 //	    if err != nil {
 //	        return err
 //	    }
-//	    setup := fmt.Sprintf("SET LOCAL search_path TO %s, %s", schema, r.globalSchema)
+//	    schemaIdent, err := data.QuotePostgresIdentifier(schema)
+//	    if err != nil {
+//	        return err
+//	    }
+//	    globalIdent, err := data.QuotePostgresIdentifier(r.globalSchema)
+//	    if err != nil {
+//	        return err
+//	    }
+//	    setup := fmt.Sprintf("SET LOCAL search_path TO %s, %s", schemaIdent, globalIdent)
 //	    return data.ExecInTx(ctx, r.masterDB, nil, setup, fn)
 //	}
 func ExecInTx(ctx context.Context, db *sql.DB, opts *sql.TxOptions, setupSQL string, fn func(ctx context.Context) error) error {
@@ -343,24 +373,39 @@ func ExecInTx(ctx context.Context, db *sql.DB, opts *sql.TxOptions, setupSQL str
 // BuildSchemaName constructs a safe schema or database name by combining a
 // validated prefix with a sanitized space identifier.
 //
-//   - prefix must already be a safe, hard-coded value (e.g. "space_").
+//   - prefix must be a safe identifier component (e.g. "space_").
 //   - spaceID is validated via [ValidateSpaceID], then lowercased, and hyphens
 //     are replaced with underscores to satisfy both PostgreSQL schema naming
 //     rules and MySQL database naming conventions.
 //
-// Returns an error if spaceID fails validation.
+// Returns an error if prefix, spaceID, or the final name fails validation.
 //
 // Example:
 //
 //	name, err := data.BuildSchemaName("space_", "Acme-Corp")
 //	// name == "space_acme_corp"
 func BuildSchemaName(prefix, spaceID string) (string, error) {
+	if err := ValidateIdentifier(prefix); err != nil {
+		return "", err
+	}
 	if err := ValidateSpaceID(spaceID); err != nil {
 		return "", err
 	}
 	// Normalize: lowercase + replace hyphens with underscores.
 	normalized := normalizeIdentifier(spaceID)
-	return prefix + normalized, nil
+	name := prefix + normalized
+	if len(name) > maxDatabaseIdentifierLength {
+		return "", fmt.Errorf("data: schema name %q exceeds %d bytes", name, maxDatabaseIdentifierLength)
+	}
+	return name, nil
+}
+
+// QuotePostgresIdentifier quotes a PostgreSQL identifier after validating it.
+func QuotePostgresIdentifier(identifier string) (string, error) {
+	if err := ValidateIdentifier(identifier); err != nil {
+		return "", err
+	}
+	return `"` + strings.ReplaceAll(identifier, `"`, `""`) + `"`, nil
 }
 
 // normalizeIdentifier converts an identifier to a form safe for use as a

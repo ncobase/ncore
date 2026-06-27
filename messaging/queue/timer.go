@@ -175,7 +175,7 @@ func (tq *TimerQueue) DueTasks() []*QueuedTask {
 	var tasks []*QueuedTask
 	now := time.Now()
 
-	for len(*tq.items) > 0 && (*tq.items)[0].TriggerAt.Before(now) {
+	for len(*tq.items) > 0 && !(*tq.items)[0].TriggerAt.After(now) {
 		task := heap.Pop(tq.items).(*QueuedTask)
 		delete(tq.lookup, task.ID)
 		tasks = append(tasks, task)

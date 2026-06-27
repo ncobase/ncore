@@ -25,8 +25,14 @@ func IsNotNil(i any) bool {
 
 // IsEmpty verify is empty
 func IsEmpty(i any) bool {
+	if i == nil {
+		return true
+	}
 	vi := reflect.ValueOf(i)
-	if vi.Kind() == reflect.Ptr {
+	for vi.Kind() == reflect.Ptr || vi.Kind() == reflect.Interface {
+		if vi.IsNil() {
+			return true
+		}
 		vi = vi.Elem()
 	}
 	switch vi.Kind() {
@@ -43,7 +49,7 @@ func IsEmpty(i any) bool {
 	case reflect.Interface, reflect.Ptr:
 		return vi.IsNil()
 	case reflect.Struct:
-		return vi.NumField() == 0
+		return vi.IsZero()
 	}
 	return false
 }

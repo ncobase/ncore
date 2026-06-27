@@ -49,7 +49,7 @@ func getGRPCConfig(v *viper.Viper) *GRPC {
 
 		// Performance Configuration with defaults
 		MaxConcurrentStreams: getUint32OrDefault(v, "grpc.max_concurrent_streams", 100),
-		MaxRecvMsgSize:       getIntOrDefault(v, "grpc.max_recv_msg_size", 4*1024*1024),  // 4MB
-		MaxSendMsgSize:       getIntOrDefault(v, "grpc.max_send_msg_size", 4*1024*1024),  // 4MB
+		MaxRecvMsgSize:       getIntOrDefault(v, "grpc.max_recv_msg_size", 4*1024*1024), // 4MB
+		MaxSendMsgSize:       getIntOrDefault(v, "grpc.max_send_msg_size", 4*1024*1024), // 4MB
 	}
 }

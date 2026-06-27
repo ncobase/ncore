@@ -145,6 +145,15 @@ func parseDuration(s string) (time.Duration, error) {
 
 // GetConfig returns extension config from viper
 func GetConfig(v *viper.Viper) *Config {
+	config, err := GetConfigE(v)
+	if err != nil {
+		panic(err)
+	}
+	return config
+}
+
+// GetConfigE returns extension config from viper and reports validation errors.
+func GetConfigE(v *viper.Viper) (*Config, error) {
 	env := getStringWithDefault(v, "environment", "production")
 	isDev := env == "development" || env == "dev"
 
@@ -167,10 +176,10 @@ func GetConfig(v *viper.Viper) *Config {
 	}
 
 	if err := config.Validate(); err != nil {
-		panic(fmt.Sprintf("invalid extension config: %v", err))
+		return nil, fmt.Errorf("invalid extension config: %w", err)
 	}
 
-	return config
+	return config, nil
 }
 
 func getDefaultPath(isDev bool) string {

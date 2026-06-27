@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/ncobase/ncore/data/config"
 )
@@ -16,7 +17,7 @@ import (
 // This is set by the parent data package during initialization.
 var driverRegistry DriverRegistry
 
-// DriverRegistry defines the minimal interface needed from data package.
+// DriverRegistry defines the driver lookups needed from the parent data package.
 type DriverRegistry interface {
 	GetDatabaseDriver(name string) (DatabaseDriver, error)
 	GetCacheDriver(name string) (CacheDriver, error)
@@ -57,18 +58,19 @@ func SetDriverRegistry(registry DriverRegistry) {
 }
 
 var (
-	ErrNoAvailableSlaves = errors.New("no available slave databases")
+	ErrNoAvailableSlaves = errors.New("no available read replica databases")
 	ErrInvalidStrategy   = errors.New("invalid load balance strategy")
 )
 
 // DBManager manages database connections for read-write splitting
 type DBManager struct {
-	master     *sql.DB
-	slaves     []*sql.DB
-	strategy   LoadBalancer
-	mutex      sync.RWMutex
-	maxRetry   int
-	currentIdx uint64 // for round robin
+	master                 *sql.DB
+	slaves                 []*sql.DB
+	readReplicasConfigured bool
+	strategy               LoadBalancer
+	mutex                  sync.RWMutex
+	maxRetry               int
+	currentIdx             uint64 // for round robin
 }
 
 // LoadBalancer LoadBalancer interface
@@ -136,11 +138,23 @@ func (wb *WeightBalancer) Next(slaves []*sql.DB) (*sql.DB, error) {
 	if len(slaves) == 0 {
 		return nil, ErrNoAvailableSlaves
 	}
+	if len(wb.weights) != len(slaves) {
+		wb.weights = make([]int, len(slaves))
+		for i := range wb.weights {
+			wb.weights[i] = 1
+		}
+	}
 
 	// calculate total weight, default 1
 	totalWeight := 0
 	for _, w := range wb.weights {
+		if w <= 0 {
+			w = 1
+		}
 		totalWeight += w
+	}
+	if totalWeight <= 0 {
+		return slaves[0], nil
 	}
 
 	// select weights
@@ -172,6 +186,7 @@ func NewDBManager(conf *config.Database) (*DBManager, error) {
 
 	// Initialize slave database connections
 	var slaves []*sql.DB
+	var connectedSlaveConfigs []*config.DBNode
 	for _, slaveCfg := range conf.Slaves {
 		slave, err := newDBClient(slaveCfg)
 		if err != nil {
@@ -179,11 +194,7 @@ func NewDBManager(conf *config.Database) (*DBManager, error) {
 			continue
 		}
 		slaves = append(slaves, slave)
-	}
-
-	// if no slave database is available, use master
-	if len(slaves) == 0 {
-		slaves = append(slaves, master)
+		connectedSlaveConfigs = append(connectedSlaveConfigs, slaveCfg)
 	}
 
 	// set up load balancing strategy
@@ -194,16 +205,17 @@ func NewDBManager(conf *config.Database) (*DBManager, error) {
 	case "random":
 		strategy = &RandomBalancer{}
 	case "weight":
-		strategy = NewWeightBalancer(conf.Slaves)
+		strategy = NewWeightBalancer(connectedSlaveConfigs)
 	default:
 		return nil, ErrInvalidStrategy
 	}
 
 	return &DBManager{
-		master:   master,
-		slaves:   slaves,
-		strategy: strategy,
-		maxRetry: conf.MaxRetry,
+		master:                 master,
+		slaves:                 slaves,
+		readReplicasConfigured: len(conf.Slaves) > 0,
+		strategy:               strategy,
+		maxRetry:               conf.MaxRetry,
 	}, nil
 }
 
@@ -237,8 +249,27 @@ func (dm *DBManager) Master() *sql.DB {
 
 // Slave returns a slave database connection based on the load balancing strategy
 func (dm *DBManager) Slave() (*sql.DB, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	return dm.SlaveContext(ctx)
+}
+
+// SlaveContext returns a read database connection. If no read replicas are
+// configured, the primary connection is returned. If replicas are configured but
+// unavailable, an error is returned instead of silently routing reads to primary.
+func (dm *DBManager) SlaveContext(ctx context.Context) (*sql.DB, error) {
 	dm.mutex.RLock()
 	defer dm.mutex.RUnlock()
+
+	if len(dm.slaves) == 0 {
+		if dm.readReplicasConfigured {
+			return nil, ErrNoAvailableSlaves
+		}
+		if err := dm.master.PingContext(ctx); err != nil {
+			return nil, fmt.Errorf("primary database health check failed: %w", err)
+		}
+		return dm.master, nil
+	}
 
 	var lastErr error
 	for i := 0; i <= dm.maxRetry; i++ {
@@ -249,7 +280,7 @@ func (dm *DBManager) Slave() (*sql.DB, error) {
 		}
 
 		// Test the slave database connection
-		if err := slave.PingContext(context.Background()); err != nil {
+		if err := slave.PingContext(ctx); err != nil {
 			lastErr = err
 			continue
 		}
@@ -258,7 +289,10 @@ func (dm *DBManager) Slave() (*sql.DB, error) {
 	}
 
 	// all retry attempts failed, return the last error
-	return nil, fmt.Errorf("all retry attempts failed: %v", lastErr)
+	if lastErr == nil {
+		lastErr = ErrNoAvailableSlaves
+	}
+	return nil, fmt.Errorf("all read replica attempts failed: %w", lastErr)
 }
 
 // Close closes all database connections
@@ -295,22 +329,17 @@ func (dm *DBManager) Health(ctx context.Context) error {
 	dm.mutex.Lock()
 	defer dm.mutex.Unlock()
 
-	// Check health of slave databases, and update the list of healthy slaves
-	var healthySlaves []*sql.DB
-	for _, slave := range dm.slaves {
+	var replicaErrors []error
+	for i, slave := range dm.slaves {
 		if err := slave.PingContext(ctx); err != nil {
-			fmt.Printf("Slave database health check failed: %v\n", err)
-			continue
+			replicaErrors = append(replicaErrors, fmt.Errorf("read replica %d health check failed: %w", i, err))
 		}
-		healthySlaves = append(healthySlaves, slave)
 	}
-
-	// Update the list of healthy slaves
-	dm.slaves = healthySlaves
-
-	// if no slave database is available, use master
-	if len(dm.slaves) == 0 {
-		dm.slaves = append(dm.slaves, dm.master)
+	if dm.readReplicasConfigured && len(dm.slaves) == 0 {
+		replicaErrors = append(replicaErrors, ErrNoAvailableSlaves)
+	}
+	if len(replicaErrors) > 0 {
+		return fmt.Errorf("read replica health check failed: %v", replicaErrors)
 	}
 
 	return nil

@@ -3,12 +3,16 @@ package worker
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
-var ErrQueueFull = errors.New("task queue is full")
+var (
+	ErrQueueFull   = errors.New("task queue is full")
+	ErrPoolStopped = errors.New("worker pool is stopped")
+)
 
 // Config represents pool configuration
 type Config struct {
@@ -91,6 +95,12 @@ type Pool struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
+	mu     sync.RWMutex
+
+	startOnce sync.Once
+	stopOnce  sync.Once
+	started   bool
+	closed    bool
 
 	// Metrics
 	metrics *Metrics
@@ -145,8 +155,21 @@ type Pool struct {
 //	defer cancel()
 //	pool.Stop(ctx)
 func NewPool(cfg *Config, processors ...Processor) *Pool {
+	pool, err := NewPoolE(cfg, processors...)
+	if err != nil {
+		panic(err)
+	}
+	return pool
+}
+
+// NewPoolE creates a new worker pool and returns configuration errors instead
+// of panicking inside channel allocation or worker startup.
+func NewPoolE(cfg *Config, processors ...Processor) (*Pool, error) {
 	if cfg == nil {
 		cfg = DefaultConfig()
+	}
+	if err := cfg.Validate(); err != nil {
+		return nil, err
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -168,23 +191,45 @@ func NewPool(cfg *Config, processors ...Processor) *Pool {
 		ctx:         ctx,
 		cancel:      cancel,
 		metrics:     &Metrics{},
-	}
+	}, nil
 }
 
 // Start starts the worker pool
 func (p *Pool) Start() {
-	for i := 0; i < p.maxWorkers; i++ {
-		p.wg.Add(1)
-		go p.worker()
-	}
+	p.startOnce.Do(func() {
+		p.mu.Lock()
+		if p.closed {
+			p.mu.Unlock()
+			return
+		}
+		p.started = true
+		p.mu.Unlock()
+
+		for i := 0; i < p.maxWorkers; i++ {
+			p.wg.Add(1)
+			go p.worker()
+		}
+	})
 }
 
 // Stop stops the worker pool
 func (p *Pool) Stop(ctx context.Context) {
-	p.cancel()
-	close(p.tasks)
+	p.stopOnce.Do(func() {
+		p.cancel()
 
-	// Wait for all workers to finish with timeout
+		p.mu.Lock()
+		if !p.closed {
+			close(p.tasks)
+			p.closed = true
+		}
+		p.mu.Unlock()
+	})
+
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	// Wait for all workers to finish with timeout.
 	done := make(chan struct{})
 	go func() {
 		p.wg.Wait()
@@ -201,12 +246,47 @@ func (p *Pool) Stop(ctx context.Context) {
 
 // Submit submits a task to the pool
 func (p *Pool) Submit(task any) error {
+	return p.submit(context.Background(), task, false)
+}
+
+// SubmitWait submits a task and waits for capacity until ctx or the pool is
+// cancelled. It is intended for dispatchers that must not drop accepted tasks
+// just because the worker channel is temporarily full.
+func (p *Pool) SubmitWait(ctx context.Context, task any) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return p.submit(ctx, task, true)
+}
+
+func (p *Pool) submit(ctx context.Context, task any, wait bool) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	if p.closed {
+		return ErrPoolStopped
+	}
+
+	if !wait {
+		select {
+		case p.tasks <- task:
+			p.metrics.PendingTasks.Add(1)
+			return nil
+		case <-p.ctx.Done():
+			return ErrPoolStopped
+		default:
+			return ErrQueueFull
+		}
+	}
+
 	select {
 	case p.tasks <- task:
 		p.metrics.PendingTasks.Add(1)
 		return nil
-	default:
-		return ErrQueueFull
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-p.ctx.Done():
+		return ErrPoolStopped
 	}
 }
 
@@ -242,13 +322,21 @@ func (p *Pool) processTask(task any) {
 		}
 	}()
 
-	// Create task context with timeout
-	taskCtx, cancel := context.WithTimeout(p.ctx, p.taskTimeout)
+	taskCtx := p.ctx
+	cancel := func() {}
+	if p.taskTimeout > 0 {
+		taskCtx, cancel = context.WithTimeout(p.ctx, p.taskTimeout)
+	}
 	defer cancel()
 
 	// Process task with context
 	doneCh := make(chan error, 1)
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				doneCh <- fmt.Errorf("processor panic: %v", r)
+			}
+		}()
 		doneCh <- p.processor.Process(task)
 	}()
 

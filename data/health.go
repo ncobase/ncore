@@ -75,21 +75,26 @@ func (d *Data) checkDatabaseHealth(ctx context.Context, services map[string]any)
 }
 
 // checkRedisHealth checks Redis health
-func (d *Data) checkRedisHealth(_ context.Context, services map[string]any) bool {
+func (d *Data) checkRedisHealth(ctx context.Context, services map[string]any) bool {
 	if d.Conn == nil || d.Conn.RC == nil {
 		return true
 	}
 
-	d.collector.RedisCommand("ping", errors.New("redis client not available"))
-	d.collector.HealthCheck("redis", false)
+	start := time.Now()
+	err := d.Conn.PingRedis(ctx)
+	duration := time.Since(start)
+	healthy := err == nil
+
+	d.collector.RedisCommand("ping", err)
+	d.collector.HealthCheck("redis", healthy)
 
 	services["redis"] = map[string]any{
-		"healthy":     false,
-		"response_ms": int64(0),
-		"error":       "redis client not available",
+		"healthy":     healthy,
+		"response_ms": duration.Milliseconds(),
+		"error":       getErrorString(err),
 	}
 
-	return false
+	return healthy
 }
 
 // checkMongoHealth checks MongoDB health
@@ -168,22 +173,36 @@ func (d *Data) checkMessagingHealth(services map[string]any) bool {
 }
 
 // checkSearchHealth checks search engines health
-func (d *Data) checkSearchHealth(_ context.Context, services map[string]any) bool {
+func (d *Data) checkSearchHealth(ctx context.Context, services map[string]any) bool {
 	if d.Conn == nil {
 		return true
 	}
 
-	if d.Conn.ES == nil && d.Conn.OS == nil && d.Conn.MS == nil {
+	results := d.Conn.SearchHealth(ctx)
+	if len(results) == 0 {
 		return true
 	}
 
-	services["search"] = map[string]any{
-		"healthy": false,
-		"error":   "search client not available",
+	engines := make(map[string]any, len(results))
+	overallHealthy := true
+	for engine, err := range results {
+		healthy := err == nil
+		if !healthy {
+			overallHealthy = false
+		}
+		engines[engine] = map[string]any{
+			"healthy": healthy,
+			"error":   getErrorString(err),
+		}
 	}
-	d.collector.HealthCheck("search", false)
 
-	return false
+	services["search"] = map[string]any{
+		"healthy": overallHealthy,
+		"engines": engines,
+	}
+	d.collector.HealthCheck("search", overallHealthy)
+
+	return overallHealthy
 }
 
 // getErrorString returns error string

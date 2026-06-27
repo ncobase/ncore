@@ -7,12 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Worker pool**: Added `NewPoolE`, `ErrPoolStopped`, `SubmitWait`, configuration validation, idempotent lifecycle handling, and processor panic capture.
+- **Task queue**: Added real normal, priority, and timer dispatch loops with duplicate task registration checks, cancellation, stop cleanup, and worker backpressure handling.
+- **Security**: Added HMAC-signed OAuth state validation, error-returning OAuth/JWT constructors, AES-GCM helpers, safe PKCS#7 unpadding, and verified Apple ID token parsing through Apple JWKS.
+- **Data health**: Added Redis and search-engine health checks with concrete Elasticsearch, Meilisearch, and OpenSearch client health integration.
+- **Data routing**: Added `SlaveContext` and explicit read-replica availability errors while preserving primary reads for single-node deployments.
+- **Extension system**: Added `ManageRoutesWithGuard` so host applications can expose public health checks while protecting inventory, metrics, plugin, and system management routes.
+- **Validation and responses**: Added nil-safe validator helpers and response tests for correct content-type and failure writing behavior.
+
 ### Changed
 
 - **MongoDB Driver**: Upgraded to v2.5.0
   - Updated import paths to `go.mongodb.org/mongo-driver/v2`
   - Improved context handling following v2 best practices
   - **No user code changes required** - backward compatibility maintained
+- **OAuth**: `NewClient` and `NewProviderSpecificClient` now panic on invalid OAuth configuration; applications that prefer explicit error handling should use `NewClientE` and `NewProviderSpecificClientE`.
+- **OAuth PKCE**: Authorization URL generation now requires a caller-provided `code_challenge` when PKCE is enabled for a provider.
+- **Extension routes**: `ManageRoutes` now mounts public health routes only. Applications must call `ManageRoutesWithGuard` with authentication and authorization middleware to expose management endpoints.
+- **Database read routing**: Configured but unavailable read replicas now return `ErrNoAvailableSlaves` instead of silently falling back to the primary database.
+- **Email provider setup**: Unsupported configured email providers now return explicit errors instead of being treated as disabled email configuration.
 
 ### Removed
 

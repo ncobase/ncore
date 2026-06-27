@@ -140,18 +140,14 @@ import (
 
 ### 在应用中使用
 
-在你的应用 `go.mod` 中，只引入需要的模块：
+只安装需要的模块：
 
-```go
-require (
-    github.com/ncobase/ncore/config v0.2.0
-    github.com/ncobase/ncore/data v0.2.0
-    github.com/ncobase/ncore/logging v0.2.0
-
-    // 只导入您需要的数据驱动 (v0.2.0+)
-    github.com/ncobase/ncore/data/postgres v0.2.0
-    github.com/ncobase/ncore/data/redis v0.2.0
-)
+```bash
+go get github.com/ncobase/ncore/config@latest
+go get github.com/ncobase/ncore/data@latest
+go get github.com/ncobase/ncore/logging@latest
+go get github.com/ncobase/ncore/data/postgres@latest
+go get github.com/ncobase/ncore/data/redis@latest
 ```
 
 在代码中，使用空白导入来注册驱动：
