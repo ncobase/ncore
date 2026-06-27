@@ -26,7 +26,7 @@ type MultiCriteria struct {
 
 // Sortable represents a sortable dataset interface.
 type Sortable interface {
-	Sort(criteria MultiCriteria) error // Sort method to be implemented
+	Sort(criteria MultiCriteria) error // Sort applies the supplied ordering criteria.
 }
 
 // DynamicSorter provides a generic implementation for sorting based on criteria.

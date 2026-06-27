@@ -191,6 +191,29 @@ func (d *Connections) Ping(ctx context.Context) error {
 	return nil
 }
 
+// PingRedis checks the configured Redis client.
+func (d *Connections) PingRedis(ctx context.Context) error {
+	return d.pingRedis(ctx)
+}
+
+// SearchHealth checks all configured search clients and returns per-engine
+// errors. An empty result means no search engine is configured.
+func (d *Connections) SearchHealth(ctx context.Context) map[string]error {
+	results := make(map[string]error)
+
+	if d.MS != nil {
+		results["meilisearch"] = checkSearchClientHealth(ctx, d.MS)
+	}
+	if d.ES != nil {
+		results["elasticsearch"] = checkSearchClientHealth(ctx, d.ES)
+	}
+	if d.OS != nil {
+		results["opensearch"] = checkSearchClientHealth(ctx, d.OS)
+	}
+
+	return results
+}
+
 func (d *Connections) DB() *sql.DB {
 	if d.DBM == nil {
 		return nil
@@ -236,4 +259,26 @@ func (d *Connections) pingKafka() error {
 		return err
 	}
 	return errors.New("kafka connection controller not supported")
+}
+
+func checkSearchClientHealth(ctx context.Context, client any) error {
+	if checker, ok := client.(interface{ HealthContext(context.Context) error }); ok {
+		return checker.HealthContext(ctx)
+	}
+	if checker, ok := client.(interface{ Health(context.Context) error }); ok {
+		return checker.Health(ctx)
+	}
+	if checker, ok := client.(interface {
+		Health(context.Context) (string, error)
+	}); ok {
+		_, err := checker.Health(ctx)
+		return err
+	}
+	if checker, ok := client.(interface{ IsHealthy() bool }); ok {
+		if checker.IsHealthy() {
+			return nil
+		}
+		return errors.New("search client is unhealthy")
+	}
+	return errors.New("search client health check not supported")
 }

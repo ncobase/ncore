@@ -6,15 +6,16 @@ import (
 
 // Config data config struct
 type Config struct {
-	*Database  `yaml:"database" json:"database"`
-	*Redis     `yaml:"redis" json:"redis"`
-	*Search    `yaml:"search" json:"search"`
-	*MongoDB   `yaml:"mongodb" json:"mongodb"`
-	*Neo4j     `yaml:"neo4j" json:"neo4j"`
-	*RabbitMQ  `yaml:"rabbitmq" json:"rabbitmq"`
-	*Kafka     `yaml:"kafka" json:"kafka"`
-	*Metrics   `yaml:"metrics" json:"metrics"`
+	*Database  `yaml:"database"        json:"database"`
+	*Redis     `yaml:"redis"           json:"redis"`
+	*Search    `yaml:"search"          json:"search"`
+	*MongoDB   `yaml:"mongodb"         json:"mongodb"`
+	*Neo4j     `yaml:"neo4j"           json:"neo4j"`
+	*RabbitMQ  `yaml:"rabbitmq"        json:"rabbitmq"`
+	*Kafka     `yaml:"kafka"           json:"kafka"`
+	*Metrics   `yaml:"metrics"         json:"metrics"`
 	*Messaging `yaml:"messaging" json:"messaging"`
+	*Space     `yaml:"space"     json:"space"` // optional; omit to disable Space-level isolation
 }
 
 // GetConfig returns data config
@@ -29,5 +30,6 @@ func GetConfig(v *viper.Viper) *Config {
 		Kafka:     getKafkaConfigs(v),
 		Metrics:   getMetricsConfig(v),
 		Messaging: getMessagingConfig(v),
+		Space:     getSpaceConfig(v),
 	}
 }

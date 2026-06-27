@@ -17,11 +17,12 @@ const (
 var sharedInstance *Data
 
 type Data struct {
-	Conn      *connection.Connections
-	collector metrics.Collector
-	conf      *config.Config
-	closed    bool
-	mu        sync.RWMutex
+	Conn        *connection.Connections
+	collector   metrics.Collector
+	conf        *config.Config
+	spaceRouter SpaceRouter // nil means Space isolation is not enabled
+	closed      bool
+	mu          sync.RWMutex
 }
 
 type Option func(*Data)

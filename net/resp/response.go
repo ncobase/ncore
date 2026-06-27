@@ -99,10 +99,6 @@ func Fail(w http.ResponseWriter, r *Exception, abort ...bool) {
 	}
 	statusCode, result := buildFailureResponse(r)
 	writeResponse(w, "JSON", statusCode, result)
-
-	if len(abort) > 0 && abort[0] {
-		http.Error(w, "", statusCode)
-	}
 }
 
 // buildFailureResponse builds the failure response.
@@ -130,20 +126,22 @@ func buildFailureResponse(r *Exception) (int, any) {
 
 // writeResponse writes the response based on the specified status code.
 func writeResponse(w http.ResponseWriter, contextType string, code int, res any) {
-	w.WriteHeader(code)
 	switch contextType {
 	case "JSON":
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(code)
 		if err := json.NewEncoder(w).Encode(res); err != nil {
 			http.Error(w, "Failed to encode JSON response", http.StatusInternalServerError)
 		}
 	case "XML":
 		w.Header().Set("Content-Type", "application/xml; charset=utf-8")
+		w.WriteHeader(code)
 		if err := xml.NewEncoder(w).Encode(res); err != nil {
 			http.Error(w, "Failed to encode XML response", http.StatusInternalServerError)
 		}
 	case "Text":
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(code)
 		var text string
 		switch v := res.(type) {
 		case string:
@@ -167,6 +165,7 @@ func writeResponse(w http.ResponseWriter, contextType string, code int, res any)
 	default:
 		// Default to JSON if no contextType matches
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(code)
 		if err := json.NewEncoder(w).Encode(res); err != nil {
 			http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 		}

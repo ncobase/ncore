@@ -286,6 +286,12 @@ func (c *Client) Health() (*meilisearch.Health, error) {
 	return health, nil
 }
 
+// HealthContext checks Meilisearch health using a context-compatible signature.
+func (c *Client) HealthContext(ctx context.Context) error {
+	_, err := c.Health()
+	return err
+}
+
 // IsHealthy checks if Meilisearch is healthy (convenience method)
 func (c *Client) IsHealthy() bool {
 	if c == nil || c.client == nil {

@@ -159,6 +159,8 @@ type ManagerInterface interface {
 	// HTTP routing
 
 	RegisterRoutes(router *gin.Engine)
+	// ManageRoutes mounts public health routes. Concrete managers expose
+	// guarded management endpoints through ManageRoutesWithGuard.
 	ManageRoutes(router *gin.RouterGroup)
 
 	// Circuit breaker

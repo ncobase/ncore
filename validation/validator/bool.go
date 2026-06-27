@@ -9,13 +9,22 @@ func BoolPtr(b bool) *bool {
 
 // PtrBool convert *bool to bool
 func PtrBool(b *bool) bool {
+	if b == nil {
+		return false
+	}
 	return *b
 }
 
 // IsTrue verify is true
 func IsTrue(i any) bool {
+	if i == nil {
+		return false
+	}
 	vi := reflect.ValueOf(i)
-	if vi.Kind() == reflect.Ptr {
+	for vi.Kind() == reflect.Ptr || vi.Kind() == reflect.Interface {
+		if vi.IsNil() {
+			return false
+		}
 		vi = vi.Elem()
 	}
 	switch vi.Kind() {

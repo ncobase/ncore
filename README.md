@@ -2,8 +2,8 @@
 
 [English](./README.md) | [中文](./README_zh-CN.md)
 
-[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev/doc/devel/release)
-[![Release](https://img.shields.io/badge/release-v0.2.0-blue)](https://github.com/ncobase/ncore/releases/tag/v0.2.0)
+[![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat&logo=go)](https://go.dev/doc/devel/release)
+[![Release](https://img.shields.io/badge/series-v0.2-blue)](https://github.com/ncobase/ncore/releases)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ncobase/ncore)](https://goreportcard.com/report/github.com/ncobase/ncore)
 
@@ -14,7 +14,9 @@ NCore is a modular Go framework providing enterprise-grade components for buildi
 - **Modular Architecture**: Import only the modules you need
 - **Modular Driver System** (v0.2.0+): Opt-in database, cache, search, and messaging drivers for minimal binary size
 - **Rich Integrations**: PostgreSQL, MySQL, MongoDB, Redis, Elasticsearch, Kafka, and more
-- **Security & Authentication**: JWT, OAuth, encryption utilities
+- **Optional Space Isolation**: Context-driven `SpaceRouter` abstraction for application-owned
+  PostgreSQL schema-per-space or MySQL database-per-space isolation
+- **Security & Authentication**: JWT, signed OAuth state, token middleware contracts, encryption utilities
 - **Observability**: OpenTelemetry, logging, and monitoring
 - **Dependency Injection**: Native support for Google Wire
 
@@ -25,6 +27,23 @@ Each sub-package is an independent Go module with minimal dependencies and indep
 **Core Modules:** config, data, logging, security, extension, oss, validation, messaging
 
 See [MODULES.md](MODULES.md) for complete module list and architecture details.
+
+## Space-Level Data Isolation
+
+The `data` module supports optional Space-level multi-tenant isolation. Applications attach a Space
+ID to `context.Context`, inject their own `SpaceRouter`, and call `WithSpaceTx` or
+`WithSpaceTxRead`. When no router or Space ID is present, these methods fall back to the existing
+transaction behavior, so single-tenant applications do not pay for the feature.
+
+NCore only owns the generic abstraction, context helpers, identifier validation, and transaction
+helper. Application projects such as `ncobase` own schema/database provisioning, migrations,
+Ent/client factories, permission policies, lifecycle operations, and recovery plans. See
+[data/README.md](data/README.md#space-isolation) and
+[MULTITENANCY_DESIGN.md](MULTITENANCY_DESIGN.md) for details.
+
+Management routes provided by `extension/manager` expose only health checks by default. Host
+applications must call `ManageRoutesWithGuard` with their own authentication and authorization
+middleware before extension inventory, metrics, plugin operations, or system routes are mounted.
 
 ## Installation
 
@@ -147,9 +166,8 @@ See [examples/README.md](./examples/README.md) for a detailed overview and learn
 For scaffolding new projects and components, use the CLI tool:
 
 ```bash
-go install github.com/ncobase/cli@latest
-nco create core auth-service
-nco create business payment --use-mongo --with-test
+go install github.com/ncobase/cli/cmd/nco@latest
+nco -h
 ```
 
 ## Contributing

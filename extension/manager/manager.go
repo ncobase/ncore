@@ -29,6 +29,7 @@ type Manager struct {
 	initialized bool
 	ctx         context.Context
 	cancel      context.CancelFunc
+	startTime   time.Time
 
 	// Service components
 	eventDispatcher  *event.Dispatcher
@@ -60,6 +61,7 @@ func NewManager(conf *config.Config) (*Manager, error) {
 		crossServices:   make(map[string]any),
 		ctx:             ctx,
 		cancel:          cancel,
+		startTime:       time.Now(),
 	}
 
 	if err := m.initSubsystems(); err != nil {

@@ -1,6 +1,11 @@
 package jwt
 
 import (
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/google/wire"
 )
 
@@ -38,30 +43,76 @@ type TokenValidator interface {
 // ProvideTokenManager creates a new TokenManager from configuration.
 // The secret is required; other settings use defaults if not specified.
 func ProvideTokenManager(cfg *Config) *TokenManager {
+	manager, err := ProvideTokenManagerE(cfg)
+	if err != nil {
+		panic(err)
+	}
+	return manager
+}
+
+// ProvideTokenManagerE creates a TokenManager and returns configuration errors.
+func ProvideTokenManagerE(cfg *Config) (*TokenManager, error) {
 	if cfg == nil || cfg.Secret == "" {
-		// Return a TokenManager that requires secret to be set later
-		return NewTokenManager("")
+		return NewTokenManager(""), nil
 	}
 
 	tokenConfig := &TokenConfig{}
 
-	// Parse duration strings if provided
 	if cfg.AccessTokenExpiry != "" {
-		// Use default if parsing fails
-		tokenConfig.AccessTokenExpiry = DefaultAccessTokenExpire
+		duration, err := parseConfigDuration(cfg.AccessTokenExpiry)
+		if err != nil {
+			return nil, fmt.Errorf("access token expiry: %w", err)
+		}
+		tokenConfig.AccessTokenExpiry = duration
 	}
 	if cfg.RefreshTokenExpiry != "" {
-		tokenConfig.RefreshTokenExpiry = DefaultRefreshTokenExpire
+		duration, err := parseConfigDuration(cfg.RefreshTokenExpiry)
+		if err != nil {
+			return nil, fmt.Errorf("refresh token expiry: %w", err)
+		}
+		tokenConfig.RefreshTokenExpiry = duration
 	}
 	if cfg.RegisterTokenExpiry != "" {
-		tokenConfig.RegisterTokenExpiry = DefaultRegisterTokenExpire
+		duration, err := parseConfigDuration(cfg.RegisterTokenExpiry)
+		if err != nil {
+			return nil, fmt.Errorf("register token expiry: %w", err)
+		}
+		tokenConfig.RegisterTokenExpiry = duration
 	}
 
-	return NewTokenManager(cfg.Secret, tokenConfig)
+	return NewTokenManager(cfg.Secret, tokenConfig), nil
 }
 
 // ProvideTokenManagerFromSecret creates a TokenManager directly from a secret string.
 // This is a convenience provider for simple use cases.
 func ProvideTokenManagerFromSecret(secret string) *TokenManager {
 	return NewTokenManager(secret)
+}
+
+func parseConfigDuration(value string) (time.Duration, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 0, fmt.Errorf("duration is empty")
+	}
+
+	unit := value[len(value)-1]
+	if unit == 'd' || unit == 'D' || unit == 'w' || unit == 'W' {
+		amount, err := strconv.ParseInt(value[:len(value)-1], 10, 64)
+		if err != nil || amount <= 0 {
+			return 0, fmt.Errorf("invalid duration %q", value)
+		}
+		if unit == 'd' || unit == 'D' {
+			return time.Duration(amount) * 24 * time.Hour, nil
+		}
+		return time.Duration(amount) * 7 * 24 * time.Hour, nil
+	}
+
+	duration, err := time.ParseDuration(value)
+	if err != nil {
+		return 0, err
+	}
+	if duration <= 0 {
+		return 0, fmt.Errorf("duration must be greater than zero")
+	}
+	return duration, nil
 }

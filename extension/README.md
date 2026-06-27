@@ -69,6 +69,24 @@ func main() {
 }
 ```
 
+### Management Routes
+
+Health endpoints are mounted by `ManageRoutes` without requiring host middleware. Inventory, metrics,
+plugin operations, and system management endpoints must be mounted through `ManageRoutesWithGuard`
+so the application owns authentication and authorization policy:
+
+```go
+ncore := engine.Group("/ncore")
+mgr.ManageRoutesWithGuard(
+    ncore,
+    AuthenticatedUser(),
+    RequirePermission("manage:ncore"),
+)
+```
+
+Applications that still compile against `types.ManagerInterface` can use a small local interface
+assertion and keep a guarded `ManageRoutes` fallback for older ncore versions.
+
 ## Extension Lifecycle
 
 Extensions follow a structured initialization process:

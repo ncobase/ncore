@@ -1,12 +1,19 @@
 package registry
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"sync"
 
 	ext "github.com/ncobase/ncore/extension/types"
 	"github.com/ncobase/ncore/logging/logger"
+)
+
+var (
+	ErrNilExtension       = errors.New("extension is nil")
+	ErrDuplicateExtension = errors.New("extension already registered")
+	ErrEmptyExtensionName = errors.New("extension name is empty")
 )
 
 // Entry represents an entry in the registry
@@ -25,37 +32,88 @@ var (
 
 // Register registers a single extension
 func Register(extension ext.Interface) {
-	RegisterToGroup(extension, "")
+	if err := RegisterToGroupE(extension, ""); err != nil {
+		panic(err)
+	}
 }
 
 // RegisterToGroup registers an extension to a specific group
 func RegisterToGroup(extension ext.Interface, group string) {
+	if err := RegisterToGroupE(extension, group); err != nil {
+		panic(err)
+	}
+}
+
+// RegisterE registers a single extension and returns validation errors.
+func RegisterE(extension ext.Interface) error {
+	return RegisterToGroupE(extension, "")
+}
+
+// RegisterToGroupE registers an extension to a specific group and returns
+// validation errors for nil, empty, or duplicate registrations.
+func RegisterToGroupE(extension ext.Interface, group string) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
+	if extension == nil {
+		return ErrNilExtension
+	}
 	name := extension.Name()
+	if name == "" {
+		return ErrEmptyExtensionName
+	}
+	if _, exists := extensionRegistry[name]; exists {
+		return fmt.Errorf("%w: %s", ErrDuplicateExtension, name)
+	}
 	extensionRegistry[name] = Entry{
 		Instance: extension,
 		Group:    group,
 	}
+	return nil
 }
 
 // RegisterWithWeakDeps registers an extension with weak dependencies
 func RegisterWithWeakDeps(extension ext.Interface, weakDeps []string) {
-	RegisterToGroupWithWeakDeps(extension, "", weakDeps)
+	if err := RegisterToGroupWithWeakDepsE(extension, "", weakDeps); err != nil {
+		panic(err)
+	}
 }
 
 // RegisterToGroupWithWeakDeps registers an extension to a group with weak dependencies
 func RegisterToGroupWithWeakDeps(extension ext.Interface, group string, weakDeps []string) {
+	if err := RegisterToGroupWithWeakDepsE(extension, group, weakDeps); err != nil {
+		panic(err)
+	}
+}
+
+// RegisterWithWeakDepsE registers an extension with weak dependencies and
+// returns validation errors.
+func RegisterWithWeakDepsE(extension ext.Interface, weakDeps []string) error {
+	return RegisterToGroupWithWeakDepsE(extension, "", weakDeps)
+}
+
+// RegisterToGroupWithWeakDepsE registers an extension to a group with weak
+// dependencies and returns validation errors.
+func RegisterToGroupWithWeakDepsE(extension ext.Interface, group string, weakDeps []string) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
+	if extension == nil {
+		return ErrNilExtension
+	}
 	name := extension.Name()
+	if name == "" {
+		return ErrEmptyExtensionName
+	}
+	if _, exists := extensionRegistry[name]; exists {
+		return fmt.Errorf("%w: %s", ErrDuplicateExtension, name)
+	}
 	extensionRegistry[name] = Entry{
 		Instance:         extension,
 		Group:            group,
 		WeakDependencies: weakDeps,
 	}
+	return nil
 }
 
 // GetExtensions returns all registered extensions

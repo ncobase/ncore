@@ -70,12 +70,28 @@ func parseMessage(jsonTag string, e validator.FieldError, lang ...string) string
 // ValidateStruct validates a struct and returns a map of JSON field names to friendly error messages.
 func ValidateStruct(s any, lang ...string) map[string]string {
 	validationErrors := make(map[string]string)
+	if s == nil {
+		validationErrors["_"] = "value is required"
+		return validationErrors
+	}
+
+	structType := reflect.TypeOf(s)
+	if structType.Kind() == reflect.Ptr {
+		if reflect.ValueOf(s).IsNil() {
+			validationErrors["_"] = "value is required"
+			return validationErrors
+		}
+		structType = structType.Elem()
+	}
+	if structType.Kind() != reflect.Struct {
+		validationErrors["_"] = "value must be a struct or pointer to struct"
+		return validationErrors
+	}
 
 	err := validate.Struct(s)
 	if err != nil {
 		var validationErrs validator.ValidationErrors
 		if errors.As(err, &validationErrs) {
-			structType := reflect.TypeOf(s).Elem()
 			for _, e := range validationErrs {
 				field, _ := structType.FieldByName(e.StructField())
 				jsonTag := field.Tag.Get("json")
