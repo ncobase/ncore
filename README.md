@@ -12,12 +12,12 @@ NCore is a modular Go framework providing enterprise-grade components for buildi
 ## Features
 
 - **Modular Architecture**: Import only the modules you need
-- **Modular Driver System** (v0.2.0+): Opt-in database, cache, search, and messaging drivers for minimal binary size
+- **Modular Driver System** (v0.2.0+): Opt-in database, cache, search, messaging, object storage, and observability modules for minimal binary size
 - **Rich Integrations**: PostgreSQL, MySQL, MongoDB, Redis, Elasticsearch, Kafka, and more
 - **Optional Space Isolation**: Context-driven `SpaceRouter` abstraction for application-owned
   PostgreSQL schema-per-space or MySQL database-per-space isolation
 - **Security & Authentication**: JWT, signed OAuth state, token middleware contracts, encryption utilities
-- **Observability**: OpenTelemetry, logging, and monitoring
+- **Observability**: Lightweight logging by default, with optional OpenTelemetry tracing and Sentry modules
 - **Dependency Injection**: Native support for Google Wire
 
 ## Multi-Module Architecture
@@ -60,7 +60,30 @@ go get github.com/ncobase/ncore/oss
 go get github.com/ncobase/ncore/data/postgres
 go get github.com/ncobase/ncore/data/redis
 go get github.com/ncobase/ncore/data/meilisearch
+
+# Optional modules
+go get github.com/ncobase/ncore/oss/s3
+go get github.com/ncobase/ncore/logging/tracing
+go get github.com/ncobase/ncore/logging/sentry
 ```
+
+## Observability Configuration
+
+Tracing and Sentry use separate top-level infrastructure sections:
+
+```yaml
+tracing:
+  endpoint: localhost:4317
+  sampling_rate: 1
+  max_queue_size: 2048
+
+sentry:
+  endpoint: https://public@sentry.example/1
+  sample_rate: 1
+```
+
+Import `github.com/ncobase/ncore/logging/tracing` or
+`github.com/ncobase/ncore/logging/sentry` only when the application enables that runtime.
 
 ## Quick Start
 

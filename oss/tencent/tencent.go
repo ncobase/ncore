@@ -1,8 +1,9 @@
-package oss
+package tencent
 
 import (
 	"context"
 	"fmt"
+	ncoreoss "github.com/ncobase/ncore/oss"
 	"io"
 	"net/http"
 	"net/url"
@@ -13,7 +14,7 @@ import (
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
-// TencentAdapter implements the Interface for Tencent Cloud Object Storage (COS).
+// TencentAdapter implements the ncoreoss.Interface for Tencent Cloud Object Storage (COS).
 type TencentAdapter struct {
 	client *cos.Client
 	bucket string
@@ -88,7 +89,7 @@ func (a *TencentAdapter) GetStream(path string) (io.ReadCloser, error) {
 }
 
 // Put uploads a file to Tencent COS from the given reader.
-func (a *TencentAdapter) Put(path string, reader io.Reader) (*Object, error) {
+func (a *TencentAdapter) Put(path string, reader io.Reader) (*ncoreoss.Object, error) {
 	if path == "" {
 		return nil, fmt.Errorf("path cannot be empty")
 	}
@@ -100,7 +101,7 @@ func (a *TencentAdapter) Put(path string, reader io.Reader) (*Object, error) {
 
 	contentType := "application/octet-stream"
 	if ext := filepath.Ext(path); ext != "" {
-		if ct := getContentType(ext); ct != "" {
+		if ct := ncoreoss.ContentType(ext); ct != "" {
 			contentType = ct
 		}
 	}
@@ -117,7 +118,7 @@ func (a *TencentAdapter) Put(path string, reader io.Reader) (*Object, error) {
 	}
 
 	now := time.Now()
-	return &Object{
+	return &ncoreoss.Object{
 		Path:             path,
 		Name:             filepath.Base(path),
 		LastModified:     &now,
@@ -143,7 +144,7 @@ func (a *TencentAdapter) Delete(path string) error {
 }
 
 // List returns all objects under the specified prefix.
-func (a *TencentAdapter) List(path string) ([]*Object, error) {
+func (a *TencentAdapter) List(path string) ([]*ncoreoss.Object, error) {
 	ctx := context.Background()
 
 	opt := &cos.BucketGetOptions{
@@ -151,7 +152,7 @@ func (a *TencentAdapter) List(path string) ([]*Object, error) {
 		MaxKeys: 1000,
 	}
 
-	var objects []*Object
+	var objects []*ncoreoss.Object
 	isTruncated := true
 
 	for isTruncated {
@@ -162,7 +163,7 @@ func (a *TencentAdapter) List(path string) ([]*Object, error) {
 
 		for _, obj := range result.Contents {
 			lastModified, _ := time.Parse(time.RFC3339, obj.LastModified)
-			objects = append(objects, &Object{
+			objects = append(objects, &ncoreoss.Object{
 				Path:             obj.Key,
 				Name:             filepath.Base(obj.Key),
 				LastModified:     &lastModified,
@@ -214,7 +215,7 @@ func (a *TencentAdapter) Exists(path string) (bool, error) {
 }
 
 // Stat retrieves object metadata without downloading content.
-func (a *TencentAdapter) Stat(path string) (*Object, error) {
+func (a *TencentAdapter) Stat(path string) (*ncoreoss.Object, error) {
 	if path == "" {
 		return nil, fmt.Errorf("path cannot be empty")
 	}
@@ -231,7 +232,7 @@ func (a *TencentAdapter) Stat(path string) (*Object, error) {
 	}
 
 	lastModified, _ := time.Parse(time.RFC1123, resp.Header.Get("Last-Modified"))
-	return &Object{
+	return &ncoreoss.Object{
 		Path:             path,
 		Name:             filepath.Base(path),
 		LastModified:     &lastModified,
@@ -249,15 +250,15 @@ func (d *tencentDriver) Name() string {
 }
 
 // Connect establishes a connection to Tencent COS.
-func (d *tencentDriver) Connect(ctx context.Context, cfg *Config) (Interface, error) {
+func (d *tencentDriver) Connect(ctx context.Context, cfg *ncoreoss.Config) (ncoreoss.Interface, error) {
 	return NewTencentAdapter(cfg.ID, cfg.Secret, cfg.Region, cfg.Bucket, cfg.AppID)
 }
 
 // Close closes the Tencent COS connection.
-func (d *tencentDriver) Close(conn Interface) error {
+func (d *tencentDriver) Close(conn ncoreoss.Interface) error {
 	return nil
 }
 
 func init() {
-	RegisterDriver(&tencentDriver{})
+	ncoreoss.RegisterDriver(&tencentDriver{})
 }

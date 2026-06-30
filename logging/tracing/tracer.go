@@ -1,9 +1,13 @@
-package observes
+package tracing
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"os"
 	"reflect"
+	"strings"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -15,6 +19,7 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.opentelemetry.io/otel/trace"
+	"google.golang.org/grpc/credentials"
 )
 
 type TracerOption struct {
@@ -26,20 +31,40 @@ type TracerOption struct {
 	Environment        string
 	SamplingRate       float64
 	MaxAttributes      int
+	MaxAttributeLength int
+	MaxEventsPerSpan   int
+	MaxLinksPerSpan    int
+	MaxQueueSize       int
 	BatchTimeout       time.Duration
 	ExportTimeout      time.Duration
 	MaxExportBatchSize int
+	TLSEnabled         bool
+	InsecureSkipVerify bool
+	TLSCertFile        string
+	TLSKeyFile         string
+	TLSCAFile          string
+	Headers            map[string]string
 }
 
 func NewTracer(opt *TracerOption) error {
 	if opt == nil {
 		return fmt.Errorf("tracer config is nil")
 	}
+	normalizeTracerOption(opt)
+	if opt.URL == "" {
+		return fmt.Errorf("tracer endpoint is required")
+	}
+	if opt.SamplingRate < 0 || opt.SamplingRate > 1 {
+		return fmt.Errorf("tracer sampling rate must be between 0 and 1")
+	}
 
+	exporterOptions, err := buildExporterOptions(opt)
+	if err != nil {
+		return err
+	}
 	exp, err := otlptracegrpc.New(
 		context.Background(),
-		otlptracegrpc.WithEndpoint(opt.URL),
-		otlptracegrpc.WithInsecure(),
+		exporterOptions...,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create exporter: %w", err)
@@ -62,16 +87,120 @@ func NewTracer(opt *TracerOption) error {
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.TraceIDRatioBased(opt.SamplingRate))),
 		sdktrace.WithBatcher(exp,
+			sdktrace.WithMaxQueueSize(opt.MaxQueueSize),
 			sdktrace.WithMaxExportBatchSize(opt.MaxExportBatchSize),
 			sdktrace.WithBatchTimeout(opt.BatchTimeout),
 			sdktrace.WithExportTimeout(opt.ExportTimeout),
 		),
+		sdktrace.WithSpanLimits(spanLimits(opt)),
 		sdktrace.WithResource(res),
 	)
 
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 	return nil
+}
+
+func normalizeTracerOption(opt *TracerOption) {
+	if opt.Name == "" {
+		opt.Name = "application"
+	}
+	if opt.MaxAttributes <= 0 {
+		opt.MaxAttributes = 128
+	}
+	if opt.MaxAttributeLength <= 0 {
+		opt.MaxAttributeLength = 1024
+	}
+	if opt.MaxEventsPerSpan <= 0 {
+		opt.MaxEventsPerSpan = 128
+	}
+	if opt.MaxLinksPerSpan <= 0 {
+		opt.MaxLinksPerSpan = 128
+	}
+	if opt.MaxQueueSize <= 0 {
+		opt.MaxQueueSize = 2048
+	}
+	if opt.BatchTimeout <= 0 {
+		opt.BatchTimeout = 5 * time.Second
+	}
+	if opt.ExportTimeout <= 0 {
+		opt.ExportTimeout = 30 * time.Second
+	}
+	if opt.MaxExportBatchSize <= 0 {
+		opt.MaxExportBatchSize = 512
+	}
+}
+
+func buildExporterOptions(opt *TracerOption) ([]otlptracegrpc.Option, error) {
+	options := make([]otlptracegrpc.Option, 0, 5)
+	if strings.HasPrefix(opt.URL, "http://") || strings.HasPrefix(opt.URL, "https://") {
+		options = append(options, otlptracegrpc.WithEndpointURL(opt.URL))
+	} else {
+		options = append(options, otlptracegrpc.WithEndpoint(opt.URL))
+	}
+
+	if len(opt.Headers) > 0 {
+		headers := make(map[string]string, len(opt.Headers))
+		for key, value := range opt.Headers {
+			headers[key] = value
+		}
+		options = append(options, otlptracegrpc.WithHeaders(headers))
+	}
+
+	options = append(options, otlptracegrpc.WithTimeout(opt.ExportTimeout))
+	if !opt.TLSEnabled {
+		if strings.HasPrefix(opt.URL, "https://") {
+			return options, nil
+		}
+		return append(options, otlptracegrpc.WithInsecure()), nil
+	}
+
+	creds, err := transportCredentials(opt)
+	if err != nil {
+		return nil, err
+	}
+	return append(options, otlptracegrpc.WithTLSCredentials(creds)), nil
+}
+
+func transportCredentials(opt *TracerOption) (credentials.TransportCredentials, error) {
+	tlsConfig := &tls.Config{
+		MinVersion:         tls.VersionTLS12,
+		InsecureSkipVerify: opt.InsecureSkipVerify,
+	}
+
+	if opt.TLSCAFile != "" {
+		caPEM, err := os.ReadFile(opt.TLSCAFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read tracing CA file: %w", err)
+		}
+		roots := x509.NewCertPool()
+		if !roots.AppendCertsFromPEM(caPEM) {
+			return nil, fmt.Errorf("failed to parse tracing CA file")
+		}
+		tlsConfig.RootCAs = roots
+	}
+
+	if opt.TLSCertFile != "" || opt.TLSKeyFile != "" {
+		if opt.TLSCertFile == "" || opt.TLSKeyFile == "" {
+			return nil, fmt.Errorf("tracing TLS cert and key files must be configured together")
+		}
+		cert, err := tls.LoadX509KeyPair(opt.TLSCertFile, opt.TLSKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load tracing client certificate: %w", err)
+		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
+	}
+
+	return credentials.NewTLS(tlsConfig), nil
+}
+
+func spanLimits(opt *TracerOption) sdktrace.SpanLimits {
+	limits := sdktrace.NewSpanLimits()
+	limits.AttributeCountLimit = opt.MaxAttributes
+	limits.AttributeValueLengthLimit = opt.MaxAttributeLength
+	limits.EventCountLimit = opt.MaxEventsPerSpan
+	limits.LinkCountLimit = opt.MaxLinksPerSpan
+	return limits
 }
 
 type Layer int
@@ -98,6 +227,8 @@ type TracingContext struct {
 	methodCalls []MethodCall
 	maxAttrs    int
 }
+
+type tracingContextKey struct{}
 
 func NewTracingContext(ctx context.Context, name string, maxAttrs int) *TracingContext {
 	tracer := otel.Tracer("")
@@ -146,6 +277,19 @@ func (tc *TracingContext) Context() context.Context {
 func (tc *TracingContext) End() {
 	tc.updateSpanAttributes()
 	tc.span.End()
+}
+
+// ContextWithTracingContext stores the current tracing context in a context.
+func ContextWithTracingContext(ctx context.Context, tc *TracingContext) context.Context {
+	return context.WithValue(ctx, tracingContextKey{}, tc)
+}
+
+// TracingContextFromContext returns the tracing context stored in ctx.
+func TracingContextFromContext(ctx context.Context) *TracingContext {
+	if tc, ok := ctx.Value(tracingContextKey{}).(*TracingContext); ok {
+		return tc
+	}
+	return nil
 }
 
 type TracingDecoratorOption struct {
@@ -243,7 +387,7 @@ func implementMethod(structValue reflect.Value, method reflect.Method, opt Traci
 		tc := getTracingContext(ctx)
 		if tc == nil {
 			tc = NewTracingContext(ctx, methodName, 100)
-			ctx = context.WithValue(ctx, "tracing_context", tc)
+			ctx = ContextWithTracingContext(ctx, tc)
 			defer tc.End()
 		}
 
@@ -254,7 +398,7 @@ func implementMethod(structValue reflect.Value, method reflect.Method, opt Traci
 				if i == 0 && arg.Type().Implements(reflect.TypeOf((*context.Context)(nil)).Elem()) {
 					continue
 				}
-				span.SetAttributes(attribute.String(fmt.Sprintf("arg%d", i), fmt.Sprintf("%+v", arg.Interface())))
+				tc.SetAttributes(attribute.String(fmt.Sprintf("arg%d", i), fmt.Sprintf("%+v", arg.Interface())))
 			}
 		}
 
@@ -267,17 +411,17 @@ func implementMethod(structValue reflect.Value, method reflect.Method, opt Traci
 
 		if opt.RecordMethodReturnValues {
 			for i, result := range results {
-				span.SetAttributes(attribute.String(fmt.Sprintf("result%d", i), fmt.Sprintf("%+v", result.Interface())))
+				tc.SetAttributes(attribute.String(fmt.Sprintf("result%d", i), fmt.Sprintf("%+v", result.Interface())))
 			}
 		}
 
 		if len(results) > 0 {
 			lastResult := results[len(results)-1].Interface()
 			if err, ok := lastResult.(error); ok && err != nil {
-				span.RecordError(err)
-				span.SetStatus(codes.Error, err.Error())
+				tc.span.RecordError(err)
+				tc.SetStatus(codes.Error, err.Error())
 			} else {
-				span.SetStatus(codes.Ok, "Success")
+				tc.SetStatus(codes.Ok, "Success")
 			}
 		}
 
@@ -288,8 +432,5 @@ func implementMethod(structValue reflect.Value, method reflect.Method, opt Traci
 }
 
 func getTracingContext(ctx context.Context) *TracingContext {
-	if tc, ok := ctx.Value("tracing_context").(*TracingContext); ok {
-		return tc
-	}
-	return nil
+	return TracingContextFromContext(ctx)
 }

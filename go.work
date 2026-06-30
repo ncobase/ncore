@@ -5,6 +5,8 @@ use (
 	./config
 	./consts
 	./ctxutil
+	./ctxutil/email
+	./ctxutil/storage
 	./data
 	./data/cache
 	./data/elasticsearch
@@ -34,9 +36,19 @@ use (
 	./logging/hooks/elasticsearch
 	./logging/hooks/meilisearch
 	./logging/hooks/opensearch
+	./logging/sentry
+	./logging/tracing
 	./messaging
 	./net
 	./oss
+	./oss/aliyun
+	./oss/azure
+	./oss/gcs
+	./oss/minio
+	./oss/qiniu
+	./oss/s3
+	./oss/synology
+	./oss/tencent
 	./paging
 	./security
 	./types

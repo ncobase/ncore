@@ -7,12 +7,12 @@
 ## 特性
 
 - **模块化架构**：只导入您需要的模块
-- **模块化驱动系统** (v0.2.0+)：可选的数据库、缓存、搜索和消息驱动，最小化二进制体积
+- **模块化驱动系统** (v0.2.0+)：可选的数据库、缓存、搜索、消息、对象存储和可观测模块，最小化二进制体积
 - **丰富的集成**：PostgreSQL、MySQL、MongoDB、Redis、Elasticsearch、Kafka 等
 - **可选 Space 隔离**：通过 context 与 `SpaceRouter` 抽象支持应用层自有的 PostgreSQL
   schema-per-space 或 MySQL database-per-space 隔离
 - **安全与认证**：JWT、签名 OAuth state、token middleware 合同、加密工具
-- **可观测性**：OpenTelemetry、日志记录和监控
+- **可观测性**：默认轻量日志，可按需引入 OpenTelemetry tracing 和 Sentry 模块
 - **依赖注入**：原生支持 Google Wire
 
 ## 多模块架构
@@ -45,12 +45,36 @@ schema/database provisioning、迁移、Ent/client factory、权限策略、生�
 go get github.com/ncobase/ncore/config
 go get github.com/ncobase/ncore/data
 go get github.com/ncobase/ncore/security
+go get github.com/ncobase/ncore/oss
 
 # 数据驱动 (v0.2.0+) - 只导入您使用的驱动
 go get github.com/ncobase/ncore/data/postgres
 go get github.com/ncobase/ncore/data/redis
 go get github.com/ncobase/ncore/data/meilisearch
+
+# 可选模块
+go get github.com/ncobase/ncore/oss/s3
+go get github.com/ncobase/ncore/logging/tracing
+go get github.com/ncobase/ncore/logging/sentry
 ```
+
+## 可观测配置
+
+Tracing 与 Sentry 使用独立的顶层基础设施配置：
+
+```yaml
+tracing:
+  endpoint: localhost:4317
+  sampling_rate: 1
+  max_queue_size: 2048
+
+sentry:
+  endpoint: https://public@sentry.example/1
+  sample_rate: 1
+```
+
+应用只有启用对应运行能力时才需要导入 `github.com/ncobase/ncore/logging/tracing` 或
+`github.com/ncobase/ncore/logging/sentry`。
 
 ## 快速开始
 

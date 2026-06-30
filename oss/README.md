@@ -2,13 +2,15 @@
 
 English | [简体中文](README_zh-CN.md)
 
-A unified object storage abstraction layer supporting multiple cloud storage providers and local filesystem.
+A unified object storage abstraction layer. The base `oss` module provides the interface, registry,
+configuration, validation, and local filesystem implementation. Cloud providers are optional
+submodules.
 
 ## Features
 
-- **Multi-Cloud Support**: AWS S3, Azure Blob, Aliyun OSS, Tencent COS, Google Cloud Storage, MinIO, Qiniu Kodo, Synology NAS, and Local Filesystem
+- **Multi-Cloud Support**: AWS S3, Azure Blob, Aliyun OSS, Tencent COS, Google Cloud Storage, MinIO, Qiniu Kodo, Synology NAS, and local filesystem
 - **Unified Interface**: All storage providers implement the same consistent API
-- **Auto-Registration**: Drivers are automatically registered via `init()` functions
+- **Explicit Registration**: Cloud drivers register through opt-in blank imports
 - **Official SDKs**: Leverages official SDKs from each cloud provider
 - **Local Storage**: Built-in support for local filesystem storage
 - **Lightweight**: Standalone module with minimal dependencies
@@ -17,6 +19,7 @@ A unified object storage abstraction layer supporting multiple cloud storage pro
 
 ```bash
 go get github.com/ncobase/ncore/oss
+go get github.com/ncobase/ncore/oss/minio
 ```
 
 ## Quick Start
@@ -29,6 +32,8 @@ import (
     "strings"
 
     "github.com/ncobase/ncore/oss"
+
+    _ "github.com/ncobase/ncore/oss/minio"
 )
 
 func main() {
@@ -92,19 +97,19 @@ func main() {
 
 ## Supported Providers
 
-| Provider             | Provider Value         | Required Config                                                      |
-| -------------------- | ---------------------- | -------------------------------------------------------------------- |
-| AWS S3               | `s3`                   | ID, Secret, Bucket, Region                                           |
-| Cloudflare R2        | `r2`                   | ID, Secret, Bucket, Endpoint (Region defaults to `auto`)             |
-| Backblaze B2 (S3)    | `b2`                   | ID, Secret, Bucket, Endpoint, Region                                 |
-| Azure Blob           | `azure`                | ID (account), Secret (key), Bucket (Endpoint optional)               |
-| Aliyun OSS           | `aliyun` / `oss`       | ID, Secret, Bucket, Region                                           |
-| Tencent COS          | `tencent` / `cos`      | ID, Secret, Bucket, Region, AppID (or bucket as `<bucket>-<app_id>`) |
-| Google Cloud Storage | `gcs`                  | Bucket, ServiceAccountJSON or Secret                                 |
-| MinIO                | `minio`                | ID, Secret, Bucket, Endpoint                                         |
-| Qiniu Kodo           | `qiniu`                | ID, Secret, Bucket, Region, Endpoint                                 |
-| Synology NAS         | `synology`             | ID, Secret, Bucket, Endpoint                                         |
-| Local Filesystem     | `filesystem` / `local` | Bucket (path, defaults to `./uploads`)                               |
+| Provider             | Provider Value         | Provider Module                         | Required Config                                                      |
+| -------------------- | ---------------------- | --------------------------------------- | -------------------------------------------------------------------- |
+| AWS S3               | `s3`                   | `github.com/ncobase/ncore/oss/s3`       | ID, Secret, Bucket, Region                                           |
+| Cloudflare R2        | `r2`                   | `github.com/ncobase/ncore/oss/s3`       | ID, Secret, Bucket, Endpoint (Region defaults to `auto`)             |
+| Backblaze B2 (S3)    | `b2`                   | `github.com/ncobase/ncore/oss/s3`       | ID, Secret, Bucket, Endpoint, Region                                 |
+| Azure Blob           | `azure`                | `github.com/ncobase/ncore/oss/azure`    | ID (account), Secret (key), Bucket (Endpoint optional)               |
+| Aliyun OSS           | `aliyun` / `oss`       | `github.com/ncobase/ncore/oss/aliyun`   | ID, Secret, Bucket, Region                                           |
+| Tencent COS          | `tencent` / `cos`      | `github.com/ncobase/ncore/oss/tencent`  | ID, Secret, Bucket, Region, AppID (or bucket as `<bucket>-<app_id>`) |
+| Google Cloud Storage | `gcs`                  | `github.com/ncobase/ncore/oss/gcs`      | Bucket, ServiceAccountJSON or Secret                                 |
+| MinIO                | `minio`                | `github.com/ncobase/ncore/oss/minio`    | ID, Secret, Bucket, Endpoint                                         |
+| Qiniu Kodo           | `qiniu`                | `github.com/ncobase/ncore/oss/qiniu`    | ID, Secret, Bucket, Region, Endpoint                                 |
+| Synology NAS         | `synology`             | `github.com/ncobase/ncore/oss/synology` | ID, Secret, Bucket, Endpoint                                         |
+| Local Filesystem     | `filesystem` / `local` | built in                                | Bucket (path, defaults to `./uploads`)                               |
 
 ## Configuration Examples
 
@@ -381,7 +386,11 @@ If you are upgrading from an older version:
 import "github.com/ncobase/ncore/data/storage"
 
 // New Code
-import "github.com/ncobase/ncore/oss"
+import (
+    "github.com/ncobase/ncore/oss"
+
+    _ "github.com/ncobase/ncore/oss/s3"
+)
 ```
 
 ## License

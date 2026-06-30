@@ -2,13 +2,14 @@
 
 [English](README.md) | 简体中文
 
-统一的对象存储抽象层，支持多云存储提供商和本地文件系统。
+统一的对象存储抽象层。基础 `oss` 模块提供接口、注册表、配置、校验和本地文件系统实现；
+云 provider 是按需引入的子模块。
 
 ## 特性
 
 - **多云支持**：AWS S3、Azure Blob、阿里云 OSS、腾讯云 COS、Google Cloud Storage、MinIO、七牛 Kodo、Synology NAS 和本地文件系统
 - **统一接口**：所有存储提供商实现相同的一致性 API
-- **自动注册**：驱动通过 `init()` 函数自动注册
+- **显式注册**：云驱动通过按需空白导入注册
 - **官方 SDK**：使用各云服务商的官方 SDK
 - **本地存储**：内置本地文件系统存储支持
 - **轻量级**：独立模块，依赖最小化
@@ -17,6 +18,7 @@
 
 ```bash
 go get github.com/ncobase/ncore/oss
+go get github.com/ncobase/ncore/oss/minio
 ```
 
 ## 快速开始
@@ -29,6 +31,8 @@ import (
     "strings"
 
     "github.com/ncobase/ncore/oss"
+
+    _ "github.com/ncobase/ncore/oss/minio"
 )
 
 func main() {
@@ -92,19 +96,19 @@ func main() {
 
 ## 支持的提供商
 
-| 提供商               | Provider 值            | 所需配置                                                                  |
-| -------------------- | ---------------------- | ------------------------------------------------------------------------- |
-| AWS S3               | `s3`                   | ID, Secret, Bucket, Region                                                |
-| Cloudflare R2        | `r2`                   | ID, Secret, Bucket, Endpoint（Region 默认 `auto`）                        |
-| Backblaze B2（S3）   | `b2`                   | ID, Secret, Bucket, Endpoint, Region                                      |
-| Azure Blob           | `azure`                | ID (账户名), Secret (密钥), Bucket（Endpoint 可选）                       |
-| 阿里云 OSS           | `aliyun` / `oss`       | ID, Secret, Bucket, Region                                                |
-| 腾讯云 COS           | `tencent` / `cos`      | ID, Secret, Bucket, Region, AppID（或 Bucket 直接传 `<bucket>-<app_id>`） |
-| Google Cloud Storage | `gcs`                  | Bucket, ServiceAccountJSON 或 Secret                                      |
-| MinIO                | `minio`                | ID, Secret, Bucket, Endpoint                                              |
-| 七牛 Kodo            | `qiniu`                | ID, Secret, Bucket, Region, Endpoint                                      |
-| Synology NAS         | `synology`             | ID, Secret, Bucket, Endpoint                                              |
-| 本地文件系统         | `filesystem` / `local` | Bucket (路径，默认 `./uploads`)                                           |
+| 提供商               | Provider 值            | Provider 模块                           | 所需配置                                                                  |
+| -------------------- | ---------------------- | --------------------------------------- | ------------------------------------------------------------------------- |
+| AWS S3               | `s3`                   | `github.com/ncobase/ncore/oss/s3`       | ID, Secret, Bucket, Region                                                |
+| Cloudflare R2        | `r2`                   | `github.com/ncobase/ncore/oss/s3`       | ID, Secret, Bucket, Endpoint（Region 默认 `auto`）                        |
+| Backblaze B2（S3）   | `b2`                   | `github.com/ncobase/ncore/oss/s3`       | ID, Secret, Bucket, Endpoint, Region                                      |
+| Azure Blob           | `azure`                | `github.com/ncobase/ncore/oss/azure`    | ID (账户名), Secret (密钥), Bucket（Endpoint 可选）                       |
+| 阿里云 OSS           | `aliyun` / `oss`       | `github.com/ncobase/ncore/oss/aliyun`   | ID, Secret, Bucket, Region                                                |
+| 腾讯云 COS           | `tencent` / `cos`      | `github.com/ncobase/ncore/oss/tencent`  | ID, Secret, Bucket, Region, AppID（或 Bucket 直接传 `<bucket>-<app_id>`） |
+| Google Cloud Storage | `gcs`                  | `github.com/ncobase/ncore/oss/gcs`      | Bucket, ServiceAccountJSON 或 Secret                                      |
+| MinIO                | `minio`                | `github.com/ncobase/ncore/oss/minio`    | ID, Secret, Bucket, Endpoint                                              |
+| 七牛 Kodo            | `qiniu`                | `github.com/ncobase/ncore/oss/qiniu`    | ID, Secret, Bucket, Region, Endpoint                                      |
+| Synology NAS         | `synology`             | `github.com/ncobase/ncore/oss/synology` | ID, Secret, Bucket, Endpoint                                              |
+| 本地文件系统         | `filesystem` / `local` | 内置                                    | Bucket (路径，默认 `./uploads`)                                           |
 
 ## 配置示例
 
@@ -381,7 +385,11 @@ func init() {
 import "github.com/ncobase/ncore/data/storage"
 
 // 新代码
-import "github.com/ncobase/ncore/oss"
+import (
+    "github.com/ncobase/ncore/oss"
+
+    _ "github.com/ncobase/ncore/oss/s3"
+)
 ```
 
 ## 许可证

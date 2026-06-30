@@ -19,6 +19,8 @@ github.com/ncobase/ncore/
 ├── config         - 配置管理
 ├── consts         - 常量定义
 ├── ctxutil        - Context 工具
+│   ├── email          - 可选邮件发送 helper
+│   └── storage        - 可选对象存储 helper
 ├── data           - 数据层（核心抽象、驱动注册）
 │   ├── postgres       - PostgreSQL 驱动
 │   ├── mysql          - MySQL 驱动
@@ -34,9 +36,19 @@ github.com/ncobase/ncore/
 ├── ecode          - 错误码
 ├── extension      - 扩展和插件系统
 ├── logging        - 日志
+│   ├── tracing        - OpenTelemetry tracing
+│   └── sentry         - Sentry error tracking
 ├── messaging      - 消息队列
 ├── net            - 网络工具
-├── oss            - 对象存储服务
+├── oss            - 对象存储服务基础模块
+│   ├── s3             - AWS S3 兼容 provider
+│   ├── azure          - Azure Blob provider
+│   ├── aliyun         - 阿里云 OSS provider
+│   ├── tencent        - 腾讯云 COS provider
+│   ├── gcs            - Google Cloud Storage provider
+│   ├── minio          - MinIO provider
+│   ├── qiniu          - 七牛 Kodo provider
+│   └── synology       - Synology NAS provider
 ├── security       - 安全相关
 ├── types          - 通用类型
 ├── utils          - 工具函数
@@ -75,25 +87,28 @@ github.com/ncobase/ncore/
 
 ### 对象存储服务（OSS 模块）
 
-从 v0.2.0 开始，对象存储已被提取为**独立模块** `github.com/ncobase/ncore/oss`：
+对象存储由基础模块 `github.com/ncobase/ncore/oss` 和显式 provider 模块组成：
 
-- **独立模块**：与数据层解耦
-- **无需驱动注册**：直接通过 `oss.NewStorage()` 使用
-- **内置 9 个提供商**：
-  - AWS S3
-  - Azure Blob Storage
-  - 阿里云 OSS
-  - 腾讯云 COS
-  - Google Cloud Storage
-  - MinIO
-  - 七牛 Kodo
-  - Synology NAS
-  - 本地文件系统
+- **独立基础模块**：提供统一接口、配置、注册表、校验和本地文件系统存储。
+- **按需云 provider**：云 SDK 依赖位于 provider 子模块中，通过空白导入注册。
+- **Provider 模块**：
+  - `github.com/ncobase/ncore/oss/s3`：AWS S3、Cloudflare R2、Backblaze B2 兼容 API
+  - `github.com/ncobase/ncore/oss/azure`：Azure Blob Storage
+  - `github.com/ncobase/ncore/oss/aliyun`：阿里云 OSS
+  - `github.com/ncobase/ncore/oss/tencent`：腾讯云 COS
+  - `github.com/ncobase/ncore/oss/gcs`：Google Cloud Storage
+  - `github.com/ncobase/ncore/oss/minio`：MinIO
+  - `github.com/ncobase/ncore/oss/qiniu`：七牛 Kodo
+  - `github.com/ncobase/ncore/oss/synology`：Synology NAS
 
 **使用方式：**
 
 ```go
-import "github.com/ncobase/ncore/oss"
+import (
+    "github.com/ncobase/ncore/oss"
+
+    _ "github.com/ncobase/ncore/oss/minio"
+)
 
 storage, err := oss.NewStorage(&oss.Config{
     Provider: "minio",

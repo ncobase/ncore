@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Data routing**: Added `SlaveContext` and explicit read-replica availability errors while preserving primary reads for single-node deployments.
 - **Extension system**: Added `ManageRoutesWithGuard` so host applications can expose public health checks while protecting inventory, metrics, plugin, and system management routes.
 - **Validation and responses**: Added nil-safe validator helpers and response tests for correct content-type and failure writing behavior.
+- **Optional context helpers**: Added `ctxutil/email` and `ctxutil/storage` modules so email sender and object storage helpers can be imported only by applications that use them.
+- **Optional observability modules**: Added `logging/tracing` and `logging/sentry` modules so OpenTelemetry and Sentry dependencies stay out of the base logging package.
+- **Object storage providers**: Added explicit provider modules under `oss/{aliyun,azure,gcs,minio,qiniu,s3,synology,tencent}`.
 
 ### Changed
 
@@ -28,6 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Extension routes**: `ManageRoutes` now mounts public health routes only. Applications must call `ManageRoutesWithGuard` with authentication and authorization middleware to expose management endpoints.
 - **Database read routing**: Configured but unavailable read replicas now return `ErrNoAvailableSlaves` instead of silently falling back to the primary database.
 - **Email provider setup**: Unsupported configured email providers now return explicit errors instead of being treated as disabled email configuration.
+- **Configuration**: Observability configuration now uses top-level `tracing:` and `sentry:` sections. The previous `observes:` aggregate is no longer read.
+- **Object storage**: The base `oss` module now contains only shared interfaces, configuration, registry, validation, and filesystem storage. Cloud providers must be imported explicitly with provider submodules.
+- **Logging**: The base logging module no longer imports tracing, Sentry, or search hook dependencies.
 
 ### Removed
 
@@ -44,6 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
         // Add only what you need
     )
     ```
+- **ctxutil email and storage helpers**: Removed email sender and storage helpers from the base `ctxutil` module. Import `github.com/ncobase/ncore/ctxutil/email` or `github.com/ncobase/ncore/ctxutil/storage` when those helpers are required.
+- **logging/observes package**: Removed the combined observability package. Import `github.com/ncobase/ncore/logging/tracing` and `github.com/ncobase/ncore/logging/sentry` directly.
 
 ## [0.2.3] - 2026-01-18
 

@@ -2,46 +2,13 @@ package ctxutil
 
 import (
 	"context"
-	"errors"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/ncobase/ncore/config"
-	"github.com/ncobase/ncore/messaging/email"
-	"github.com/ncobase/ncore/oss"
 )
-
-type mockSender struct {
-	messageID string
-	err       error
-}
-
-func (m *mockSender) SendTemplateEmail(_ string, _ email.Template) (string, error) {
-	if m.err != nil {
-		return "", m.err
-	}
-	return m.messageID, nil
-}
-
-type mockStorage struct{}
-
-func (m *mockStorage) Get(_ string) (*os.File, error) { return nil, errors.New("not implemented") }
-func (m *mockStorage) GetStream(_ string) (io.ReadCloser, error) {
-	return nil, errors.New("not implemented")
-}
-func (m *mockStorage) Put(_ string, _ io.Reader) (*oss.Object, error) {
-	return nil, errors.New("not implemented")
-}
-func (m *mockStorage) Delete(_ string) error                { return nil }
-func (m *mockStorage) List(_ string) ([]*oss.Object, error) { return nil, nil }
-func (m *mockStorage) GetURL(_ string) (string, error)      { return "", nil }
-func (m *mockStorage) GetEndpoint() string                  { return "mock-endpoint" }
-func (m *mockStorage) Exists(_ string) (bool, error)        { return false, nil }
-func (m *mockStorage) Stat(_ string) (*oss.Object, error)   { return nil, errors.New("not implemented") }
 
 func TestFromGinContextAndConfigHelpers(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -67,78 +34,6 @@ func TestFromGinContextAndConfigHelpers(t *testing.T) {
 	ctxWithConfig := SetConfig(context.Background(), cfg)
 	if got := GetConfig(ctxWithConfig); got != cfg {
 		t.Fatalf("expected GetConfig to return context config, got %#v", got)
-	}
-}
-
-func TestEmailHelpers(t *testing.T) {
-	sender := &mockSender{messageID: "message-1"}
-	ctx := SetEmailSender(context.Background(), sender)
-
-	gotSender, err := GetEmailSender(ctx)
-	if err != nil {
-		t.Fatalf("GetEmailSender returned unexpected error: %v", err)
-	}
-	if gotSender != sender {
-		t.Fatalf("GetEmailSender returned unexpected sender instance: %#v", gotSender)
-	}
-
-	messageID, err := SendEmailWithTemplate(ctx, "a@example.com", email.Template{Subject: "s"})
-	if err != nil {
-		t.Fatalf("SendEmailWithTemplate returned unexpected error: %v", err)
-	}
-	if messageID != "message-1" {
-		t.Fatalf("unexpected message ID: %q", messageID)
-	}
-
-	ctxUnknown := SetConfig(context.Background(), &config.Config{
-		Email: &config.Email{Provider: "unknown-provider"},
-	})
-	if _, err := GetEmailSender(ctxUnknown); err == nil {
-		t.Fatal("expected unknown provider error")
-	}
-
-	ctxSendErr := SetEmailSender(context.Background(), &mockSender{err: errors.New("send failure")})
-	if _, err := SendEmailWithTemplate(ctxSendErr, "a@example.com", email.Template{Subject: "s"}); err == nil {
-		t.Fatal("expected send error")
-	}
-}
-
-func TestStorageHelpers(t *testing.T) {
-	cfg := &config.Config{
-		Storage: &oss.Config{
-			Provider: "filesystem",
-			Bucket:   t.TempDir(),
-		},
-	}
-
-	mock := &mockStorage{}
-	ctx := SetStorage(SetConfig(context.Background(), cfg), mock)
-	gotStorage, gotCfg := GetStorage(ctx)
-	if gotStorage == nil {
-		t.Fatal("expected GetStorage to return mock storage")
-	}
-	if gotStorage != mock {
-		t.Fatalf("expected same storage instance, got %#v", gotStorage)
-	}
-	if gotCfg == nil || gotCfg.Provider != "filesystem" {
-		t.Fatalf("unexpected storage config: %#v", gotCfg)
-	}
-
-	ctxAuto := SetConfig(context.Background(), &config.Config{
-		Storage: &oss.Config{Provider: "filesystem", Bucket: t.TempDir()},
-	})
-	autoStorage, autoCfg := GetStorage(ctxAuto)
-	if autoStorage == nil {
-		t.Fatal("expected auto storage creation to succeed")
-	}
-	if autoCfg == nil || autoCfg.Provider != "filesystem" {
-		t.Fatalf("unexpected auto storage config: %#v", autoCfg)
-	}
-
-	ctxInvalid := SetConfig(context.Background(), &config.Config{Storage: nil})
-	invalidStorage, invalidCfg := GetStorage(ctxInvalid)
-	if invalidStorage != nil || invalidCfg != nil {
-		t.Fatalf("expected invalid storage config to return nil values, got storage=%#v cfg=%#v", invalidStorage, invalidCfg)
 	}
 }
 

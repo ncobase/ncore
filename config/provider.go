@@ -22,6 +22,8 @@ import "github.com/google/wire"
 //   - *Storage: Storage configuration
 //   - *Email: Email configuration
 //   - *OAuth: OAuth configuration
+//   - *Tracing: OpenTelemetry tracing configuration
+//   - *Sentry: Sentry error tracking configuration
 var ProviderSet = wire.NewSet(
 	GetConfig,
 	ProvideLoggerConfig,
@@ -31,6 +33,8 @@ var ProviderSet = wire.NewSet(
 	ProvideStorageConfig,
 	ProvideEmailConfig,
 	ProvideOAuthConfig,
+	ProvideTracingConfig,
+	ProvideSentryConfig,
 )
 
 // ProvideLoggerConfig provides the logger configuration.
@@ -87,4 +91,20 @@ func ProvideOAuthConfig(cfg *Config) *OAuth {
 		return nil
 	}
 	return cfg.OAuth
+}
+
+// ProvideTracingConfig provides OpenTelemetry tracing configuration.
+func ProvideTracingConfig(cfg *Config) *Tracing {
+	if cfg == nil {
+		return nil
+	}
+	return cfg.Tracing
+}
+
+// ProvideSentryConfig provides Sentry error tracking configuration.
+func ProvideSentryConfig(cfg *Config) *Sentry {
+	if cfg == nil {
+		return nil
+	}
+	return cfg.Sentry
 }

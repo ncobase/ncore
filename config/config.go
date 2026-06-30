@@ -31,7 +31,8 @@ type Config struct {
 	Port        int          `yaml:"port" json:"port"`
 	GRPC        *GRPC        `yaml:"grpc" json:"grpc"`
 	Consul      *Consul      `yaml:"consul" json:"consul"`
-	Observes    *Observes    `yaml:"observes" json:"observes"`
+	Tracing     *Tracing     `yaml:"tracing" json:"tracing"`
+	Sentry      *Sentry      `yaml:"sentry" json:"sentry"`
 	Extension   *Extension   `yaml:"extension" json:"extension"`
 	Frontend    *Frontend    `yaml:"frontend" json:"frontend"`
 	Logger      *Logger      `yaml:"logger" json:"logger"`
@@ -142,7 +143,8 @@ func LoadConfig(configPath string) (*Config, error) {
 		Port:        v.GetInt("server.port"),
 		GRPC:        getGRPCConfig(v),
 		Consul:      getConsulConfig(v),
-		Observes:    getObservesConfig(v),
+		Tracing:     getTracingConfig(v),
+		Sentry:      getSentryConfig(v),
 		Extension:   getExtensionConfig(v),
 		Auth:        getAuth(v),
 		Frontend:    getFrontendConfig(v),

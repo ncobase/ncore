@@ -1,11 +1,21 @@
 package config
 
-import (
-	"github.com/ncobase/ncore/oss"
-	"github.com/spf13/viper"
-)
+import "github.com/spf13/viper"
 
-type Storage = oss.Config
+// Storage contains object storage infrastructure settings.
+type Storage struct {
+	Provider           string `json:"provider" yaml:"provider"`
+	ID                 string `json:"id" yaml:"id"`
+	Secret             string `json:"secret" yaml:"secret"`
+	Region             string `json:"region" yaml:"region"`
+	Bucket             string `json:"bucket" yaml:"bucket"`
+	Endpoint           string `json:"endpoint" yaml:"endpoint"`
+	ServiceAccountJSON string `json:"service_account_json,omitempty" yaml:"service_account_json,omitempty"`
+	SharedFolder       string `json:"shared_folder,omitempty" yaml:"shared_folder,omitempty"`
+	OtpCode            string `json:"otp_code,omitempty" yaml:"otp_code,omitempty"`
+	Debug              bool   `json:"debug,omitempty" yaml:"debug,omitempty"`
+	AppID              string `json:"app_id,omitempty" yaml:"app_id,omitempty"`
+}
 
 func getStorageConfig(v *viper.Viper) *Storage {
 	return &Storage{

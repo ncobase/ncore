@@ -1,8 +1,9 @@
-package oss
+package synology
 
 import (
 	"context"
 	"fmt"
+	ncoreoss "github.com/ncobase/ncore/oss"
 	"io"
 	"os"
 	"path/filepath"
@@ -13,31 +14,33 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
-// MinioAdapter implements the Interface for MinIO object storage.
-// Compatible with any S3-compatible storage service.
-type MinioAdapter struct {
+// SynologyAdapter implements the ncoreoss.Interface for Synology NAS S3-compatible storage.
+type SynologyAdapter struct {
 	client *minio.Client
 	bucket string
 }
 
-// NewMinioAdapter creates a new MinIO storage adapter.
-func NewMinioAdapter(endpoint, accessKeyID, secretAccessKey, bucket string, useSSL bool) (*MinioAdapter, error) {
+// NewSynologyAdapter creates a new Synology NAS storage adapter.
+func NewSynologyAdapter(endpoint, accessKey, secretKey, bucket string, useSSL bool) (*SynologyAdapter, error) {
+	endpoint = strings.TrimPrefix(endpoint, "https://")
+	endpoint = strings.TrimPrefix(endpoint, "http://")
+
 	client, err := minio.New(endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
+		Creds:  credentials.NewStaticV4(accessKey, secretKey, ""),
 		Secure: useSSL,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create MinIO client: %w", err)
+		return nil, fmt.Errorf("failed to create Synology client: %w", err)
 	}
 
-	return &MinioAdapter{
+	return &SynologyAdapter{
 		client: client,
 		bucket: bucket,
 	}, nil
 }
 
-// Get downloads a file from MinIO to a temporary local file.
-func (a *MinioAdapter) Get(path string) (*os.File, error) {
+// Get downloads a file from Synology to a temporary local file.
+func (a *SynologyAdapter) Get(path string) (*os.File, error) {
 	reader, err := a.GetStream(path)
 	if err != nil {
 		return nil, err
@@ -45,7 +48,7 @@ func (a *MinioAdapter) Get(path string) (*os.File, error) {
 	defer reader.Close()
 
 	ext := filepath.Ext(path)
-	pattern := fmt.Sprintf("minio-*%s", ext)
+	pattern := fmt.Sprintf("synology-*%s", ext)
 	tmpFile, err := os.CreateTemp("", pattern)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp file: %w", err)
@@ -66,8 +69,8 @@ func (a *MinioAdapter) Get(path string) (*os.File, error) {
 	return tmpFile, nil
 }
 
-// GetStream returns a readable stream for the MinIO object.
-func (a *MinioAdapter) GetStream(path string) (io.ReadCloser, error) {
+// GetStream returns a readable stream for the Synology object.
+func (a *SynologyAdapter) GetStream(path string) (io.ReadCloser, error) {
 	ctx := context.Background()
 	object, err := a.client.GetObject(ctx, a.bucket, path, minio.GetObjectOptions{})
 	if err != nil {
@@ -76,8 +79,8 @@ func (a *MinioAdapter) GetStream(path string) (io.ReadCloser, error) {
 	return object, nil
 }
 
-// Put uploads a file to MinIO from the given reader.
-func (a *MinioAdapter) Put(path string, reader io.Reader) (*Object, error) {
+// Put uploads a file to Synology from the given reader.
+func (a *SynologyAdapter) Put(path string, reader io.Reader) (*ncoreoss.Object, error) {
 	if path == "" {
 		return nil, fmt.Errorf("path cannot be empty")
 	}
@@ -89,7 +92,7 @@ func (a *MinioAdapter) Put(path string, reader io.Reader) (*Object, error) {
 
 	contentType := "application/octet-stream"
 	if ext := filepath.Ext(path); ext != "" {
-		if ct := getContentType(ext); ct != "" {
+		if ct := ncoreoss.ContentType(ext); ct != "" {
 			contentType = ct
 		}
 	}
@@ -102,7 +105,7 @@ func (a *MinioAdapter) Put(path string, reader io.Reader) (*Object, error) {
 	}
 
 	now := time.Now()
-	return &Object{
+	return &ncoreoss.Object{
 		Path:             path,
 		Name:             filepath.Base(path),
 		LastModified:     &now,
@@ -111,8 +114,8 @@ func (a *MinioAdapter) Put(path string, reader io.Reader) (*Object, error) {
 	}, nil
 }
 
-// Delete removes an object from the MinIO bucket.
-func (a *MinioAdapter) Delete(path string) error {
+// Delete removes an object from the Synology bucket.
+func (a *SynologyAdapter) Delete(path string) error {
 	if path == "" {
 		return fmt.Errorf("path cannot be empty")
 	}
@@ -126,7 +129,7 @@ func (a *MinioAdapter) Delete(path string) error {
 }
 
 // List returns all objects under the specified prefix.
-func (a *MinioAdapter) List(path string) ([]*Object, error) {
+func (a *SynologyAdapter) List(path string) ([]*ncoreoss.Object, error) {
 	ctx := context.Background()
 
 	opts := minio.ListObjectsOptions{
@@ -134,13 +137,13 @@ func (a *MinioAdapter) List(path string) ([]*Object, error) {
 		Recursive: true,
 	}
 
-	var objects []*Object
+	var objects []*ncoreoss.Object
 	for object := range a.client.ListObjects(ctx, a.bucket, opts) {
 		if object.Err != nil {
 			return nil, fmt.Errorf("failed to list objects: %w", object.Err)
 		}
 
-		objects = append(objects, &Object{
+		objects = append(objects, &ncoreoss.Object{
 			Path:             object.Key,
 			Name:             filepath.Base(object.Key),
 			LastModified:     &object.LastModified,
@@ -153,7 +156,7 @@ func (a *MinioAdapter) List(path string) ([]*Object, error) {
 }
 
 // GetURL generates a presigned URL valid for 1 hour.
-func (a *MinioAdapter) GetURL(path string) (string, error) {
+func (a *SynologyAdapter) GetURL(path string) (string, error) {
 	if path == "" {
 		return "", fmt.Errorf("path cannot be empty")
 	}
@@ -167,13 +170,13 @@ func (a *MinioAdapter) GetURL(path string) (string, error) {
 	return presignedURL.String(), nil
 }
 
-// GetEndpoint returns the MinIO endpoint URL.
-func (a *MinioAdapter) GetEndpoint() string {
+// GetEndpoint returns the Synology NAS endpoint URL.
+func (a *SynologyAdapter) GetEndpoint() string {
 	return a.client.EndpointURL().String()
 }
 
-// Exists checks if an object exists in the MinIO bucket.
-func (a *MinioAdapter) Exists(path string) (bool, error) {
+// Exists checks if an object exists in the Synology bucket.
+func (a *SynologyAdapter) Exists(path string) (bool, error) {
 	if path == "" {
 		return false, fmt.Errorf("path cannot be empty")
 	}
@@ -191,7 +194,7 @@ func (a *MinioAdapter) Exists(path string) (bool, error) {
 }
 
 // Stat retrieves object metadata without downloading content.
-func (a *MinioAdapter) Stat(path string) (*Object, error) {
+func (a *SynologyAdapter) Stat(path string) (*ncoreoss.Object, error) {
 	if path == "" {
 		return nil, fmt.Errorf("path cannot be empty")
 	}
@@ -202,7 +205,7 @@ func (a *MinioAdapter) Stat(path string) (*Object, error) {
 		return nil, fmt.Errorf("failed to get object metadata: %w", err)
 	}
 
-	return &Object{
+	return &ncoreoss.Object{
 		Path:             path,
 		Name:             filepath.Base(path),
 		LastModified:     &info.LastModified,
@@ -211,29 +214,29 @@ func (a *MinioAdapter) Stat(path string) (*Object, error) {
 	}, nil
 }
 
-// minioDriver implements the Driver interface for MinIO.
-type minioDriver struct{}
+// synologyDriver implements the Driver interface for Synology NAS.
+type synologyDriver struct{}
 
 // Name returns the driver name.
-func (d *minioDriver) Name() string {
-	return "minio"
+func (d *synologyDriver) Name() string {
+	return "synology"
 }
 
-// Connect establishes a connection to MinIO storage.
-func (d *minioDriver) Connect(ctx context.Context, cfg *Config) (Interface, error) {
+// Connect establishes a connection to Synology NAS S3-compatible storage.
+func (d *synologyDriver) Connect(ctx context.Context, cfg *ncoreoss.Config) (ncoreoss.Interface, error) {
 	endpoint := cfg.Endpoint
 	endpoint = strings.TrimPrefix(endpoint, "http://")
 	endpoint = strings.TrimPrefix(endpoint, "https://")
 	useSSL := strings.HasPrefix(cfg.Endpoint, "https://")
 
-	return NewMinioAdapter(endpoint, cfg.ID, cfg.Secret, cfg.Bucket, useSSL)
+	return NewSynologyAdapter(cfg.Endpoint, cfg.ID, cfg.Secret, cfg.Bucket, useSSL)
 }
 
-// Close closes the MinIO connection.
-func (d *minioDriver) Close(conn Interface) error {
+// Close closes the Synology storage connection.
+func (d *synologyDriver) Close(conn ncoreoss.Interface) error {
 	return nil
 }
 
 func init() {
-	RegisterDriver(&minioDriver{})
+	ncoreoss.RegisterDriver(&synologyDriver{})
 }

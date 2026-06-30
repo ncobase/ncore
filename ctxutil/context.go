@@ -21,8 +21,6 @@ const (
 	providerKey     = "provider"
 	profileKey      = "profile"
 	configKey       = "config"
-	emailSender     = "email_sender"
-	storageKey      = "storage"
 	TraceIDKey      = "trace_id"
 	userRolesKey    = "user_roles"
 	userPermissions = "user_permissions"

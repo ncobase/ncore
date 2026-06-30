@@ -1,11 +1,8 @@
-// Package oss provides a unified object storage abstraction layer supporting
-// multiple cloud storage providers including AWS S3, Azure Blob, Aliyun OSS,
-// Tencent COS, Google Cloud Storage, MinIO, Qiniu Kodo, Synology NAS,
-// and local filesystem.
+// Package oss provides a unified object storage abstraction layer.
 //
-// All providers implement a common Interface for consistent operations
-// across different storage backends. Drivers are auto-registered via init()
-// functions, enabling transparent provider selection at runtime.
+// The core package contains only the shared interface, configuration, registry,
+// validation, and local filesystem implementation. Cloud providers live in
+// provider subpackages and must be imported explicitly for registration.
 package oss
 
 import (
@@ -15,6 +12,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"time"
 )
@@ -235,9 +233,28 @@ func RegisterDriver(driver Driver) {
 func GetDriver(name string) (Driver, error) {
 	driver, ok := driverRegistry[name]
 	if !ok {
-		return nil, fmt.Errorf("oss driver %s not found", name)
+		return nil, fmt.Errorf(
+			"oss driver %q not registered\n\n"+
+				"Did you forget to import the provider package?\n"+
+				"Add to your imports:\n"+
+				"    _ \"github.com/ncobase/ncore/oss/%s\"\n\n"+
+				"Available drivers: %v",
+			name,
+			name,
+			RegisteredDrivers(),
+		)
 	}
 	return driver, nil
+}
+
+// RegisteredDrivers returns a snapshot of registered provider names.
+func RegisteredDrivers() []string {
+	names := make([]string, 0, len(driverRegistry))
+	for name := range driverRegistry {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // NewStorage creates a storage instance based on the provided configuration.

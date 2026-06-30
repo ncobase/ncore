@@ -20,6 +20,8 @@ github.com/ncobase/ncore/
 ├── config         - Configuration management
 ├── consts         - Constants definitions
 ├── ctxutil        - Context utilities
+│   ├── email          - Optional email sender helpers
+│   └── storage        - Optional object storage helpers
 ├── data           - Data layer (core abstraction, driver registration, optional Space isolation)
 │   ├── postgres       - PostgreSQL driver
 │   ├── mysql          - MySQL driver
@@ -35,9 +37,19 @@ github.com/ncobase/ncore/
 ├── ecode          - Error codes
 ├── extension      - Extension and plugin system
 ├── logging        - Logging
+│   ├── tracing        - OpenTelemetry tracing
+│   └── sentry         - Sentry error tracking
 ├── messaging      - Message queues
 ├── net            - Network utilities
-├── oss            - Object Storage Service
+├── oss            - Object Storage Service base module
+│   ├── s3             - AWS S3 compatible provider
+│   ├── azure          - Azure Blob provider
+│   ├── aliyun         - Aliyun OSS provider
+│   ├── tencent        - Tencent COS provider
+│   ├── gcs            - Google Cloud Storage provider
+│   ├── minio          - MinIO provider
+│   ├── qiniu          - Qiniu Kodo provider
+│   └── synology       - Synology NAS provider
 ├── security       - Security features
 ├── types          - Common types
 ├── utils          - Utility functions
@@ -77,25 +89,28 @@ drivers are separate, opt-in modules. This design significantly reduces binary s
 
 ### Object Storage Service (OSS Module)
 
-Starting from v0.2.0, object storage has been extracted into a **standalone module** `github.com/ncobase/ncore/oss`:
+Object storage uses the base module `github.com/ncobase/ncore/oss` plus explicit provider modules:
 
-- **Standalone Module**: Independent from the data layer
-- **No Driver Registration**: Direct use via `oss.NewStorage()`
-- **9 Providers Built-in**:
-  - AWS S3
-  - Azure Blob Storage
-  - Aliyun OSS
-  - Tencent Cloud COS
-  - Google Cloud Storage
-  - MinIO
-  - Qiniu Kodo
-  - Synology NAS
-  - Local Filesystem
+- **Standalone Base Module**: Shared interface, configuration, registry, validation, and local filesystem storage.
+- **Opt-In Cloud Providers**: Cloud SDK dependencies live in provider submodules and register through blank imports.
+- **Provider Modules**:
+  - `github.com/ncobase/ncore/oss/s3` for AWS S3, Cloudflare R2, and Backblaze B2 compatible APIs
+  - `github.com/ncobase/ncore/oss/azure` for Azure Blob Storage
+  - `github.com/ncobase/ncore/oss/aliyun` for Aliyun OSS
+  - `github.com/ncobase/ncore/oss/tencent` for Tencent Cloud COS
+  - `github.com/ncobase/ncore/oss/gcs` for Google Cloud Storage
+  - `github.com/ncobase/ncore/oss/minio` for MinIO
+  - `github.com/ncobase/ncore/oss/qiniu` for Qiniu Kodo
+  - `github.com/ncobase/ncore/oss/synology` for Synology NAS
 
 **Usage:**
 
 ```go
-import "github.com/ncobase/ncore/oss"
+import (
+    "github.com/ncobase/ncore/oss"
+
+    _ "github.com/ncobase/ncore/oss/minio"
+)
 
 storage, err := oss.NewStorage(&oss.Config{
     Provider: "minio",

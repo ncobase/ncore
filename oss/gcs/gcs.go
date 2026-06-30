@@ -1,8 +1,9 @@
-package oss
+package gcs
 
 import (
 	"context"
 	"fmt"
+	ncoreoss "github.com/ncobase/ncore/oss"
 	"io"
 	"os"
 	"path/filepath"
@@ -13,7 +14,7 @@ import (
 	"google.golang.org/api/option"
 )
 
-// GCSAdapter implements the Interface for Google Cloud Storage.
+// GCSAdapter implements the ncoreoss.Interface for Google Cloud Storage.
 type GCSAdapter struct {
 	client       *storage.Client
 	bucket       string
@@ -89,7 +90,7 @@ func (a *GCSAdapter) GetStream(path string) (io.ReadCloser, error) {
 }
 
 // Put uploads a file to GCS from the given reader.
-func (a *GCSAdapter) Put(path string, reader io.Reader) (*Object, error) {
+func (a *GCSAdapter) Put(path string, reader io.Reader) (*ncoreoss.Object, error) {
 	if path == "" {
 		return nil, fmt.Errorf("path cannot be empty")
 	}
@@ -104,7 +105,7 @@ func (a *GCSAdapter) Put(path string, reader io.Reader) (*Object, error) {
 
 	contentType := "application/octet-stream"
 	if ext := filepath.Ext(path); ext != "" {
-		if ct := getContentType(ext); ct != "" {
+		if ct := ncoreoss.ContentType(ext); ct != "" {
 			contentType = ct
 		}
 	}
@@ -124,7 +125,7 @@ func (a *GCSAdapter) Put(path string, reader io.Reader) (*Object, error) {
 		return nil, fmt.Errorf("failed to get object attrs: %w", err)
 	}
 
-	return &Object{
+	return &ncoreoss.Object{
 		Path:             path,
 		Name:             filepath.Base(path),
 		LastModified:     &attrs.Updated,
@@ -149,7 +150,7 @@ func (a *GCSAdapter) Delete(path string) error {
 }
 
 // List returns all objects under the specified prefix.
-func (a *GCSAdapter) List(path string) ([]*Object, error) {
+func (a *GCSAdapter) List(path string) ([]*ncoreoss.Object, error) {
 	ctx := context.Background()
 
 	query := &storage.Query{
@@ -158,7 +159,7 @@ func (a *GCSAdapter) List(path string) ([]*Object, error) {
 
 	it := a.bucketHandle.Objects(ctx, query)
 
-	var objects []*Object
+	var objects []*ncoreoss.Object
 	for {
 		attrs, err := it.Next()
 		if err == iterator.Done {
@@ -168,7 +169,7 @@ func (a *GCSAdapter) List(path string) ([]*Object, error) {
 			return nil, fmt.Errorf("failed to iterate objects: %w", err)
 		}
 
-		objects = append(objects, &Object{
+		objects = append(objects, &ncoreoss.Object{
 			Path:             attrs.Name,
 			Name:             filepath.Base(attrs.Name),
 			LastModified:     &attrs.Updated,
@@ -223,7 +224,7 @@ func (a *GCSAdapter) Exists(path string) (bool, error) {
 }
 
 // Stat retrieves object metadata without downloading content.
-func (a *GCSAdapter) Stat(path string) (*Object, error) {
+func (a *GCSAdapter) Stat(path string) (*ncoreoss.Object, error) {
 	if path == "" {
 		return nil, fmt.Errorf("path cannot be empty")
 	}
@@ -234,7 +235,7 @@ func (a *GCSAdapter) Stat(path string) (*Object, error) {
 		return nil, fmt.Errorf("failed to get object metadata: %w", err)
 	}
 
-	return &Object{
+	return &ncoreoss.Object{
 		Path:             path,
 		Name:             filepath.Base(path),
 		LastModified:     &attrs.Updated,
@@ -252,7 +253,7 @@ func (d *gcsDriver) Name() string {
 }
 
 // Connect establishes a connection to Google Cloud Storage.
-func (d *gcsDriver) Connect(ctx context.Context, cfg *Config) (Interface, error) {
+func (d *gcsDriver) Connect(ctx context.Context, cfg *ncoreoss.Config) (ncoreoss.Interface, error) {
 	serviceAccountJSON := cfg.ServiceAccountJSON
 	if serviceAccountJSON == "" && cfg.Secret != "" {
 		serviceAccountJSON = cfg.Secret
@@ -261,7 +262,7 @@ func (d *gcsDriver) Connect(ctx context.Context, cfg *Config) (Interface, error)
 }
 
 // Close closes the GCS connection and releases resources.
-func (d *gcsDriver) Close(conn Interface) error {
+func (d *gcsDriver) Close(conn ncoreoss.Interface) error {
 	if adapter, ok := conn.(*GCSAdapter); ok && adapter.client != nil {
 		return adapter.client.Close()
 	}
@@ -269,5 +270,5 @@ func (d *gcsDriver) Close(conn Interface) error {
 }
 
 func init() {
-	RegisterDriver(&gcsDriver{})
+	ncoreoss.RegisterDriver(&gcsDriver{})
 }

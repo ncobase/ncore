@@ -1,8 +1,9 @@
-package oss
+package azure
 
 import (
 	"context"
 	"fmt"
+	ncoreoss "github.com/ncobase/ncore/oss"
 	"io"
 	"os"
 	"path/filepath"
@@ -16,7 +17,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/sas"
 )
 
-// AzureAdapter implements the Interface for Azure Blob Storage.
+// AzureAdapter implements the ncoreoss.Interface for Azure Blob Storage.
 type AzureAdapter struct {
 	client        *azblob.Client
 	containerName string
@@ -94,7 +95,7 @@ func (a *AzureAdapter) GetStream(path string) (io.ReadCloser, error) {
 }
 
 // Put uploads a file to Azure Blob Storage from the given reader.
-func (a *AzureAdapter) Put(path string, reader io.Reader) (*Object, error) {
+func (a *AzureAdapter) Put(path string, reader io.Reader) (*ncoreoss.Object, error) {
 	if path == "" {
 		return nil, fmt.Errorf("path cannot be empty")
 	}
@@ -106,7 +107,7 @@ func (a *AzureAdapter) Put(path string, reader io.Reader) (*Object, error) {
 
 	contentType := "application/octet-stream"
 	if ext := filepath.Ext(path); ext != "" {
-		if ct := getContentType(ext); ct != "" {
+		if ct := ncoreoss.ContentType(ext); ct != "" {
 			contentType = ct
 		}
 	}
@@ -123,7 +124,7 @@ func (a *AzureAdapter) Put(path string, reader io.Reader) (*Object, error) {
 	}
 
 	now := time.Now()
-	return &Object{
+	return &ncoreoss.Object{
 		Path:             path,
 		Name:             filepath.Base(path),
 		LastModified:     &now,
@@ -150,7 +151,7 @@ func (a *AzureAdapter) Delete(path string) error {
 }
 
 // List returns all blobs under the specified prefix.
-func (a *AzureAdapter) List(path string) ([]*Object, error) {
+func (a *AzureAdapter) List(path string) ([]*ncoreoss.Object, error) {
 	ctx := context.Background()
 
 	containerClient := a.client.ServiceClient().NewContainerClient(a.containerName)
@@ -158,7 +159,7 @@ func (a *AzureAdapter) List(path string) ([]*Object, error) {
 		Prefix: &path,
 	})
 
-	var objects []*Object
+	var objects []*ncoreoss.Object
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
@@ -175,7 +176,7 @@ func (a *AzureAdapter) List(path string) ([]*Object, error) {
 				size = *blob.Properties.ContentLength
 			}
 
-			objects = append(objects, &Object{
+			objects = append(objects, &ncoreoss.Object{
 				Path:             *blob.Name,
 				Name:             filepath.Base(*blob.Name),
 				LastModified:     blob.Properties.LastModified,
@@ -236,7 +237,7 @@ func (a *AzureAdapter) Exists(path string) (bool, error) {
 }
 
 // Stat retrieves blob metadata without downloading content.
-func (a *AzureAdapter) Stat(path string) (*Object, error) {
+func (a *AzureAdapter) Stat(path string) (*ncoreoss.Object, error) {
 	if path == "" {
 		return nil, fmt.Errorf("path cannot be empty")
 	}
@@ -253,7 +254,7 @@ func (a *AzureAdapter) Stat(path string) (*Object, error) {
 		size = *props.ContentLength
 	}
 
-	return &Object{
+	return &ncoreoss.Object{
 		Path:             path,
 		Name:             filepath.Base(path),
 		LastModified:     props.LastModified,
@@ -271,15 +272,15 @@ func (d *azureDriver) Name() string {
 }
 
 // Connect establishes a connection to Azure Blob Storage.
-func (d *azureDriver) Connect(ctx context.Context, cfg *Config) (Interface, error) {
+func (d *azureDriver) Connect(ctx context.Context, cfg *ncoreoss.Config) (ncoreoss.Interface, error) {
 	return NewAzureAdapter(cfg.ID, cfg.Secret, cfg.Bucket, cfg.Endpoint)
 }
 
 // Close closes the Azure storage connection.
-func (d *azureDriver) Close(conn Interface) error {
+func (d *azureDriver) Close(conn ncoreoss.Interface) error {
 	return nil
 }
 
 func init() {
-	RegisterDriver(&azureDriver{})
+	ncoreoss.RegisterDriver(&azureDriver{})
 }

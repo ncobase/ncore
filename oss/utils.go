@@ -1,8 +1,8 @@
 package oss
 
-// getContentType returns the MIME content type for the given file extension.
+// ContentType returns the MIME content type for the given file extension.
 // Returns an empty string if the extension is not recognized.
-func getContentType(ext string) string {
+func ContentType(ext string) string {
 	contentTypes := map[string]string{
 		".html": "text/html",
 		".htm":  "text/html",
@@ -37,4 +37,8 @@ func getContentType(ext string) string {
 		".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 	}
 	return contentTypes[ext]
+}
+
+func getContentType(ext string) string {
+	return ContentType(ext)
 }

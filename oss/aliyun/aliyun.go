@@ -1,8 +1,9 @@
-package oss
+package aliyun
 
 import (
 	"context"
 	"fmt"
+	ncoreoss "github.com/ncobase/ncore/oss"
 	"io"
 	"os"
 	"path/filepath"
@@ -12,7 +13,7 @@ import (
 	"github.com/aliyun/alibabacloud-oss-go-sdk-v2/oss/credentials"
 )
 
-// AliyunAdapter implements the Interface for Aliyun OSS storage.
+// AliyunAdapter implements the ncoreoss.Interface for Aliyun OSS storage.
 type AliyunAdapter struct {
 	client *oss.Client
 	bucket string
@@ -86,7 +87,7 @@ func (a *AliyunAdapter) GetStream(path string) (io.ReadCloser, error) {
 }
 
 // Put uploads a file to Aliyun OSS from the given reader.
-func (a *AliyunAdapter) Put(path string, reader io.Reader) (*Object, error) {
+func (a *AliyunAdapter) Put(path string, reader io.Reader) (*ncoreoss.Object, error) {
 	if path == "" {
 		return nil, fmt.Errorf("path cannot be empty")
 	}
@@ -98,7 +99,7 @@ func (a *AliyunAdapter) Put(path string, reader io.Reader) (*Object, error) {
 
 	contentType := "application/octet-stream"
 	if ext := filepath.Ext(path); ext != "" {
-		if ct := getContentType(ext); ct != "" {
+		if ct := ncoreoss.ContentType(ext); ct != "" {
 			contentType = ct
 		}
 	}
@@ -116,7 +117,7 @@ func (a *AliyunAdapter) Put(path string, reader io.Reader) (*Object, error) {
 	}
 
 	now := time.Now()
-	return &Object{
+	return &ncoreoss.Object{
 		Path:             path,
 		Name:             filepath.Base(path),
 		LastModified:     &now,
@@ -145,7 +146,7 @@ func (a *AliyunAdapter) Delete(path string) error {
 }
 
 // List returns all objects under the specified prefix.
-func (a *AliyunAdapter) List(path string) ([]*Object, error) {
+func (a *AliyunAdapter) List(path string) ([]*ncoreoss.Object, error) {
 	ctx := context.Background()
 
 	paginator := a.client.NewListObjectsV2Paginator(&oss.ListObjectsV2Request{
@@ -153,7 +154,7 @@ func (a *AliyunAdapter) List(path string) ([]*Object, error) {
 		Prefix: oss.Ptr(path),
 	})
 
-	var objects []*Object
+	var objects []*ncoreoss.Object
 	for paginator.HasNext() {
 		page, err := paginator.NextPage(ctx)
 		if err != nil {
@@ -162,7 +163,7 @@ func (a *AliyunAdapter) List(path string) ([]*Object, error) {
 
 		for _, obj := range page.Contents {
 			lastMod := oss.ToTime(obj.LastModified)
-			objects = append(objects, &Object{
+			objects = append(objects, &ncoreoss.Object{
 				Path:             oss.ToString(obj.Key),
 				Name:             filepath.Base(oss.ToString(obj.Key)),
 				LastModified:     &lastMod,
@@ -217,7 +218,7 @@ func (a *AliyunAdapter) Exists(path string) (bool, error) {
 }
 
 // Stat retrieves object metadata without downloading content.
-func (a *AliyunAdapter) Stat(path string) (*Object, error) {
+func (a *AliyunAdapter) Stat(path string) (*ncoreoss.Object, error) {
 	if path == "" {
 		return nil, fmt.Errorf("path cannot be empty")
 	}
@@ -232,7 +233,7 @@ func (a *AliyunAdapter) Stat(path string) (*Object, error) {
 	}
 
 	lastMod := oss.ToTime(resp.LastModified)
-	return &Object{
+	return &ncoreoss.Object{
 		Path:             path,
 		Name:             filepath.Base(path),
 		LastModified:     &lastMod,
@@ -250,15 +251,15 @@ func (d *aliyunDriver) Name() string {
 }
 
 // Connect establishes a connection to Aliyun OSS.
-func (d *aliyunDriver) Connect(ctx context.Context, cfg *Config) (Interface, error) {
+func (d *aliyunDriver) Connect(ctx context.Context, cfg *ncoreoss.Config) (ncoreoss.Interface, error) {
 	return NewAliyunAdapter(cfg.ID, cfg.Secret, cfg.Region, cfg.Bucket, cfg.Endpoint)
 }
 
 // Close closes the Aliyun OSS connection.
-func (d *aliyunDriver) Close(conn Interface) error {
+func (d *aliyunDriver) Close(conn ncoreoss.Interface) error {
 	return nil
 }
 
 func init() {
-	RegisterDriver(&aliyunDriver{})
+	ncoreoss.RegisterDriver(&aliyunDriver{})
 }

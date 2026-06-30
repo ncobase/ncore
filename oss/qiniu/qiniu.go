@@ -1,8 +1,9 @@
-package oss
+package qiniu
 
 import (
 	"context"
 	"fmt"
+	ncoreoss "github.com/ncobase/ncore/oss"
 	"io"
 	"net/http"
 	"os"
@@ -14,7 +15,7 @@ import (
 	"github.com/qiniu/go-sdk/v7/storage"
 )
 
-// QiniuAdapter implements the Interface for Qiniu Kodo storage.
+// QiniuAdapter implements the ncoreoss.Interface for Qiniu Kodo storage.
 type QiniuAdapter struct {
 	mac          *auth.Credentials
 	bucket       string
@@ -108,7 +109,7 @@ func (a *QiniuAdapter) GetStream(path string) (io.ReadCloser, error) {
 }
 
 // Put uploads a file to Qiniu from the given reader.
-func (a *QiniuAdapter) Put(path string, reader io.Reader) (*Object, error) {
+func (a *QiniuAdapter) Put(path string, reader io.Reader) (*ncoreoss.Object, error) {
 	if path == "" {
 		return nil, fmt.Errorf("path cannot be empty")
 	}
@@ -126,7 +127,7 @@ func (a *QiniuAdapter) Put(path string, reader io.Reader) (*Object, error) {
 
 	putExtra := storage.PutExtra{}
 	if ext := filepath.Ext(path); ext != "" {
-		if ct := getContentType(ext); ct != "" {
+		if ct := ncoreoss.ContentType(ext); ct != "" {
 			putExtra.MimeType = ct
 		}
 	}
@@ -137,7 +138,7 @@ func (a *QiniuAdapter) Put(path string, reader io.Reader) (*Object, error) {
 	}
 
 	now := time.Now()
-	return &Object{
+	return &ncoreoss.Object{
 		Path:             path,
 		Name:             filepath.Base(path),
 		LastModified:     &now,
@@ -161,11 +162,11 @@ func (a *QiniuAdapter) Delete(path string) error {
 }
 
 // List returns all objects under the specified prefix.
-func (a *QiniuAdapter) List(path string) ([]*Object, error) {
+func (a *QiniuAdapter) List(path string) ([]*ncoreoss.Object, error) {
 	limit := 1000
 	delimiter := ""
 	marker := ""
-	var objects []*Object
+	var objects []*ncoreoss.Object
 
 	for {
 		entries, _, nextMarker, hasMore, err := a.bucketMgr.ListFiles(a.bucket, path, delimiter, marker, limit)
@@ -175,7 +176,7 @@ func (a *QiniuAdapter) List(path string) ([]*Object, error) {
 
 		for _, entry := range entries {
 			putTime := time.Unix(0, entry.PutTime*100)
-			objects = append(objects, &Object{
+			objects = append(objects, &ncoreoss.Object{
 				Path:             entry.Key,
 				Name:             filepath.Base(entry.Key),
 				LastModified:     &putTime,
@@ -238,7 +239,7 @@ func isQiniuNotFound(err error) bool {
 }
 
 // Stat retrieves object metadata without downloading content.
-func (a *QiniuAdapter) Stat(path string) (*Object, error) {
+func (a *QiniuAdapter) Stat(path string) (*ncoreoss.Object, error) {
 	if path == "" {
 		return nil, fmt.Errorf("path cannot be empty")
 	}
@@ -249,7 +250,7 @@ func (a *QiniuAdapter) Stat(path string) (*Object, error) {
 	}
 
 	putTime := time.Unix(0, info.PutTime*100)
-	return &Object{
+	return &ncoreoss.Object{
 		Path:             path,
 		Name:             filepath.Base(path),
 		LastModified:     &putTime,
@@ -267,7 +268,7 @@ func (d *qiniuDriver) Name() string {
 }
 
 // Connect establishes a connection to Qiniu Kodo.
-func (d *qiniuDriver) Connect(ctx context.Context, cfg *Config) (Interface, error) {
+func (d *qiniuDriver) Connect(ctx context.Context, cfg *ncoreoss.Config) (ncoreoss.Interface, error) {
 	domain := cfg.Endpoint
 	if domain == "" {
 		domain = fmt.Sprintf("https://%s.qiniudn.com", cfg.Bucket)
@@ -276,10 +277,10 @@ func (d *qiniuDriver) Connect(ctx context.Context, cfg *Config) (Interface, erro
 }
 
 // Close closes the Qiniu storage connection.
-func (d *qiniuDriver) Close(conn Interface) error {
+func (d *qiniuDriver) Close(conn ncoreoss.Interface) error {
 	return nil
 }
 
 func init() {
-	RegisterDriver(&qiniuDriver{})
+	ncoreoss.RegisterDriver(&qiniuDriver{})
 }

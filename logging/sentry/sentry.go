@@ -1,6 +1,8 @@
-package observes
+package sentry
 
 import (
+	"fmt"
+
 	"github.com/getsentry/sentry-go"
 )
 
@@ -9,24 +11,28 @@ type SentryOptions struct {
 	Name        string
 	Release     string
 	Environment string
+	SampleRate  float64
 }
 
-// NewSentry is the register sentry
+// NewSentry initializes the Sentry SDK.
 func NewSentry(opt *SentryOptions) error {
-	// if not exist sentry config, skip initialization
 	if opt == nil {
 		return nil
 	}
+	if opt.SampleRate < 0 || opt.SampleRate > 1 {
+		return fmt.Errorf("sentry sample rate must be between 0 and 1")
+	}
 
-	return sentry.Init(sentry.ClientOptions{
+	clientOptions := sentry.ClientOptions{
 		Dsn:              opt.Dsn,
 		AttachStacktrace: true,
-		// Set TracesSampleRate to 1.0 to capture 100%
-		// of transactions for performance monitoring.
-		// We recommend adjusting this value in production,
-		TracesSampleRate: 1.0,
 		ServerName:       opt.Name,
 		Release:          opt.Release,
 		Environment:      opt.Environment,
-	})
+	}
+	if opt.SampleRate > 0 {
+		clientOptions.SampleRate = opt.SampleRate
+	}
+
+	return sentry.Init(clientOptions)
 }

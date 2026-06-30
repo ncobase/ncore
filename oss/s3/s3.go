@@ -1,9 +1,10 @@
-package oss
+package s3
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	ncoreoss "github.com/ncobase/ncore/oss"
 	"io"
 	"os"
 	"path/filepath"
@@ -16,7 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
-// S3Adapter implements the Interface for AWS S3 storage.
+// S3Adapter implements the ncoreoss.Interface for AWS S3 storage.
 // Supports both AWS S3 and S3-compatible services with custom endpoints.
 type S3Adapter struct {
 	client   *s3.Client
@@ -120,7 +121,7 @@ func (a *S3Adapter) GetStream(path string) (io.ReadCloser, error) {
 }
 
 // Put uploads a file to S3 from the given reader.
-func (a *S3Adapter) Put(path string, reader io.Reader) (*Object, error) {
+func (a *S3Adapter) Put(path string, reader io.Reader) (*ncoreoss.Object, error) {
 	if path == "" {
 		return nil, fmt.Errorf("path cannot be empty")
 	}
@@ -132,7 +133,7 @@ func (a *S3Adapter) Put(path string, reader io.Reader) (*Object, error) {
 
 	contentType := "application/octet-stream"
 	if ext := filepath.Ext(path); ext != "" {
-		if ct := getContentType(ext); ct != "" {
+		if ct := ncoreoss.ContentType(ext); ct != "" {
 			contentType = ct
 		}
 	}
@@ -148,7 +149,7 @@ func (a *S3Adapter) Put(path string, reader io.Reader) (*Object, error) {
 	}
 
 	now := time.Now()
-	return &Object{
+	return &ncoreoss.Object{
 		Path:             path,
 		Name:             filepath.Base(path),
 		LastModified:     &now,
@@ -177,7 +178,7 @@ func (a *S3Adapter) Delete(path string) error {
 }
 
 // List returns all objects under the specified prefix.
-func (a *S3Adapter) List(path string) ([]*Object, error) {
+func (a *S3Adapter) List(path string) ([]*ncoreoss.Object, error) {
 	ctx := context.Background()
 
 	paginator := s3.NewListObjectsV2Paginator(a.client, &s3.ListObjectsV2Input{
@@ -185,7 +186,7 @@ func (a *S3Adapter) List(path string) ([]*Object, error) {
 		Prefix: aws.String(path),
 	})
 
-	var objects []*Object
+	var objects []*ncoreoss.Object
 	for paginator.HasMorePages() {
 		page, err := paginator.NextPage(ctx)
 		if err != nil {
@@ -193,7 +194,7 @@ func (a *S3Adapter) List(path string) ([]*Object, error) {
 		}
 
 		for _, obj := range page.Contents {
-			objects = append(objects, &Object{
+			objects = append(objects, &ncoreoss.Object{
 				Path:             aws.ToString(obj.Key),
 				Name:             filepath.Base(aws.ToString(obj.Key)),
 				LastModified:     obj.LastModified,
@@ -262,7 +263,7 @@ func (a *S3Adapter) Exists(path string) (bool, error) {
 }
 
 // Stat retrieves object metadata without downloading content.
-func (a *S3Adapter) Stat(path string) (*Object, error) {
+func (a *S3Adapter) Stat(path string) (*ncoreoss.Object, error) {
 	if path == "" {
 		return nil, fmt.Errorf("path cannot be empty")
 	}
@@ -276,7 +277,7 @@ func (a *S3Adapter) Stat(path string) (*Object, error) {
 		return nil, fmt.Errorf("failed to get object metadata: %w", err)
 	}
 
-	return &Object{
+	return &ncoreoss.Object{
 		Path:             path,
 		Name:             filepath.Base(path),
 		LastModified:     resp.LastModified,
@@ -294,7 +295,7 @@ func (d *s3Driver) Name() string {
 }
 
 // Connect establishes a connection to AWS S3.
-func (d *s3Driver) Connect(ctx context.Context, cfg *Config) (Interface, error) {
+func (d *s3Driver) Connect(ctx context.Context, cfg *ncoreoss.Config) (ncoreoss.Interface, error) {
 	endpoint := ""
 	if cfg.Endpoint != "" {
 		endpoint = cfg.Endpoint
@@ -303,10 +304,10 @@ func (d *s3Driver) Connect(ctx context.Context, cfg *Config) (Interface, error) 
 }
 
 // Close closes the S3 connection.
-func (d *s3Driver) Close(conn Interface) error {
+func (d *s3Driver) Close(conn ncoreoss.Interface) error {
 	return nil
 }
 
 func init() {
-	RegisterDriver(&s3Driver{})
+	ncoreoss.RegisterDriver(&s3Driver{})
 }
