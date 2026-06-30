@@ -6,10 +6,10 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gosimple/slug v1.15.0
 	github.com/matoous/go-nanoid/v2 v2.1.0
-	github.com/ncobase/ncore/config v0.2.2
-	github.com/ncobase/ncore/consts v0.2.2
-	github.com/ncobase/ncore/types v0.2.2
-	github.com/ncobase/ncore/validation v0.2.2
+	github.com/ncobase/ncore/config v0.2.5
+	github.com/ncobase/ncore/consts v0.2.5
+	github.com/ncobase/ncore/types v0.2.5
+	github.com/ncobase/ncore/validation v0.2.5
 	google.golang.org/protobuf v1.36.11
 )
 
@@ -30,11 +30,11 @@ require (
 	github.com/mailgun/mailgun-go/v4 v4.23.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/ncobase/ncore/data v0.2.2 // indirect
-	github.com/ncobase/ncore/extension v0.2.2 // indirect
-	github.com/ncobase/ncore/logging v0.2.2 // indirect
-	github.com/ncobase/ncore/messaging v0.2.2 // indirect
-	github.com/ncobase/ncore/security v0.2.2 // indirect
+	github.com/ncobase/ncore/data v0.2.5 // indirect
+	github.com/ncobase/ncore/extension v0.2.5 // indirect
+	github.com/ncobase/ncore/logging v0.2.5 // indirect
+	github.com/ncobase/ncore/messaging v0.2.5 // indirect
+	github.com/ncobase/ncore/security v0.2.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/sagikazarmark/locafero v0.12.0 // indirect
 	github.com/sendgrid/rest v2.6.9+incompatible // indirect
@@ -46,8 +46,7 @@ require (
 	github.com/spf13/viper v1.21.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/crypto v0.48.0 // indirect
-	golang.org/x/net v0.50.0 // indirect
-	golang.org/x/sys v0.41.0 // indirect
-	golang.org/x/text v0.34.0 // indirect
+	golang.org/x/crypto v0.53.0 // indirect
+	golang.org/x/sys v0.46.0 // indirect
+	golang.org/x/text v0.38.0 // indirect
 )

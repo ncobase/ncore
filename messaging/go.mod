@@ -5,7 +5,7 @@ go 1.25.3
 require (
 	github.com/google/wire v0.7.0
 	github.com/mailgun/mailgun-go/v4 v4.23.0
-	github.com/ncobase/ncore/concurrency v0.2.2
+	github.com/ncobase/ncore/concurrency v0.2.5
 	github.com/sendgrid/sendgrid-go v3.16.1+incompatible
 )
 
@@ -19,5 +19,5 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/sendgrid/rest v2.6.9+incompatible // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
-	golang.org/x/net v0.50.0 // indirect
+	golang.org/x/net v0.56.0 // indirect
 )

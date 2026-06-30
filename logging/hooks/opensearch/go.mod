@@ -3,7 +3,7 @@ module github.com/ncobase/ncore/logging/hooks/opensearch
 go 1.25.3
 
 require (
-	github.com/ncobase/ncore/logging v0.2.2
+	github.com/ncobase/ncore/logging v0.2.5
 	github.com/opensearch-project/opensearch-go/v4 v4.6.0
 	github.com/sirupsen/logrus v1.9.4
 )
@@ -35,14 +35,14 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/ncobase/ncore/config v0.2.2 // indirect
-	github.com/ncobase/ncore/consts v0.2.2 // indirect
-	github.com/ncobase/ncore/ctxutil v0.2.2 // indirect
-	github.com/ncobase/ncore/data v0.2.2 // indirect
-	github.com/ncobase/ncore/extension v0.2.2 // indirect
-	github.com/ncobase/ncore/messaging v0.2.2 // indirect
-	github.com/ncobase/ncore/security v0.2.2 // indirect
-	github.com/ncobase/ncore/utils v0.2.2 // indirect
+	github.com/ncobase/ncore/config v0.2.5 // indirect
+	github.com/ncobase/ncore/consts v0.2.5 // indirect
+	github.com/ncobase/ncore/ctxutil v0.2.5 // indirect
+	github.com/ncobase/ncore/data v0.2.5 // indirect
+	github.com/ncobase/ncore/extension v0.2.5 // indirect
+	github.com/ncobase/ncore/messaging v0.2.5 // indirect
+	github.com/ncobase/ncore/security v0.2.5 // indirect
+	github.com/ncobase/ncore/utils v0.2.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.59.0 // indirect

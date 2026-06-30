@@ -4,6 +4,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -80,9 +81,9 @@ func NewServer(cfg *config.Config, log *logger.Logger) (*Server, error) {
 	searchClient := data.NewSearchClient(dataLayer)
 	mgr.RegisterCrossService("app.Search", searchClient)
 
-	// Initialize OSS
-	if cfg.Storage != nil {
-		ossClient, err := oss.NewStorage(cfg.Storage)
+	// Initialize OSS when storage infrastructure is configured.
+	if storageConfig := toOSSConfig(cfg.Storage); storageConfig != nil {
+		ossClient, err := oss.NewStorage(storageConfig)
 		if err != nil {
 			log.Warn(context.Background(), "Failed to initialize OSS", "error", err)
 		} else {
@@ -182,4 +183,24 @@ func (s *Server) handleRealtimeStats(c *gin.Context) {
 
 	stats := rt.Hub().GetStats()
 	resp.Success(c.Writer, stats)
+}
+
+func toOSSConfig(cfg *config.Storage) *oss.Config {
+	if cfg == nil || strings.TrimSpace(cfg.Provider) == "" {
+		return nil
+	}
+
+	return &oss.Config{
+		Provider:           cfg.Provider,
+		ID:                 cfg.ID,
+		Secret:             cfg.Secret,
+		Region:             cfg.Region,
+		Bucket:             cfg.Bucket,
+		Endpoint:           cfg.Endpoint,
+		ServiceAccountJSON: cfg.ServiceAccountJSON,
+		SharedFolder:       cfg.SharedFolder,
+		OtpCode:            cfg.OtpCode,
+		Debug:              cfg.Debug,
+		AppID:              cfg.AppID,
+	}
 }

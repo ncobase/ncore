@@ -5,7 +5,7 @@ go 1.25.3
 require (
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/google/wire v0.7.0
-	github.com/ncobase/ncore/data v0.2.4
+	github.com/ncobase/ncore/data v0.2.5
 	github.com/spf13/viper v1.21.0
 )
 

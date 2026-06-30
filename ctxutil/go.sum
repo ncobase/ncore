@@ -58,12 +58,6 @@ github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd h1:TRLaZ9cD/w
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
 github.com/modern-go/reflect2 v1.0.2 h1:xBagoLtFs94CBntxluKeaWgTMpvLxC4ur3nMaC9Gz0M=
 github.com/modern-go/reflect2 v1.0.2/go.mod h1:yWuevngMOJpCy52FWWMvUC8ws7m/LJsjYzDa0/r8luk=
-github.com/ncobase/ncore/consts v0.2.2 h1:pMGwG4tu3viO1oVJCEYs3I5uZ4nwB/ucCaPQSxH5j3M=
-github.com/ncobase/ncore/consts v0.2.2/go.mod h1:UkfPyuRW7eiqJz4zQ8xYsJe7fiRofJfaecCnqumlV8c=
-github.com/ncobase/ncore/data v0.2.4 h1:3PYR331UV4mPu8wHSNJlnNhD4mfNxCaDKvgGcw4re3s=
-github.com/ncobase/ncore/data v0.2.4/go.mod h1:+wEGU+Bn1RT3kOCEol7BD/5OGGcJc6BEe8F7pPmeids=
-github.com/ncobase/ncore/utils v0.2.2 h1:HkfonUx49lmrvKjuDUFFkfWWjIhaTeVyGnTbwy7WZy8=
-github.com/ncobase/ncore/utils v0.2.2/go.mod h1:/Z8vzGRbI06pfGCgGrx5HAHMMv1tkNwaOqh79nZDGj8=
 github.com/pelletier/go-toml/v2 v2.2.4 h1:mye9XuhQ6gvn5h28+VilKrrPoQVanw5PMw/TB0t5Ec4=
 github.com/pelletier/go-toml/v2 v2.2.4/go.mod h1:2gIqNv+qfxSVS7cM2xJQKtLSTLUE9V8t9Stt+h56mCY=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
