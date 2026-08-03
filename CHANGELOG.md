@@ -53,6 +53,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ctxutil email and storage helpers**: Removed email sender and storage helpers from the base `ctxutil` module. Import `github.com/ncobase/ncore/ctxutil/email` or `github.com/ncobase/ncore/ctxutil/storage` when those helpers are required.
 - **logging/observes package**: Removed the combined observability package. Import `github.com/ncobase/ncore/logging/tracing` and `github.com/ncobase/ncore/logging/sentry` directly.
 
+## [0.2.6] - 2026-08-03
+
+### Changed
+
+- Updated ncore module requirements to the coordinated `v0.2.6` release.
+- Hardened dependency baselines for gRPC, OpenTelemetry, QUIC, AWS S3, go-jose, and `golang.org/x` packages.
+- Upgraded MinIO providers to the module-path-safe `minio-go/v7` release line using `gopkg.in/ini.v1`.
+- Replaced unbounded dependency upgrades with direct, patch-level upgrades and module tidying by default.
+
+### Fixed
+
+- Prevented dependency automation from selecting incompatible releases whose declared module path differs from the requested path.
+- Added a clean-worktree release guard before module tags are created.
+
 ## [0.2.3] - 2026-01-18
 
 ### Added

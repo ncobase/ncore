@@ -35,7 +35,7 @@ show_help() {
     echo "  --from VERSION   Base version for --bump (default: auto-detect latest)"
     echo "  --remove         Remove tags instead of creating them"
     echo "  --module, -m     Target a single module (e.g., oss, data, logging)"
-    echo "  --push           Automatically push tags to remote"
+    echo "  --push           Push tags to remote after local creation"
     echo "  --help, -h       Show this help message"
     echo ""
     echo "Examples:"
@@ -215,6 +215,11 @@ if [ "$REMOVE" -eq 1 ]; then
     fi
 else
     # Tag creation mode
+    if [ -n "$(git status --porcelain)" ]; then
+        echo -e "${RED}Error: working tree must be clean before creating release tags.${NC}"
+        exit 1
+    fi
+
     if [ -n "$BUMP" ] && [ -z "$VERSION" ]; then
         # Bump mode with auto-detection
         echo -e "${BLUE}Auto-bumping version (${BUMP_TYPE})${NC}"

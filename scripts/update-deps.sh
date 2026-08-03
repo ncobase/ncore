@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Update dependencies for Go modules
+# Update direct dependencies for Go modules
 # Usage:
 #   All modules:    ./scripts/update-deps.sh
 #   Single module:  ./scripts/update-deps.sh --module oss
-#   With options:   ./scripts/update-deps.sh --clean --test
+#   With options:   ./scripts/update-deps.sh --no-tidy --test
 
 set -e
 
@@ -16,18 +16,19 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 MODULE=""
-CLEAN=""
+TIDY="true"
 RUN_TESTS=""
 
 # Show help
 show_help() {
     echo "Usage: $0 [options] [--module <name>]"
     echo ""
-    echo "Update dependencies for Go modules."
+    echo "Update direct dependencies for Go modules using bounded patch upgrades."
     echo ""
     echo "Options:"
     echo "  --module, -m     Target a single module (e.g., oss, data, logging)"
-    echo "  --clean          Remove unused dependencies (go mod tidy)"
+    echo "  --clean          Run go mod tidy (compatibility alias; enabled by default)"
+    echo "  --no-tidy        Skip go mod tidy"
     echo "  --test, -t       Run tests after updating"
     echo "  --help, -h       Show this help message"
     echo ""
@@ -50,7 +51,11 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --clean)
-            CLEAN="true"
+            TIDY="true"
+            shift
+            ;;
+        --no-tidy)
+            TIDY=""
             shift
             ;;
         --test|-t)
@@ -93,7 +98,7 @@ fi
 
 echo -e "${BLUE}Updating dependencies...${NC}"
 [ -n "$MODULE" ] && echo -e "${BLUE}Module: ${MODULE}${NC}"
-[ -n "$CLEAN" ] && echo -e "${BLUE}Clean mode: enabled${NC}"
+[ -n "$TIDY" ] && echo -e "${BLUE}Tidy mode: enabled${NC}"
 [ -n "$RUN_TESTS" ] && echo -e "${BLUE}Test mode: enabled${NC}"
 echo "================================"
 
@@ -107,25 +112,37 @@ for module in "${MODULES[@]}"; do
 
     pushd "$module" > /dev/null
 
-    # Upgrade all dependencies
-    echo "Running: go get -u ./..."
-    if output=$(go get -u ./... 2>&1); then
-        # Success - check if there were any meaningful messages
-        if [ -n "$output" ]; then
-            echo "$output" | grep -v "^$"
+    # Upgrade only direct dependencies with patch-level bounds. Updating every
+    # transitive module with `go get -u ./...` can select incompatible module
+    # paths such as github.com/armon/go-metrics and github.com/go-ini/ini.
+    DIRECT_DEPS=()
+    while IFS= read -r dependency; do
+        if [ -n "$dependency" ] && [[ "$dependency" != github.com/ncobase/ncore/* ]]; then
+            DIRECT_DEPS+=("$dependency")
         fi
-        echo -e "${GREEN}[UPDATE] Dependencies updated${NC}"
+    done < <(go list -m -f '{{if and (not .Main) (not .Indirect)}}{{.Path}}{{end}}' all)
+
+    if [ ${#DIRECT_DEPS[@]} -gt 0 ]; then
+        echo "Running: go get -u=patch <direct dependencies>"
+        if output=$(go get -u=patch "${DIRECT_DEPS[@]}" 2>&1); then
+            if [ -n "$output" ]; then
+                echo "$output"
+            fi
+            echo -e "${GREEN}[UPDATE] Direct dependencies updated${NC}"
+        else
+            echo "$output"
+            echo -e "${RED}[ERROR] Failed to update direct dependencies in ${module}${NC}"
+            echo -e "${YELLOW}Review renamed module paths manually; do not replace a module with a different declared path.${NC}"
+            FAILED_MODULES+=("$module")
+            popd > /dev/null
+            continue
+        fi
     else
-        # Failed - show error
-        echo "$output"
-        echo -e "${RED}[ERROR] Failed to update dependencies${NC}"
-        FAILED_MODULES+=("$module")
-        popd > /dev/null
-        continue
+        echo -e "${YELLOW}[UPDATE] No external direct dependencies require an upgrade${NC}"
     fi
 
     # Clean up if requested
-    if [ -n "$CLEAN" ]; then
+    if [ -n "$TIDY" ]; then
         echo "Running: go mod tidy"
         if output=$(go mod tidy 2>&1); then
             if [ -n "$output" ]; then
@@ -134,7 +151,7 @@ for module in "${MODULES[@]}"; do
             echo -e "${GREEN}[CLEAN] Dependencies tidied${NC}"
         else
             echo "$output"
-            echo -e "${RED}[ERROR] Failed to tidy dependencies${NC}"
+            echo -e "${RED}[ERROR] Failed to tidy dependencies in ${module}${NC}"
             FAILED_MODULES+=("$module")
             popd > /dev/null
             continue

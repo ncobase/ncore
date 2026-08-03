@@ -5,7 +5,7 @@ go 1.25.3
 replace github.com/ncobase/ncore/oss => ../
 
 require (
-	github.com/ncobase/ncore/oss v0.2.5
+	github.com/ncobase/ncore/oss v0.2.6
 	github.com/tencentyun/cos-go-sdk-v5 v0.7.72
 )
 
