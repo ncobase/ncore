@@ -3,7 +3,7 @@ module github.com/ncobase/ncore/data/redis
 go 1.25.3
 
 require (
-	github.com/ncobase/ncore/data v0.0.0-00010101000000-000000000000
+	github.com/ncobase/ncore/data v0.2.6
 	github.com/redis/go-redis/v9 v9.17.3
 )
 

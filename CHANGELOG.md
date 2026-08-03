@@ -65,6 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Prevented dependency automation from selecting incompatible releases whose declared module path differs from the requested path.
+- Corrected data driver modules to require the released `data v0.2.6` module instead of a placeholder pseudo-version.
 - Added a clean-worktree release guard before module tags are created.
 
 ## [0.2.3] - 2026-01-18

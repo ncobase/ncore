@@ -4,7 +4,7 @@ go 1.25.3
 
 require (
 	github.com/jackc/pgx/v5 v5.8.0
-	github.com/ncobase/ncore/data v0.0.0-00010101000000-000000000000
+	github.com/ncobase/ncore/data v0.2.6
 )
 
 require (
