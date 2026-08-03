@@ -53,6 +53,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ctxutil email and storage helpers**: Removed email sender and storage helpers from the base `ctxutil` module. Import `github.com/ncobase/ncore/ctxutil/email` or `github.com/ncobase/ncore/ctxutil/storage` when those helpers are required.
 - **logging/observes package**: Removed the combined observability package. Import `github.com/ncobase/ncore/logging/tracing` and `github.com/ncobase/ncore/logging/sentry` directly.
 
+## [0.2.7] - 2026-08-03
+
+### Fixed
+
+- Corrected data driver modules to require the released `data v0.2.7` module instead of a placeholder pseudo-version.
+
 ## [0.2.6] - 2026-08-03
 
 ### Changed
@@ -65,7 +71,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Prevented dependency automation from selecting incompatible releases whose declared module path differs from the requested path.
-- Corrected data driver modules to require the released `data v0.2.6` module instead of a placeholder pseudo-version.
 - Added a clean-worktree release guard before module tags are created.
 
 ## [0.2.3] - 2026-01-18

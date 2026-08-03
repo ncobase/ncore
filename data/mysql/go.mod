@@ -4,7 +4,7 @@ go 1.25.3
 
 require (
 	github.com/go-sql-driver/mysql v1.9.3
-	github.com/ncobase/ncore/data v0.2.6
+	github.com/ncobase/ncore/data v0.2.7
 )
 
 require (

@@ -4,7 +4,7 @@ go 1.25.3
 
 require (
 	github.com/mattn/go-sqlite3 v1.14.34
-	github.com/ncobase/ncore/data v0.2.6
+	github.com/ncobase/ncore/data v0.2.7
 )
 
 require (

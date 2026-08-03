@@ -3,7 +3,7 @@ module github.com/ncobase/ncore/data/kafka
 go 1.25.3
 
 require (
-	github.com/ncobase/ncore/data v0.2.6
+	github.com/ncobase/ncore/data v0.2.7
 	github.com/segmentio/kafka-go v0.4.50
 )
 

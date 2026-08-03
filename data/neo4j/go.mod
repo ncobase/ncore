@@ -3,7 +3,7 @@ module github.com/ncobase/ncore/data/neo4j
 go 1.25.3
 
 require (
-	github.com/ncobase/ncore/data v0.2.6
+	github.com/ncobase/ncore/data v0.2.7
 	github.com/neo4j/neo4j-go-driver/v5 v5.28.4
 )
 

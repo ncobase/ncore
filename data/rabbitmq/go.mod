@@ -3,7 +3,7 @@ module github.com/ncobase/ncore/data/rabbitmq
 go 1.25.3
 
 require (
-	github.com/ncobase/ncore/data v0.2.6
+	github.com/ncobase/ncore/data v0.2.7
 	github.com/rabbitmq/amqp091-go v1.10.0
 )
 
