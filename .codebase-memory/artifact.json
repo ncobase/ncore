@@ -1,0 +1,11 @@
+{
+    "schema_version": 2,
+    "commit": "572859da34a426813d541a4f8438aee483e6b6dc",
+    "indexed_at": "2026-08-03T09:52:52Z",
+    "project": "ncore",
+    "nodes": 4589,
+    "edges": 15038,
+    "original_size": 12124160,
+    "compressed_size": 2843784,
+    "compression_level": 3
+}
